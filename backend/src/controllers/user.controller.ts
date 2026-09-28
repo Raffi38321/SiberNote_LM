@@ -6,8 +6,6 @@ import RefreshToken from "../models/refreshToken.model.js"
 import envVariable from "../utils/ENV.js"
 import response from "../utils/response.js"
 
-// ─── helpers ────────────────────────────────────────────────────────────────
-
 const REFRESH_TOKEN_EXPIRES_DAYS = 7
 
 const hashPassword = async (plain: string) => bcrypt.hash(plain, 10)
@@ -25,7 +23,7 @@ const saveRefreshToken = async (userId: string, token: string) => {
     await RefreshToken.create({ userId, token, expiresAt })
 }
 
-// ─── register ───────────────────────────────────────────────────────────────
+// register
 
 export const registerUser = async (req: Request, res: Response) => {
     try {
@@ -50,7 +48,7 @@ export const registerUser = async (req: Request, res: Response) => {
     }
 }
 
-// ─── login ───────────────────────────────────────────────────────────────────
+// login
 
 export const loginUser = async (req: Request, res: Response) => {
     try {
@@ -71,8 +69,7 @@ export const loginUser = async (req: Request, res: Response) => {
     }
 }
 
-// ─── refresh token ───────────────────────────────────────────────────────────
-
+// refresh token 
 export const refreshAccessToken = async (req: Request, res: Response) => {
     try {
         const { refreshToken } = req.body
@@ -81,13 +78,13 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
             return response.userError(res, "refresh token tidak ada")
         }
 
-        // cek token ada di DB (belum di-logout / belum expired)
+        // cek token ada di db gak 
         const stored = await RefreshToken.findOne({ token: refreshToken })
         if (!stored) {
             return response.userError(res, "refresh token tidak valid atau sudah expired")
         }
 
-        // verifikasi signature
+        // verifikasi refresh token
         let payload: { userId: string }
         try {
             payload = jwt.verify(refreshToken, envVariable.REFRESH_TOKEN_KEY) as { userId: string }
@@ -104,7 +101,7 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
     }
 }
 
-// ─── logout ──────────────────────────────────────────────────────────────────
+// logout 
 
 export const logoutUser = async (req: Request, res: Response) => {
     try {
@@ -122,8 +119,7 @@ export const logoutUser = async (req: Request, res: Response) => {
     }
 }
 
-// ─── get current user ────────────────────────────────────────────────────────
-
+// dapet data user dari access token
 export const getUser = async (req: Request, res: Response) => {
     try {
         const userId = req.userId

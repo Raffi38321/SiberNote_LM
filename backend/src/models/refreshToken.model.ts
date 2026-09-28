@@ -23,7 +23,7 @@ const refreshTokenSchema = new mongoose.Schema<IRefreshToken>({
     },
 }, { timestamps: true })
 
-// auto-hapus dokumen ketika expiresAt sudah lewat
+// auto hapus kalo waktunya lwat
 refreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })
 
 const RefreshToken = mongoose.model("RefreshToken", refreshTokenSchema)

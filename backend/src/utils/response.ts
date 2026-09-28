@@ -7,6 +7,12 @@ const response = {
             message
         })
     },
+    requestSuccess: (res: Response, message: string) => {
+        return res.status(200).json({
+            status:"success",
+            message
+        })
+    },
     requestSuccessWithData:(res:Response,message:string,data:any,code:number)=>{
         return res.status(code).json({
             status:"success",
@@ -25,7 +31,13 @@ const response = {
             status:"failed",
             message,
         })
-    }
+    },
+    notAuthorizedError:(res:Response,message:string)=>{
+        return res.status(403).json({
+            status:"failed",
+            message
+        })
+    },
 }
 
 export default response
