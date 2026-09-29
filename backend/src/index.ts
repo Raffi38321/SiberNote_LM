@@ -3,6 +3,7 @@ import envVariable from "./utils/ENV.js"
 import connectDB from "./services/mongo.js"
 import userRouter from "./routes/user.route.js"
 import notebookRouter from "./routes/notebook.route.js"
+import documentRouter from "./routes/document.route.js"
 
 const app = express()
 const PORT = envVariable.PORT
@@ -16,9 +17,10 @@ app.get("/", (_req: Request, res: Response) => {
         message:"server healthy"
     })
 })
+
 app.use("/user", userRouter)
 app.use("/notebooks",notebookRouter)
-
+app.use("/documents",documentRouter)
 
 app.listen(PORT, () => {
     console.log("server jalan di port", PORT);
