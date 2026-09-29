@@ -1,0 +1,25 @@
+import multer from "multer"
+
+const ALLOWED_MIME_TYPES = [
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation", // pptx
+]
+
+const MAX_FILE_SIZE_MB = 20
+
+// simpan di memory — langsung pipe ke cloudinary, tidak perlu disk
+const storage = multer.memoryStorage()
+
+export const uploadDocument = multer({
+    storage,
+    limits: {
+        fileSize: MAX_FILE_SIZE_MB * 1024 * 1024,
+    },
+    fileFilter: (_req, file, cb) => {
+        if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+            cb(null, true)
+        } else {
+            cb(new Error("hanya file PDF dan PPTX yang diizinkan"))
+        }
+    },
+}).single("file")
