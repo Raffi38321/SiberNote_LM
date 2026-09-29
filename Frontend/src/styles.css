@@ -1,0 +1,233 @@
+:root {
+  --bg: #1c1c1c;
+  --surface: #202020;
+  --text: #ececec;
+  --text-muted: #8f8f8f;
+  --border: #a37a7a;
+  --border-focus: #e2b6b6;
+  --btn-bg: #d6d6d6;
+  --btn-text: #1c1c1c;
+  --link: #2fb3a8;
+  --error: #ff3b3b;
+  --success: #5fd1a0;
+  --font: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ----- Header ----- */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 24px;
+}
+
+.logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #6a6a6a;
+  background: #2b2b2b;
+  display: grid;
+  place-items: center;
+  font-size: 8px;
+  color: var(--text-muted);
+}
+
+.brand {
+  font-size: 1.25rem;
+  font-weight: 400;
+}
+
+/* ----- Layout auth ----- */
+.auth {
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.auth h1 {
+  margin: 0 0 20px;
+  text-align: center;
+  font-size: 1.75rem;
+  font-weight: 300;
+  letter-spacing: 0.01em;
+}
+
+.auth form {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ----- Field ----- */
+.field {
+  margin-bottom: 10px;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+.input-wrap {
+  position: relative;
+}
+
+.input {
+  width: 100%;
+  height: 38px;
+  padding: 0 38px 0 12px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 0.8125rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.input:focus-visible {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(226, 182, 182, 0.25);
+}
+
+.input[aria-invalid="true"] {
+  border-color: var(--error);
+}
+
+.eye {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.eye:focus-visible {
+  outline: 2px solid var(--border-focus);
+}
+
+/* ----- Pesan ----- */
+.msg-error {
+  margin: 4px 0 0;
+  color: var(--error);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+}
+
+.msg-error.banner {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--error);
+  border-radius: 8px;
+  font-size: 0.75rem;
+}
+
+.msg-success {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--success);
+  border-radius: 8px;
+  color: var(--success);
+  font-size: 0.75rem;
+}
+
+/* ----- Tombol ----- */
+.btn {
+  width: 100%;
+  height: 38px;
+  margin-top: 14px;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn:hover:not(:disabled) {
+  background: #ffffff;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.switch {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 0.6875rem;
+}
+
+.link {
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--link);
+  font: inherit;
+  cursor: pointer;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
