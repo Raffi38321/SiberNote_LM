@@ -18,10 +18,10 @@ export const registerSchema = {
             .regex(PASSWORD_REGEX, "password tidak boleh mengandung karakter khusus"),
     })
     .superRefine((data, ctx) => {
-        if (data.password.toLowerCase().includes(data.username.toLowerCase())) {
+        if (data.password.toLowerCase()=== data.username.toLowerCase()) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                message: "password tidak boleh mengandung username",
+                message: "password tidak boleh sama dengan username",
                 path: ["password"],
             })
         }

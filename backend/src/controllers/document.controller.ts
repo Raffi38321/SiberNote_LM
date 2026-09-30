@@ -5,17 +5,13 @@ import Document from "../models/document.model.js"
 import Notebook from "../models/notebook.model.js"
 import response from "../utils/response.js"
 
-// ─── helpers ────────────────────────────────────────────────────────────────
 
 const MIME_TO_FILETYPE: Record<string, string> = {
     "application/pdf": "pdf",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
 }
 
-/**
- * Upload buffer ke Cloudinary via stream.
- * Mengembalikan secure_url hasil upload.
- */
+
 const uploadToCloudinary = (
     buffer: Buffer,
     filename: string,
@@ -25,7 +21,7 @@ const uploadToCloudinary = (
         const uploadStream = cloudinary.uploader.upload_stream(
             {
                 folder,
-                resource_type: "raw",  // PDF/PPTX bukan image
+                resource_type: "raw",  
                 public_id: filename,
                 use_filename: true,
                 unique_filename: false,
@@ -43,7 +39,7 @@ const uploadToCloudinary = (
     })
 }
 
-// ─── upload document ─────────────────────────────────────────────────────────
+//  upload document 
 
 export const uploadDocument = async (req: Request, res: Response) => {
     try {
@@ -54,13 +50,11 @@ export const uploadDocument = async (req: Request, res: Response) => {
 
         const { notebookId } = req.params
 
-        // pastikan notebook ada dan milik user yang request
         const notebook = await Notebook.findOne({ _id: notebookId, userId })
         if (!notebook) {
             return response.notFoundError(res, "notebook tidak ditemukan atau bukan milik user")
         }
 
-        // multer sudah validasi file — kalau tidak ada berarti tidak dikirim
         if (!req.file) {
             return response.userError(res, "file tidak ditemukan, kirim file dengan field name 'file'")
         }
@@ -68,7 +62,6 @@ export const uploadDocument = async (req: Request, res: Response) => {
         const { originalname, mimetype, buffer, size } = req.file
         const fileType = MIME_TO_FILETYPE[mimetype]
 
-        // buat public_id yang bersih: hapus ekstensi, ganti spasi
         const baseName = originalname.replace(/\.[^.]+$/, "").replace(/\s+/g, "_")
         const folder = `sibernote/${userId}/${notebookId}`
 
@@ -91,7 +84,6 @@ export const uploadDocument = async (req: Request, res: Response) => {
     }
 }
 
-// ─── get all documents by notebook ──────────────────────────────────────────
 
 export const getDocumentsByNotebook = async (req: Request, res: Response) => {
     try {
@@ -116,8 +108,7 @@ export const getDocumentsByNotebook = async (req: Request, res: Response) => {
     }
 }
 
-// ─── delete document ─────────────────────────────────────────────────────────
-
+// delete document
 export const deleteDocument = async (req: Request, res: Response) => {
     try {
         const userId = req.userId
@@ -127,7 +118,6 @@ export const deleteDocument = async (req: Request, res: Response) => {
 
         const { documentId } = req.params
 
-        // join ke notebook untuk verifikasi kepemilikan
         const doc = await Document.findById(documentId).populate<{
             notebookId: { userId: { toString(): string } }
         }>("notebookId")
@@ -140,11 +130,8 @@ export const deleteDocument = async (req: Request, res: Response) => {
             return response.notAuthorizedError(res, "tidak punya akses ke dokumen ini")
         }
 
-        // hapus dari cloudinary
-        // public_id = folder/baseName (tanpa ekstensi di raw resource)
         const urlParts = doc.fileUrl.split("/")
         const uploadIndex = urlParts.indexOf("upload")
-        // ambil path setelah "upload/v<angka>/"
         const publicIdWithExt = urlParts.slice(uploadIndex + 2).join("/")
         const publicId = publicIdWithExt.replace(/\.[^.]+$/, "")
 
@@ -156,5 +143,23 @@ export const deleteDocument = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error)
         return response.serverError(res, "gagal hapus dokumen")
+    }
+}
+
+
+export const updateDocument = async(req:Request,res:Response)=>{
+    try {
+        const {name} = req.body
+        const { documentId } = req.params
+        if (!documentId) {
+            return response.userError(res, "id document kosong")
+        }
+        const document = await Document.findByIdAndUpdate(documentId, { title: name },{returnDocument:"after"})
+        if (!document) {
+        return response.notFoundError(res, "document ga ketemu")
+        }
+        return response.requestSuccessWithData(res,"berhasil update document",{document},200)
+    } catch (error) {
+        return response.serverError(res, "gagal update dokumen")
     }
 }

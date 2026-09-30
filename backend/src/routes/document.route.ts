@@ -1,19 +1,17 @@
 import { Router } from "express"
-import { uploadDocument, getDocumentsByNotebook, deleteDocument } from "../controllers/document.controller.js"
+import { uploadDocument, getDocumentsByNotebook, deleteDocument, updateDocument } from "../controllers/document.controller.js"
 import { authenticate } from "../middlewares/auth.middleware.js"
-import { uploadDocument as multerUpload } from "../middlewares/upload.middleware.js"
+import { handleDocumentUpload } from "../middlewares/handleDocument.middleware.js"
+import { validateRequest } from "../middlewares/validateSchema.middelare.js"
+import { updateDocumentSchema } from "../schemas/document.schem.js"
 
 const documentRouter = Router()
 
-// semua endpoint butuh autentikasi
 documentRouter.use(authenticate)
 
-// POST   /documents/:notebookId       — upload dokumen ke notebook
-// GET    /documents/:notebookId       — get semua dokumen di notebook
-// DELETE /documents/:documentId       — hapus dokumen
-
-documentRouter.post("/:notebookId", multerUpload, uploadDocument)
+documentRouter.post("/:notebookId", handleDocumentUpload, uploadDocument)
 documentRouter.get("/:notebookId", getDocumentsByNotebook)
+documentRouter.patch("/:documentId",validateRequest(updateDocumentSchema),updateDocument)
 documentRouter.delete("/:documentId", deleteDocument)
 
 export default documentRouter
