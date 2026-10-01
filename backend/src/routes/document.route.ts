@@ -3,7 +3,7 @@ import { uploadDocument, getDocumentsByNotebook, deleteDocument, updateDocument 
 import { authenticate } from "../middlewares/auth.middleware.js"
 import { handleDocumentUpload } from "../middlewares/handleDocument.middleware.js"
 import { validateRequest } from "../middlewares/validateSchema.middelare.js"
-import { updateDocumentSchema } from "../schemas/document.schem.js"
+import { updateDocumentSchema } from "../schemas/document.schema.js"
 
 const documentRouter = Router()
 
