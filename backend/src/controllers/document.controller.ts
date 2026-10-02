@@ -81,7 +81,7 @@ export const uploadDocument = async (req: Request, res: Response) => {
 
         const notebookObjectId = new mongoose.Types.ObjectId(notebookId)
 
-        // simpan dokumen dulu dengan parseStatus "pending"
+        // simpan dokumen pake status "pending"
         const doc = await Document.create({
             notebookId: notebookObjectId,
             title: baseName,
@@ -92,18 +92,13 @@ export const uploadDocument = async (req: Request, res: Response) => {
             parseStatus: "pending",
         })
 
-        // proses chunking — jalan setelah response supaya tidak block user
-        // kalau error, update parseStatus jadi "error"
+        // proses chunking jalan setelah response dikirim ke fe supaya tidak block user
         setImmediate(async () => {
             try {
-                console.log(`[chunking] mulai proses ${doc.title} (${fileType})`)
 
                 const { chunks, totalPages } = fileType === "pdf"
                     ? await chunkPDF(buffer, doc._id)
                     : await chunkPPTX(buffer, doc._id)
-
-                console.log(`[chunking] ${chunks.length} chunks dibuat, generate embedding selesai`)
-                console.log(`[chunking] sample embedding[0].length = ${chunks[0]?.embedding.length ?? "N/A"}`)
 
                 if (chunks.length > 0) {
                     await Chunk.insertMany(chunks)
@@ -115,9 +110,9 @@ export const uploadDocument = async (req: Request, res: Response) => {
                     totalPages,
                 })
 
-                console.log(`[chunking] ✓ ${doc.title} — ${totalPages} halaman, ${chunks.length} chunks`)
+                console.log(`[chunking] berhasil ${doc.title} — ${totalPages} halaman, ${chunks.length} chunks`)
             } catch (err) {
-                console.error(`[chunking] ✗ gagal proses ${doc.title}:`, err)
+                console.error(`[chunking] gagal proses ${doc.title}:`, err)
                 await Document.findByIdAndUpdate(doc._id, { parseStatus: "error" })
             }
         })

@@ -6,8 +6,6 @@ const connectDB = async () => {
     try {
         await mongoose.connect(envVariable.MONGO_URL)
         console.log("berhasil konek mongo")
-
-        // buat Atlas Vector Search index kalau belum ada
         await ensureVectorSearchIndex()
     } catch (error) {
         console.log(error)

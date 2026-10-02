@@ -4,11 +4,13 @@ import connectDB from "./services/mongo.js"
 import userRouter from "./routes/user.route.js"
 import notebookRouter from "./routes/notebook.route.js"
 import documentRouter from "./routes/document.route.js"
+import cors from "cors"
 
 const app = express()
 const PORT = envVariable.PORT
 
 app.use(express.json())
+app.use(cors())
 await connectDB()
 
 app.get("/", (_req: Request, res: Response) => {
