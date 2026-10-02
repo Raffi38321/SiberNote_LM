@@ -1,7 +1,6 @@
 import { z } from "zod"
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_-]+$/
-const PASSWORD_REGEX = /^[a-zA-Z0-9]+$/
 
 export const registerSchema = {
     body: z.object({

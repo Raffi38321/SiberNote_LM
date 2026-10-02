@@ -96,11 +96,11 @@ POST /user/register
 
 **Error Responses**
 
-| Status | Kondisi                                              |
-|--------|------------------------------------------------------|
-| `400`  | Validasi gagal                                       |
-| `401`  | Email atau username sudah terdaftar                  |
-| `500`  | Kesalahan server                                     |
+| Status | Kondisi                             |
+|--------|-------------------------------------|
+| `400`  | Validasi gagal                      |
+| `401`  | Email atau username sudah terdaftar |
+| `500`  | Kesalahan server                    |
 
 ---
 
@@ -230,9 +230,9 @@ GET /user/me
 
 **Headers**
 
-| Key             | Value                    | Required |
-|-----------------|--------------------------|----------|
-| `Authorization` | `Bearer <accessToken>`   | ✅        |
+| Key             | Value                  | Required |
+|-----------------|------------------------|----------|
+| `Authorization` | `Bearer <accessToken>` | ✅        |
 
 **Response `200 OK`**
 ```json
@@ -282,20 +282,13 @@ Membuat notebook baru milik user yang sedang login.
 POST /notebooks
 ```
 
-**Headers**
-
-| Key             | Value                  | Required |
-|-----------------|------------------------|----------|
-| `Authorization` | `Bearer <accessToken>` | ✅        |
-
-**Validasi**
+**Request Body**
 
 | Field         | Aturan  |
 |---------------|---------|
 | `title`       | Wajib   |
 | `description` | Wajib   |
 
-**Request Body**
 ```json
 {
   "title": "Catatan Belajar",
@@ -323,28 +316,22 @@ POST /notebooks
 
 **Error Responses**
 
-| Status | Kondisi                           |
-|--------|-----------------------------------|
-| `400`  | Validasi gagal                    |
-| `401`  | Tidak terautentikasi              |
-| `404`  | User tidak ditemukan              |
-| `500`  | Kesalahan server                  |
+| Status | Kondisi              |
+|--------|----------------------|
+| `400`  | Validasi gagal       |
+| `401`  | Tidak terautentikasi |
+| `404`  | User tidak ditemukan |
+| `500`  | Kesalahan server     |
 
 ---
 
 ### Get All Notebooks
 
-Mengambil semua notebook milik user yang sedang login, diurutkan dari yang terbaru diupdate.
+Mengambil semua notebook milik user, diurutkan dari yang terbaru diupdate.
 
 ```
 GET /notebooks
 ```
-
-**Headers**
-
-| Key             | Value                  | Required |
-|-----------------|------------------------|----------|
-| `Authorization` | `Bearer <accessToken>` | ✅        |
 
 **Response `200 OK`**
 ```json
@@ -378,17 +365,11 @@ GET /notebooks
 
 ### Delete Notebook
 
-Menghapus notebook berdasarkan ID. Hanya bisa dilakukan oleh pemilik notebook.
+Menghapus notebook beserta seluruh dokumen, chunks, dan file Cloudinary yang terkait. Hanya bisa dilakukan oleh pemilik notebook.
 
 ```
 DELETE /notebooks/:notebookId
 ```
-
-**Headers**
-
-| Key             | Value                  | Required |
-|-----------------|------------------------|----------|
-| `Authorization` | `Bearer <accessToken>` | ✅        |
 
 **URL Params**
 
@@ -404,13 +385,243 @@ DELETE /notebooks/:notebookId
 }
 ```
 
+> Cascade delete: semua `documents`, `chunks`, dan file di Cloudinary yang terkait notebook ini ikut dihapus.
+
 **Error Responses**
 
-| Status | Kondisi                                          |
-|--------|--------------------------------------------------|
-| `401`  | Tidak terautentikasi                             |
-| `404`  | Notebook tidak ditemukan atau bukan milik user   |
-| `500`  | Kesalahan server                                 |
+| Status | Kondisi                                 |
+|--------|-----------------------------------------|
+| `401`  | Tidak terautentikasi                    |
+| `403`  | Notebook bukan milik user               |
+| `404`  | Notebook tidak ditemukan                |
+| `500`  | Kesalahan server                        |
+
+---
+
+## Documents
+
+Semua endpoint document membutuhkan `accessToken` yang valid di header:
+
+```
+Authorization: Bearer <accessToken>
+```
+
+---
+
+### Upload Document
+
+Upload file PDF atau PPTX ke notebook. File disimpan ke Cloudinary, lalu dipecah menjadi chunks dan di-embed menggunakan Gemini secara background (tidak memblokir response).
+
+```
+POST /documents/:notebookId
+```
+
+**URL Params**
+
+| Param        | Keterangan          |
+|--------------|---------------------|
+| `notebookId` | ID notebook tujuan  |
+
+**Request**
+
+`Content-Type: multipart/form-data`
+
+| Field  | Type   | Required | Keterangan                        |
+|--------|--------|----------|-----------------------------------|
+| `file` | file   | ✅        | File PDF atau PPTX, maksimal 20MB |
+
+**Response `201 Created`**
+
+Response dikembalikan langsung setelah file terupload ke Cloudinary. Proses chunking dan embedding berjalan di background.
+
+```json
+{
+  "status": "success",
+  "message": "berhasil upload dokumen",
+  "data": {
+    "document": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c0f",
+      "notebookId": "665f1a2b3c4d5e6f7a8b9c0e",
+      "title": "Sistem_Operasi",
+      "fileType": "pdf",
+      "fileUrl": "https://res.cloudinary.com/...",
+      "fileSize": 2048576,
+      "totalPages": 0,
+      "parseStatus": "pending",
+      "createdAt": "2026-09-24T10:00:00.000Z",
+      "updatedAt": "2026-09-24T10:00:00.000Z"
+    }
+  }
+}
+```
+
+> `parseStatus` akan berubah menjadi `"done"` setelah chunking dan embedding selesai, atau `"error"` jika gagal. Frontend bisa polling field ini untuk tahu kapan dokumen siap dipakai.
+
+**Error Responses**
+
+| Status | Kondisi                                         |
+|--------|-------------------------------------------------|
+| `401`  | Tidak terautentikasi                            |
+| `401`  | Tipe file tidak didukung (bukan PDF atau PPTX)  |
+| `401`  | File tidak disertakan                           |
+| `404`  | Notebook tidak ditemukan atau bukan milik user  |
+| `500`  | Kesalahan server / gagal upload ke Cloudinary   |
+
+---
+
+### Get Documents by Notebook
+
+Mengambil semua dokumen dalam satu notebook, diurutkan dari yang terbaru diupload.
+
+```
+GET /documents/:notebookId
+```
+
+**URL Params**
+
+| Param        | Keterangan         |
+|--------------|--------------------|
+| `notebookId` | ID notebook target |
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "berhasil get dokumen",
+  "data": {
+    "documents": [
+      {
+        "_id": "665f1a2b3c4d5e6f7a8b9c0f",
+        "notebookId": "665f1a2b3c4d5e6f7a8b9c0e",
+        "title": "Sistem_Operasi",
+        "fileType": "pdf",
+        "fileUrl": "https://res.cloudinary.com/...",
+        "fileSize": 2048576,
+        "totalPages": 42,
+        "parseStatus": "done",
+        "createdAt": "2026-09-24T10:00:00.000Z",
+        "updatedAt": "2026-09-24T10:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+**Error Responses**
+
+| Status | Kondisi                                        |
+|--------|------------------------------------------------|
+| `401`  | Tidak terautentikasi                           |
+| `404`  | Notebook tidak ditemukan atau bukan milik user |
+| `500`  | Kesalahan server                               |
+
+---
+
+### Update Document Title
+
+Mengubah judul dokumen.
+
+```
+PATCH /documents/:documentId
+```
+
+**URL Params**
+
+| Param        | Keterangan           |
+|--------------|----------------------|
+| `documentId` | ID dokumen MongoDB   |
+
+**Request Body**
+
+| Field  | Aturan                     |
+|--------|----------------------------|
+| `name` | Wajib, tidak boleh kosong  |
+
+```json
+{
+  "name": "Sistem Operasi — Bab 3"
+}
+```
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "berhasil update document",
+  "data": {
+    "document": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c0f",
+      "title": "Sistem Operasi — Bab 3",
+      "parseStatus": "done",
+      ...
+    }
+  }
+}
+```
+
+**Error Responses**
+
+| Status | Kondisi                    |
+|--------|----------------------------|
+| `400`  | Validasi gagal             |
+| `401`  | Tidak terautentikasi       |
+| `404`  | Dokumen tidak ditemukan    |
+| `500`  | Kesalahan server           |
+
+---
+
+### Delete Document
+
+Menghapus dokumen beserta seluruh chunks dan file Cloudinary-nya. Hanya bisa dilakukan oleh pemilik notebook yang memuat dokumen tersebut.
+
+```
+DELETE /documents/:documentId
+```
+
+**URL Params**
+
+| Param        | Keterangan         |
+|--------------|--------------------|
+| `documentId` | ID dokumen MongoDB |
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "berhasil hapus dokumen"
+}
+```
+
+> Cascade delete: semua `chunks` dan file di Cloudinary yang terkait dokumen ini ikut dihapus.
+
+**Error Responses**
+
+| Status | Kondisi                                |
+|--------|----------------------------------------|
+| `401`  | Tidak terautentikasi                   |
+| `403`  | Dokumen bukan milik user               |
+| `404`  | Dokumen tidak ditemukan                |
+| `500`  | Kesalahan server                       |
+
+---
+
+## parseStatus Flow
+
+Field `parseStatus` pada dokumen menunjukkan status pemrosesan background:
+
+```
+upload selesai → parseStatus: "pending"
+                      │
+                      ▼
+         chunking + embedding berjalan
+                      │
+          ┌───────────┴───────────┐
+          ▼                       ▼
+   parseStatus: "done"    parseStatus: "error"
+   totalPages: N          (chunking/embedding gagal)
+```
+
+Frontend sebaiknya polling `GET /documents/:notebookId` sampai `parseStatus` bukan `"pending"` sebelum mengizinkan user memulai chat.
 
 ---
 
@@ -426,7 +637,7 @@ Register / Login
       Kirim accessToken di setiap request → Authorization: Bearer <accessToken>
              │
              ▼
-      accessToken expired (1 jam)?
+      accessToken expired (15 menit)?
              │
              └── POST /user/refresh + refreshToken → accessToken baru
              │

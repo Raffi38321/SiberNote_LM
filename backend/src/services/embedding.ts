@@ -1,31 +1,22 @@
 import { GoogleGenerativeAI, TaskType } from "@google/generative-ai"
 import envVariable from "../utils/ENV.js"
 
-// ─── config ───────────────────────────────────────────────────────────────────
-
-// text-embedding-004 sudah tidak tersedia di v1beta
-// gemini-embedding-001: 3072 dimensi, model resmi untuk RAG
 const EMBEDDING_MODEL = "gemini-embedding-001"
 export const EMBEDDING_DIMENSIONS = 3072
 
-// Gemini free tier: 1500 RPM, tapi batchEmbedContents max 100 request per call
 const BATCH_SIZE = 100
 
-// jeda antar batch kalau ada banyak chunk (ms)
 const BATCH_DELAY_MS = 200
 
-// ─── client ──────────────────────────────────────────────────────────────────
 
 const genAI = new GoogleGenerativeAI(envVariable.GEMINI_EMBEDDING_KEY)
 const embeddingModel = genAI.getGenerativeModel({ model: EMBEDDING_MODEL })
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
  * Generate embedding untuk satu batch teks (max 100 item).
- * Pakai TaskType.RETRIEVAL_DOCUMENT karena chunks ini akan di-retrieve saat RAG.
  */
 const embedBatch = async (texts: string[]): Promise<number[][]> => {
     const requests = texts.map((text) => ({
@@ -38,12 +29,10 @@ const embedBatch = async (texts: string[]): Promise<number[][]> => {
     return result.embeddings.map((e) => e.values)
 }
 
-// ─── exports ──────────────────────────────────────────────────────────────────
+// exports 
 
 /**
  * Generate embedding untuk array teks dalam jumlah berapapun.
- * Otomatis dibagi jadi batch @BATCH_SIZE dengan jeda antar batch.
- * Return array embedding dengan urutan yang sama dengan input.
  */
 export const generateEmbeddings = async (texts: string[]): Promise<number[][]> => {
     if (texts.length === 0) return []
@@ -55,7 +44,7 @@ export const generateEmbeddings = async (texts: string[]): Promise<number[][]> =
         const embeddings = await embedBatch(batch)
         allEmbeddings.push(...embeddings)
 
-        // jeda antar batch untuk hindari rate limit, kecuali batch terakhir
+        // jeda antar batch supaya ga limit
         if (i + BATCH_SIZE < texts.length) {
             await sleep(BATCH_DELAY_MS)
         }
@@ -65,8 +54,7 @@ export const generateEmbeddings = async (texts: string[]): Promise<number[][]> =
 }
 
 /**
- * Generate embedding untuk satu teks (dipakai saat query/retrieval).
- * Pakai TaskType.RETRIEVAL_QUERY bukan DOCUMENT.
+ * Generate embedding untuk satu teks 
  */
 export const generateQueryEmbedding = async (text: string): Promise<number[]> => {
     const result = await embeddingModel.embedContent({

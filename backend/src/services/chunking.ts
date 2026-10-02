@@ -6,7 +6,7 @@ import { generateEmbeddings } from "./embedding.js"
 
 const MAX_CHARS_PER_CHUNK = 3000
 
-// ─── types ───────────────────────────────────────────────────────────────────
+//types
 
 export interface RawChunk {
     documentId: Types.ObjectId
@@ -17,11 +17,6 @@ export interface RawChunk {
     embedding: number[]
 }
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
-
-/**
- * Pecah teks panjang jadi beberapa bagian tanpa motong di tengah kata.
- */
 const splitBySize = (text: string): string[] => {
     const parts: string[] = []
     let start = 0
@@ -30,7 +25,6 @@ const splitBySize = (text: string): string[] => {
         let end = start + MAX_CHARS_PER_CHUNK
 
         if (end < text.length) {
-            // mundur sampai ketemu spasi agar tidak motong kata
             while (end > start && text[end] !== " ") end--
             if (end === start) end = start + MAX_CHARS_PER_CHUNK
         }
@@ -43,10 +37,6 @@ const splitBySize = (text: string): string[] => {
     return parts
 }
 
-/**
- * Konversi teks satu halaman/slide jadi satu atau beberapa RawChunk.
- * Halaman/slide kosong (< 20 karakter) di-skip.
- */
 const pageToChunks = (
     text: string,
     pageNumber: number,
@@ -70,11 +60,7 @@ const pageToChunks = (
     }))
 }
 
-/**
- * Rekursif kumpulkan teks dari satu node AST beserta seluruh children-nya.
- * Pakai `node.text` kalau ada (sudah concatenated oleh officeparser),
- * fallback ke traverse manual lewat `children`.
- */
+
 const extractTextFromNode = (node: OfficeContentNode): string => {
     if (node.text) return node.text
 
@@ -87,13 +73,7 @@ const extractTextFromNode = (node: OfficeContentNode): string => {
     }
     return parts.join(" ").replace(/\s+/g, " ").trim()
 }
-
-// ─── embedding ────────────────────────────────────────────────────────────────
-
-/**
- * Generate embedding untuk semua chunk sekaligus lalu attach ke masing-masing chunk.
- * Dipisah jadi helper supaya chunkPDF dan chunkPPTX tidak duplikat logika.
- */
+// embedding
 const attachEmbeddings = async (chunks: RawChunk[]): Promise<RawChunk[]> => {
     if (chunks.length === 0) return chunks
 
@@ -105,8 +85,6 @@ const attachEmbeddings = async (chunks: RawChunk[]): Promise<RawChunk[]> => {
         embedding: embeddings[i] ?? [],
     }))
 }
-
-// ─── PDF chunking ─────────────────────────────────────────────────────────────
 
 export const chunkPDF = async (
     buffer: Buffer,
@@ -128,13 +106,10 @@ export const chunkPDF = async (
     return { chunks: await attachEmbeddings(chunks), totalPages: result.total }
 }
 
-// ─── PPTX chunking ────────────────────────────────────────────────────────────
-
 export const chunkPPTX = async (
     buffer: Buffer,
     documentId: Types.ObjectId,
 ): Promise<{ chunks: RawChunk[]; totalPages: number }> => {
-    // Buffer PPTX dideteksi otomatis via magic bytes oleh officeparser
     const ast = await OfficeParser.parseOffice(buffer)
 
     const chunks: RawChunk[] = []

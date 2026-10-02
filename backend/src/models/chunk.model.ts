@@ -43,25 +43,13 @@ const chunkSchema = new mongoose.Schema<IChunk>(
     }
 )
 
-// full-text search index pada content — fallback retrieval tanpa embedding
 chunkSchema.index({ content: "text" })
-// compound index untuk query chunks by document secara efisien
 chunkSchema.index({ documentId: 1, chunkIndex: 1 })
 
 const Chunk = mongoose.model<IChunk>("Chunk", chunkSchema)
 
 export default Chunk
 
-/**
- * Buat Atlas Vector Search index pada collection chunks.
- *
- * Dipanggil sekali setelah mongoose.connect() berhasil.
- * Idempotent — kalau index sudah ada, Atlas akan return error yang kita ignore.
- *
- * Index ini TIDAK bisa dibuat via schema.index() biasa karena
- * Atlas Vector Search adalah fitur terpisah dari regular MongoDB indexes.
- * Harus pakai createSearchIndexes command atau dibuat manual di Atlas UI.
- */
 export const ensureVectorSearchIndex = async (): Promise<void> => {
     try {
         const db = mongoose.connection.db
@@ -78,11 +66,10 @@ export const ensureVectorSearchIndex = async (): Promise<void> => {
                             {
                                 type: "vector",
                                 path: "embedding",
-                                numDimensions: EMBEDDING_DIMENSIONS,  // 768
+                                numDimensions: EMBEDDING_DIMENSIONS,  
                                 similarity: "cosine",
                             },
                             {
-                                // filter by documentId saat retrieval
                                 type: "filter",
                                 path: "documentId",
                             },
@@ -94,7 +81,6 @@ export const ensureVectorSearchIndex = async (): Promise<void> => {
 
         console.log("[atlas] vector search index 'chunks_vector_index' berhasil dibuat")
     } catch (error: unknown) {
-        // IndexAlreadyExists — aman diabaikan
         if (
             typeof error === "object" &&
             error !== null &&
@@ -104,8 +90,6 @@ export const ensureVectorSearchIndex = async (): Promise<void> => {
             console.log("[atlas] vector search index sudah ada, skip")
             return
         }
-        // Error lain (misal M0 free tier tidak support, atau user tidak punya akses)
-        // Log saja, tidak crash server
         console.warn("[atlas] gagal buat vector search index:", (error as Error).message ?? error)
     }
 }
