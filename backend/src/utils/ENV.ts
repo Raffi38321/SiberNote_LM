@@ -10,6 +10,7 @@ const envVariable: {
     CLOUDINARY_CLOUD_NAME: string
     CLOUDINARY_API_KEY: string
     CLOUDINARY_API_SECRET: string
+    GEMINI_EMBEDDING_KEY: string
 } = {
     PORT: Number(process.env.PORT) || 8080,
     MONGO_URL: process.env.MONGO_URL || "",
@@ -18,6 +19,7 @@ const envVariable: {
     CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || "",
     CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || "",
     CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || "",
+    GEMINI_EMBEDDING_KEY: process.env.GEMINI_EMBEDDING_KEY || ""
 }
 
 export default envVariable

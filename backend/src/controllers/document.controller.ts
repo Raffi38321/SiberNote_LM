@@ -96,12 +96,18 @@ export const uploadDocument = async (req: Request, res: Response) => {
         // kalau error, update parseStatus jadi "error"
         setImmediate(async () => {
             try {
+                console.log(`[chunking] mulai proses ${doc.title} (${fileType})`)
+
                 const { chunks, totalPages } = fileType === "pdf"
                     ? await chunkPDF(buffer, doc._id)
                     : await chunkPPTX(buffer, doc._id)
 
+                console.log(`[chunking] ${chunks.length} chunks dibuat, generate embedding selesai`)
+                console.log(`[chunking] sample embedding[0].length = ${chunks[0]?.embedding.length ?? "N/A"}`)
+
                 if (chunks.length > 0) {
                     await Chunk.insertMany(chunks)
+                    console.log(`[chunking] insertMany selesai`)
                 }
 
                 await Document.findByIdAndUpdate(doc._id, {
@@ -109,9 +115,9 @@ export const uploadDocument = async (req: Request, res: Response) => {
                     totalPages,
                 })
 
-                console.log(`[chunking] ${doc.title} — ${totalPages} halaman, ${chunks.length} chunks`)
+                console.log(`[chunking] ✓ ${doc.title} — ${totalPages} halaman, ${chunks.length} chunks`)
             } catch (err) {
-                console.error(`[chunking] gagal proses ${doc.title}:`, err)
+                console.error(`[chunking] ✗ gagal proses ${doc.title}:`, err)
                 await Document.findByIdAndUpdate(doc._id, { parseStatus: "error" })
             }
         })
@@ -180,7 +186,9 @@ export const deleteDocument = async (req: Request, res: Response) => {
         const publicId = publicIdWithExt.replace(/\.[^.]+$/, "")
 
         await cloudinary.uploader.destroy(publicId, { resource_type: "raw" })
-
+        await Chunk.deleteMany({
+            documentId: doc._id,
+        })
         await doc.deleteOne()
 
         return response.requestSuccess(res, "berhasil hapus dokumen")

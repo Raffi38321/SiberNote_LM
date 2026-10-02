@@ -2,6 +2,7 @@ import { PDFParse } from "pdf-parse"
 import { OfficeParser } from "officeparser"
 import type { OfficeContentNode } from "officeparser"
 import type { Types } from "mongoose"
+import { generateEmbeddings } from "./embedding.js"
 
 const MAX_CHARS_PER_CHUNK = 3000
 
@@ -87,6 +88,24 @@ const extractTextFromNode = (node: OfficeContentNode): string => {
     return parts.join(" ").replace(/\s+/g, " ").trim()
 }
 
+// ─── embedding ────────────────────────────────────────────────────────────────
+
+/**
+ * Generate embedding untuk semua chunk sekaligus lalu attach ke masing-masing chunk.
+ * Dipisah jadi helper supaya chunkPDF dan chunkPPTX tidak duplikat logika.
+ */
+const attachEmbeddings = async (chunks: RawChunk[]): Promise<RawChunk[]> => {
+    if (chunks.length === 0) return chunks
+
+    const texts = chunks.map((c) => c.content)
+    const embeddings = await generateEmbeddings(texts)
+
+    return chunks.map((chunk, i) => ({
+        ...chunk,
+        embedding: embeddings[i] ?? [],
+    }))
+}
+
 // ─── PDF chunking ─────────────────────────────────────────────────────────────
 
 export const chunkPDF = async (
@@ -106,7 +125,7 @@ export const chunkPDF = async (
         chunkIndex += pageChunks.length
     }
 
-    return { chunks, totalPages: result.total }
+    return { chunks: await attachEmbeddings(chunks), totalPages: result.total }
 }
 
 // ─── PPTX chunking ────────────────────────────────────────────────────────────
@@ -134,5 +153,5 @@ export const chunkPPTX = async (
         chunkIndex += slideChunks.length
     }
 
-    return { chunks, totalPages: totalSlides }
+    return { chunks: await attachEmbeddings(chunks), totalPages: totalSlides }
 }
