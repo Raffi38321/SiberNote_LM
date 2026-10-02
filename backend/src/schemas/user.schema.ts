@@ -29,6 +29,8 @@ export const registerSchema = {
 export const loginSchema = {
     body: z.object({
         email: z.email("format email tidak valid"),
-        password: z.string().min(1, "password tidak boleh kosong"),
+        password: z.string()
+            .min(8, "password minimal 8 karakter")
+            .max(16, "password maksimal 16 karakter")
     })
 }
