@@ -637,7 +637,7 @@ Register / Login
       Kirim accessToken di setiap request → Authorization: Bearer <accessToken>
              │
              ▼
-      accessToken expired (15 menit)?
+      accessToken expired (1 jam)?
              │
              └── POST /user/refresh + refreshToken → accessToken baru
              │
