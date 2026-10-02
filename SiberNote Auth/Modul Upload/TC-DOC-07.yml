@@ -1,0 +1,17 @@
+info:
+  name: TC-DOC-07
+  type: http
+  seq: 7
+
+http:
+  method: POST
+  url: http://localhost:8080/documents/6abf682494ba188d4de23ead
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YWJmNjZlYTBhZWM5MWNjMjlhYzI4MWUiLCJpYXQiOjE3OTA5Mjg2MzcsImV4cCI6MTc5MDkzMjIzN30.UShjfeCT6H6lr9Izf_FEmZjpFadiH_Qdq6EbUEfe9qs
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

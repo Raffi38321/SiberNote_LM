@@ -1,0 +1,22 @@
+info:
+  name: TC-AUTH-16
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: http://localhost:8080/user/login
+  body:
+    type: json
+    data: |-
+      {
+        "email": "belumnikah@example.com",
+        "password": "password123"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

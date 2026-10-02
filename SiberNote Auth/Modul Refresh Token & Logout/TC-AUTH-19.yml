@@ -1,0 +1,21 @@
+info:
+  name: TC-AUTH-19
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: http://localhost:8080/user/refresh
+  body:
+    type: json
+    data: |-
+      {
+        "refreshToken": ""
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
