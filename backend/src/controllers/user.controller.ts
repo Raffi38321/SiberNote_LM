@@ -23,40 +23,6 @@ const saveRefreshToken = async (userId: string, token: string) => {
     await RefreshToken.create({ userId, token, expiresAt })
 }
 
-import mongoose from "mongoose";
-
-export const checkDatabase = async (_req: Request, res: Response) => {
-    try {
-        const db = mongoose.connection.db;
-        if (!db) {
-            throw new Error("Database belum terkoneksi");
-        }
-        
-        // Ambil data dari koleksi users biar kelihatan akun yg udah register
-        const users = await db.collection("users").find({}).toArray();
-        const collections = await db.listCollections().toArray();
-
-        res.status(200).json({
-            message: "Koneksi database aman",
-            totalUsers: users.length,
-            usersList: users.map(u => ({ email: u.email, username: u.username })), // Menampilkan data user
-            collections: collections.map(c => c.name)
-        });
-    } catch (error) {
-        res.status(500).json({ error: "Gagal mengecek database", details: error });
-    }
-};
-// Hapus/Drop seluruh database untuk reset SQA
-export const dropDatabase = async (_req: Request, res: Response) => {
-    try {
-        await mongoose.connection.db!.dropDatabase();
-        res.status(200).json({ message: "Database berhasil dikosongkan!" });
-    } catch (error) {
-        res.status(500).json({ error: "Gagal menghapus database", details: error });
-    }
-};
-
-
 // register
 
 export const registerUser = async (req: Request, res: Response) => {
@@ -172,4 +138,3 @@ export const getUser = async (req: Request, res: Response) => {
         return response.serverError(res, "gagal get data user")
     }
 }
-

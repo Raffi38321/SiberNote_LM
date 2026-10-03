@@ -65,15 +65,15 @@ async function request(path, { method = "GET", body, token } = {}) {
 
 
 export function login({ email, password }) {
-  return request("/user/login", { method: "POST", body: { email, password } });
+  return request("/auth/login", { method: "POST", body: { email, password } });
 }
 
 export function register({ username, email, password }) {
-  return request("/user/register", { method: "POST", body: { username, email, password } });
+  return request("/auth/register", { method: "POST", body: { username, email, password } });
 }
 
 export function getProfile(token) {
-  return request("/user/me", { token });
+  return request("/auth/me", { token });
 }
 
 

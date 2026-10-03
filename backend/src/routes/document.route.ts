@@ -1,10 +1,10 @@
-import { Router } from "express"
+import { Router, type Request, type Response } from "express"
 import { uploadDocument, getDocumentsByNotebook, deleteDocument, updateDocument } from "../controllers/document.controller.js"
 import { authenticate } from "../middlewares/auth.middleware.js"
 import { handleDocumentUpload } from "../middlewares/handleDocument.middleware.js"
 import { validateRequest } from "../middlewares/validateSchema.middelare.js"
-import { updateDocumentSchema } from "../schemas/document.schem.js"
-import Document from "../models/document.model.js"
+import { updateDocumentSchema } from "../schemas/document.schema.js"
+import Chunk from "../models/chunk.model.js"
 
 const documentRouter = Router()
 
@@ -14,12 +14,20 @@ documentRouter.post("/:notebookId", handleDocumentUpload, uploadDocument)
 documentRouter.get("/:notebookId", getDocumentsByNotebook)
 documentRouter.patch("/:documentId",validateRequest(updateDocumentSchema),updateDocument)
 documentRouter.delete("/:documentId", deleteDocument)
-documentRouter.get("/", async (req:Request,res:Response)=>{
-    try {
-        const docs = await Document.find()
-        res.json(docs)
-    } catch (error) {
-        res.status(500).json({ message: error.message })
-    }
-})
+// documentRouter.get("/:documentId/chunk",async(req:Request,res:Response)=>{
+//     try {
+//         const {documentId} = req.params
+//         const chunks = await Chunk.find({documentId})
+//         res.status(200).json({
+//             data:chunks
+//         })
+
+//     } catch (error) {
+//         res.status(500).json({
+//             status:"failed"
+//         })
+//     }
+// })
+
+
 export default documentRouter

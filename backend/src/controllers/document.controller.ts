@@ -1,12 +1,16 @@
 import type { Request, Response } from "express"
 import { Readable } from "stream"
+import mongoose from "mongoose"
 import cloudinary from "../services/cloudinary.js"
 import Document from "../models/document.model.js"
 import Notebook from "../models/notebook.model.js"
+import Chunk from "../models/chunk.model.js"
+import { chunkPDF, chunkPPTX } from "../services/chunking.js"
 import response from "../utils/response.js"
 
+type FileType = "pdf" | "pptx"
 
-const MIME_TO_FILETYPE: Record<string, string> = {
+const MIME_TO_FILETYPE: Record<string, FileType> = {
     "application/pdf": "pdf",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
 }
@@ -50,6 +54,10 @@ export const uploadDocument = async (req: Request, res: Response) => {
 
         const { notebookId } = req.params
 
+        if (!notebookId || typeof notebookId !== "string") {
+            return response.userError(res, "notebookId tidak valid")
+        }
+
         const notebook = await Notebook.findOne({ _id: notebookId, userId })
         if (!notebook) {
             return response.notFoundError(res, "notebook tidak ditemukan atau bukan milik user")
@@ -62,19 +70,51 @@ export const uploadDocument = async (req: Request, res: Response) => {
         const { originalname, mimetype, buffer, size } = req.file
         const fileType = MIME_TO_FILETYPE[mimetype]
 
+        if (!fileType) {
+            return response.userError(res, "tipe file tidak didukung, hanya PDF dan PPTX")
+        }
+
         const baseName = originalname.replace(/\.[^.]+$/, "").replace(/\s+/g, "_")
         const folder = `sibernote/${userId}/${notebookId}`
 
         const fileUrl = await uploadToCloudinary(buffer, baseName, folder)
 
+        const notebookObjectId = new mongoose.Types.ObjectId(notebookId)
+
+        // simpan dokumen pake status "pending"
         const doc = await Document.create({
-            notebookId,
+            notebookId: notebookObjectId,
             title: baseName,
             fileType,
             fileUrl,
             fileSize: size,
-            totalPages: 0,      // diupdate setelah proses parsing
+            totalPages: 0,
             parseStatus: "pending",
+        })
+
+        // proses chunking jalan setelah response dikirim ke fe supaya tidak block user
+        setImmediate(async () => {
+            try {
+
+                const { chunks, totalPages } = fileType === "pdf"
+                    ? await chunkPDF(buffer, doc._id)
+                    : await chunkPPTX(buffer, doc._id)
+
+                if (chunks.length > 0) {
+                    await Chunk.insertMany(chunks)
+                    console.log(`[chunking] insertMany selesai`)
+                }
+
+                await Document.findByIdAndUpdate(doc._id, {
+                    parseStatus: "done",
+                    totalPages,
+                })
+
+                console.log(`[chunking] berhasil ${doc.title} — ${totalPages} halaman, ${chunks.length} chunks`)
+            } catch (err) {
+                console.error(`[chunking] gagal proses ${doc.title}:`, err)
+                await Document.findByIdAndUpdate(doc._id, { parseStatus: "error" })
+            }
         })
 
         return response.requestSuccessWithData(res, "berhasil upload dokumen", { document: doc }, 201)
@@ -94,12 +134,17 @@ export const getDocumentsByNotebook = async (req: Request, res: Response) => {
 
         const { notebookId } = req.params
 
+        if (!notebookId || typeof notebookId !== "string") {
+            return response.userError(res, "notebookId tidak valid")
+        }
+
         const notebook = await Notebook.findOne({ _id: notebookId, userId })
         if (!notebook) {
             return response.notFoundError(res, "notebook tidak ditemukan atau bukan milik user")
         }
 
-        const documents = await Document.find({ notebookId }).sort({ createdAt: -1 })
+        const notebookObjectId = new mongoose.Types.ObjectId(notebookId)
+        const documents = await Document.find({ notebookId: notebookObjectId }).sort({ createdAt: -1 })
 
         return response.requestSuccessWithData(res, "berhasil get dokumen", { documents }, 200)
     } catch (error) {
@@ -136,7 +181,9 @@ export const deleteDocument = async (req: Request, res: Response) => {
         const publicId = publicIdWithExt.replace(/\.[^.]+$/, "")
 
         await cloudinary.uploader.destroy(publicId, { resource_type: "raw" })
-
+        await Chunk.deleteMany({
+            documentId: doc._id,
+        })
         await doc.deleteOne()
 
         return response.requestSuccess(res, "berhasil hapus dokumen")
