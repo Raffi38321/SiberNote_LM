@@ -1,7 +1,7 @@
 info:
-  name: TC-DOC-01
+  name: TC-DOC-01B
   type: http
-  seq: 1
+  seq: 9
 
 http:
   method: POST
