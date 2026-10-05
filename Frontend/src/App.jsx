@@ -1,28 +1,38 @@
 import { useState } from "react";
-import {
-  login,
-  register,
-  saveSession,
-  clearSession,
-  getToken,
-  getSavedUser,
-} from "./api";
+import { registerUser, ApiError } from "./api";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PASSWORD_HINT =
-  "Password minimal 8 karakter dan harus mengandung huruf besar, huruf kecil, angka, dan simbol.";
+const USERNAME_RE = /^[a-zA-Z0-9_-]{1,16}$/;
+const PASSWORD_RE = /^[a-zA-Z0-9]{8,16}$/;
 
-function isStrongPassword(pw) {
-  return (
-    pw.length >= 8 &&
-    /[a-z]/.test(pw) &&
-    /[A-Z]/.test(pw) &&
-    /\d/.test(pw) &&
-    /[^A-Za-z0-9]/.test(pw)
-  );
+function validateUsername(username) {
+  if (!username.trim()) return "Username wajib diisi.";
+  if (!USERNAME_RE.test(username.trim()))
+    return "Username 1–16 karakter, hanya huruf, angka, _ dan -.";
+  return "";
 }
 
+function validatePassword(password, username) {
+  if (!password) return "Password wajib diisi.";
+  if (!PASSWORD_RE.test(password))
+    return "Password 8–16 karakter, hanya huruf dan angka.";
+  if (username && password.toLowerCase().includes(username.trim().toLowerCase()))
+    return "Password tidak boleh mengandung username.";
+  return "";
+}
 
+/** Ubah array errors dari backend ([{field, message}]) jadi { [field]: message }. */
+function mapFieldErrors(err) {
+  const map = {};
+  if (err instanceof ApiError && Array.isArray(err.fieldErrors)) {
+    for (const fe of err.fieldErrors) {
+      if (fe?.field) map[fe.field] = fe.message;
+    }
+  }
+  return map;
+}
+
+/* ---------- Komponen kecil ---------- */
 
 function Header() {
   return (
@@ -95,36 +105,22 @@ function PasswordInput({ id, error, describedBy, ...props }) {
   );
 }
 
-/* ---------- Halaman Login ---------- */
+/* ---------- Halaman Login (masih statis — belum terhubung ke API) ---------- */
 
-function LoginPage({ onSuccess, goRegister, notice }) {
+function LoginPage({ goRegister, notice }) {
   const [form, setForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
-  const [apiError, setApiError] = useState("");
-  const [loading, setLoading] = useState(false);
 
   const update = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
-  async function handleSubmit(e) {
+  function handleSubmit(e) {
     e.preventDefault();
     const next = {};
     if (!form.email.trim()) next.email = "Email wajib diisi.";
     else if (!EMAIL_RE.test(form.email)) next.email = "Format email tidak valid.";
     if (!form.password) next.password = "Password wajib diisi.";
     setErrors(next);
-    setApiError("");
-    if (Object.keys(next).length) return;
-
-    setLoading(true);
-    try {
-      const data = await login({ email: form.email.trim(), password: form.password });
-      saveSession(data);
-      onSuccess(data?.user || null);
-    } catch (err) {
-      setApiError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    // TODO: hubungkan ke POST /user/login saat Login mulai diintegrasikan.
   }
 
   return (
@@ -143,11 +139,7 @@ function LoginPage({ onSuccess, goRegister, notice }) {
             placeholder="Masukkan password" value={form.password} onChange={update} error={errors.password} />
         </Field>
 
-        {apiError && <p className="msg-error banner" role="alert">{apiError}</p>}
-
-        <button className="btn" type="submit" disabled={loading}>
-          {loading ? "Memproses..." : "Login"}
-        </button>
+        <button className="btn" type="submit">Login</button>
       </form>
       <p className="switch">
         Belum memiliki akun?{" "}
@@ -157,40 +149,89 @@ function LoginPage({ onSuccess, goRegister, notice }) {
   );
 }
 
+/* ---------- Halaman Register (terhubung ke POST /user/register) ---------- */
 
+/** Validasi satu field secara terpisah, dipakai untuk validasi real-time. */
+function validateField(name, value, form) {
+  switch (name) {
+    case "username":
+      return validateUsername(value);
+    case "email":
+      if (!value.trim()) return "Email wajib diisi.";
+      if (!EMAIL_RE.test(value)) return "Format email tidak valid.";
+      return "";
+    case "password":
+      return validatePassword(value, form.username);
+    case "confirm":
+      if (!value) return "Konfirmasi password wajib diisi.";
+      if (value !== form.password) return "Konfirmasi password tidak sama.";
+      return "";
+    default:
+      return "";
+  }
+}
 
-function RegisterPage({ onSuccess, goLogin }) {
+function RegisterPage({ goLogin, onRegistered }) {
   const [form, setForm] = useState({ username: "", email: "", password: "", confirm: "" });
   const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
   const [apiError, setApiError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const update = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+  // Validasi real-time: begitu field pernah disentuh (blur), error langsung
+  // diperbarui setiap kali nilainya berubah — termasuk field "confirm" yang
+  // ikut tervalidasi ulang saat "password" diedit.
+  function update(e) {
+    const { name, value } = e.target;
+    const nextForm = { ...form, [name]: value };
+    setForm(nextForm);
+
+    setErrors((prevErrors) => {
+      const nextErrors = { ...prevErrors };
+      if (touched[name]) nextErrors[name] = validateField(name, value, nextForm);
+      if (name === "password" && touched.confirm) {
+        nextErrors.confirm = validateField("confirm", nextForm.confirm, nextForm);
+      }
+      return nextErrors;
+    });
+  }
+
+  function handleBlur(e) {
+    const { name, value } = e.target;
+    setTouched((t) => ({ ...t, [name]: true }));
+    setErrors((prev) => ({ ...prev, [name]: validateField(name, value, form) }));
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     const next = {};
-    if (!form.username.trim()) next.username = "Username wajib diisi.";
-    else if (form.username.trim().length < 3) next.username = "Username minimal 3 karakter.";
+    const usernameError = validateUsername(form.username);
+    if (usernameError) next.username = usernameError;
     if (!form.email.trim()) next.email = "Email wajib diisi.";
     else if (!EMAIL_RE.test(form.email)) next.email = "Format email tidak valid.";
-    if (!isStrongPassword(form.password)) next.password = PASSWORD_HINT;
+    const passwordError = validatePassword(form.password, form.username);
+    if (passwordError) next.password = passwordError;
     if (!form.confirm) next.confirm = "Konfirmasi password wajib diisi.";
     else if (form.confirm !== form.password) next.confirm = "Konfirmasi password tidak sama.";
     setErrors(next);
+    setTouched({ username: true, email: true, password: true, confirm: true });
     setApiError("");
     if (Object.keys(next).length) return;
 
     setLoading(true);
     try {
-      const data = await register({
+      // Hasil register (accessToken/refreshToken) sengaja tidak dipakai dulu
+      // karena Login belum terintegrasi — user diarahkan login manual.
+      await registerUser({
         username: form.username.trim(),
         email: form.email.trim(),
         password: form.password,
       });
-      onSuccess(data);
+      onRegistered();
     } catch (err) {
-      setApiError(err.message);
+      const fieldErrors = mapFieldErrors(err);
+      if (Object.keys(fieldErrors).length) setErrors(fieldErrors);
+      else setApiError(err.message);
     } finally {
       setLoading(false);
     }
@@ -202,25 +243,26 @@ function RegisterPage({ onSuccess, goLogin }) {
       <form onSubmit={handleSubmit} noValidate>
         <Field id="username" label="Username" error={errors.username}>
           <TextInput id="username" name="username" autoComplete="username"
-            placeholder="Masukkan username" value={form.username} onChange={update} error={errors.username} />
+            placeholder="Masukkan username" value={form.username} onChange={update} onBlur={handleBlur}
+            error={errors.username} />
         </Field>
 
         <Field id="reg-email" label="Email" error={errors.email}>
           <TextInput id="reg-email" name="email" type="email" autoComplete="email"
-            placeholder="Masukkan email" value={form.email} onChange={update} error={errors.email} />
+            placeholder="Masukkan email" value={form.email} onChange={update} onBlur={handleBlur}
+            error={errors.email} />
         </Field>
 
-        <div className="field">
-          <label htmlFor="reg-password">Password</label>
+        <Field id="reg-password" label="Password" error={errors.password}>
           <PasswordInput id="reg-password" name="password" autoComplete="new-password"
-            placeholder="Masukkan password" value={form.password} onChange={update}
-            error={errors.password ? " " : ""} describedBy="password-hint" />
-          <p className="msg-error" id="password-hint">{PASSWORD_HINT}</p>
-        </div>
+            placeholder="Masukkan password" value={form.password} onChange={update} onBlur={handleBlur}
+            error={errors.password} />
+        </Field>
 
         <Field id="confirm" label="Konfirmasi password" error={errors.confirm}>
           <PasswordInput id="confirm" name="confirm" autoComplete="new-password"
-            placeholder="Konfirmasi password" value={form.confirm} onChange={update} error={errors.confirm} />
+            placeholder="Konfirmasi password" value={form.confirm} onChange={update} onBlur={handleBlur}
+            error={errors.confirm} />
         </Field>
 
         {apiError && <p className="msg-error banner" role="alert">{apiError}</p>}
@@ -237,57 +279,29 @@ function RegisterPage({ onSuccess, goLogin }) {
   );
 }
 
-
-
-function HomePlaceholder({ user, onLogout }) {
-  return (
-    <main className="auth">
-      <h1>Selamat datang{user?.username ? `, ${user.username}` : ""}</h1>
-      <p className="switch">Halaman notebook akan ditampilkan di sini.</p>
-      <button className="btn" type="button" onClick={onLogout}>Keluar</button>
-    </main>
-  );
-}
-
+/* ---------- Root ---------- */
 
 export default function App() {
-  const [view, setView] = useState(getToken() ? "home" : "login");
-  const [user, setUser] = useState(getSavedUser());
+  const [view, setView] = useState("login");
   const [notice, setNotice] = useState("");
-
-  function handleLogout() {
-    clearSession();
-    setUser(null);
-    setView("login");
-  }
 
   return (
     <>
       <Header />
-      {view === "login" && (
+      {view === "register" ? (
+        <RegisterPage
+          goLogin={() => setView("login")}
+          onRegistered={() => {
+            setNotice("Akun berhasil dibuat. Silakan login.");
+            setView("login");
+          }}
+        />
+      ) : (
         <LoginPage
           notice={notice}
           goRegister={() => { setNotice(""); setView("register"); }}
-          onSuccess={(u) => { setUser(u); setView("home"); }}
         />
       )}
-      {view === "register" && (
-        <RegisterPage
-          goLogin={() => setView("login")}
-          onSuccess={(data) => {
-            // Jika backend langsung mengirim token setelah register, langsung masuk.
-            if (data?.token) {
-              saveSession(data);
-              setUser(data.user || null);
-              setView("home");
-            } else {
-              setNotice("Akun berhasil dibuat. Silakan login.");
-              setView("login");
-            }
-          }}
-        />
-      )}
-      {view === "home" && <HomePlaceholder user={user} onLogout={handleLogout} />}
     </>
   );
 }
