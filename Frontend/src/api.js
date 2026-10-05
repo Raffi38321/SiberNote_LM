@@ -2,8 +2,6 @@
 // Saat ini baru endpoint Register yang dipakai (lihat apidocumentation.md).
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8080").replace(/\/$/, "");
-const TOKEN_KEY = "sibernotelm_token";
-const USER_KEY = "sibernotelm_user";
 const TIMEOUT_MS = 15000;
 
 export class ApiError extends Error {
