@@ -1,0 +1,27 @@
+info:
+  name: TC-DOC-06
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: http://localhost:8080/documents/6abf682494ba188d4de23ead
+  headers:
+    - name: ""
+      value: ""
+  body:
+    type: multipart-form
+    data:
+      - name: file
+        type: file
+        value:
+          - c:\Users\Lenovo\Downloads\sibernote\SiberNote Auth\01. Pengantar sistem terdistribusi (1).pdf
+  auth:
+    type: bearer
+    token: ""
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

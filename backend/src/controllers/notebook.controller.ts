@@ -2,6 +2,9 @@ import type { Request, Response } from "express";
 import response from "../utils/response.js";
 import Notebook from "../models/notebook.model.js";
 import User from "../models/user.model.js";
+import Document from "../models/document.model.js";
+import Chunk from "../models/chunk.model.js";
+import cloudinary from "../services/cloudinary.js";
 
 export const createNotebook = async (req: Request, res: Response) => {
   try {
@@ -54,11 +57,80 @@ export const getAllNotebookUser = async (req: Request, res: Response) => {
 
 export const deleteNotebook = async (req: Request, res: Response) => {
     try {
-        const {notebookId} = req.params
-        await Notebook.findByIdAndDelete(notebookId)
-        return response.requestSuccess(res,"berhasil hapus notebook")
-  } catch (error) {
-    console.log(error);
-    return response.serverError(res, "gagal hapus notebook");
-  }
-};
+        const userId = req.userId
+
+        if (!userId) {
+            return response.userError(res, "tidak terautentikasi")
+        }
+
+        const { notebookId } = req.params
+
+        const notebook = await Notebook.findById(notebookId)
+
+        if (!notebook) {
+            return response.notFoundError(
+                res,
+                "notebook tidak ditemukan"
+            )
+        }
+
+        if (notebook.userId.toString() !== userId) {
+            return response.notAuthorizedError(
+                res,
+                "tidak punya akses ke notebook ini"
+            )
+        }
+
+        const documents = await Document.find({
+            notebookId: notebook._id,
+        })
+
+        for (const document of documents) {
+            const urlParts = document.fileUrl.split("/")
+            const uploadIndex = urlParts.indexOf("upload")
+
+            if (uploadIndex !== -1) {
+                const publicIdWithExt = urlParts
+                    .slice(uploadIndex + 2)
+                    .join("/")
+
+                const publicId = publicIdWithExt.replace(
+                    /\.[^.]+$/,
+                    ""
+                )
+
+                await cloudinary.uploader.destroy(publicId, {
+                    resource_type: "raw",
+                })
+            }
+        }
+
+        const documentIds = documents.map(
+            (document) => document._id
+        )
+
+        if (documentIds.length > 0) {
+            await Chunk.deleteMany({
+                documentId: { $in: documentIds },
+            })
+
+            await Document.deleteMany({
+                _id: { $in: documentIds },
+            })
+        }
+
+        await notebook.deleteOne()
+
+        return response.requestSuccess(
+            res,
+            "berhasil hapus notebook"
+        )
+    } catch (error) {
+        console.error(error)
+
+        return response.serverError(
+            res,
+            "gagal hapus notebook"
+        )
+    }
+}

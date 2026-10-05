@@ -5,7 +5,7 @@ import cloudinary from "../services/cloudinary.js"
 import Document from "../models/document.model.js"
 import Notebook from "../models/notebook.model.js"
 import Chunk from "../models/chunk.model.js"
-import { chunkPDF, chunkPPTX } from "../services/chunking.js"
+import { chunkPDF, chunkPPTX, NoTextError } from "../services/chunking.js"
 import response from "../utils/response.js"
 
 type FileType = "pdf" | "pptx"
@@ -81,7 +81,7 @@ export const uploadDocument = async (req: Request, res: Response) => {
 
         const notebookObjectId = new mongoose.Types.ObjectId(notebookId)
 
-        // simpan dokumen dulu dengan parseStatus "pending"
+        // simpan dokumen pake status "pending"
         const doc = await Document.create({
             notebookId: notebookObjectId,
             title: baseName,
@@ -92,8 +92,7 @@ export const uploadDocument = async (req: Request, res: Response) => {
             parseStatus: "pending",
         })
 
-        // proses chunking — jalan setelah response supaya tidak block user
-        // kalau error, update parseStatus jadi "error"
+        // proses chunking jalan setelah response dikirim ke fe supaya tidak block user
         setImmediate(async () => {
             try {
                 const { chunks, totalPages } = fileType === "pdf"
@@ -107,12 +106,21 @@ export const uploadDocument = async (req: Request, res: Response) => {
                 await Document.findByIdAndUpdate(doc._id, {
                     parseStatus: "done",
                     totalPages,
+                    parseError: "",
                 })
 
-                console.log(`[chunking] ${doc.title} — ${totalPages} halaman, ${chunks.length} chunks`)
+                console.log(`[chunking] berhasil ${doc.title} — ${totalPages} halaman, ${chunks.length} chunks`)
             } catch (err) {
+                const errorMessage = err instanceof Error
+                    ? err.message
+                    : "Gagal memproses dokumen, silakan coba lagi."
+
                 console.error(`[chunking] gagal proses ${doc.title}:`, err)
-                await Document.findByIdAndUpdate(doc._id, { parseStatus: "error" })
+
+                await Document.findByIdAndUpdate(doc._id, {
+                    parseStatus: "error",
+                    parseError: errorMessage,
+                })
             }
         })
 
@@ -152,26 +160,15 @@ export const getDocumentsByNotebook = async (req: Request, res: Response) => {
     }
 }
 
-// delete document
+// delete document — kepemilikan dicek di isDocumentOwner
 export const deleteDocument = async (req: Request, res: Response) => {
     try {
-        const userId = req.userId
-        if (!userId) {
-            return response.userError(res, "tidak terautentikasi")
-        }
-
         const { documentId } = req.params
 
-        const doc = await Document.findById(documentId).populate<{
-            notebookId: { userId: { toString(): string } }
-        }>("notebookId")
+        const doc = await Document.findById(documentId)
 
         if (!doc) {
             return response.notFoundError(res, "dokumen tidak ditemukan")
-        }
-
-        if (doc.notebookId.userId.toString() !== userId) {
-            return response.notAuthorizedError(res, "tidak punya akses ke dokumen ini")
         }
 
         const urlParts = doc.fileUrl.split("/")
@@ -180,7 +177,9 @@ export const deleteDocument = async (req: Request, res: Response) => {
         const publicId = publicIdWithExt.replace(/\.[^.]+$/, "")
 
         await cloudinary.uploader.destroy(publicId, { resource_type: "raw" })
-
+        await Chunk.deleteMany({
+            documentId: doc._id,
+        })
         await doc.deleteOne()
 
         return response.requestSuccess(res, "berhasil hapus dokumen")
@@ -191,19 +190,56 @@ export const deleteDocument = async (req: Request, res: Response) => {
 }
 
 
-export const updateDocument = async(req:Request,res:Response)=>{
+// update nama document — kepemilikan dicek di isDocumentOwner
+export const updateDocument = async (req: Request, res: Response) => {
     try {
-        const {name} = req.body
+        const { name } = req.body
         const { documentId } = req.params
-        if (!documentId) {
-            return response.userError(res, "id document kosong")
-        }
-        const document = await Document.findByIdAndUpdate(documentId, { title: name },{returnDocument:"after"})
+
+        const document = await Document.findByIdAndUpdate(
+            documentId,
+            { title: name },
+            { returnDocument: "after" },
+        )
         if (!document) {
-        return response.notFoundError(res, "document ga ketemu")
+            return response.notFoundError(res, "document ga ketemu")
         }
-        return response.requestSuccessWithData(res,"berhasil update document",{document},200)
+        return response.requestSuccessWithData(res, "berhasil update document", { document }, 200)
     } catch (error) {
         return response.serverError(res, "gagal update dokumen")
+    }
+}
+
+// GET /documents/:documentId/status — polling endpoint untuk FE
+export const getDocumentStatus = async (req: Request, res: Response) => {
+    try {
+        const userId = req.userId
+        if (!userId) {
+            return response.userError(res, "tidak terautentikasi")
+        }
+
+        const { documentId } = req.params
+
+        // ambil hanya field yang dibutuhkan FE untuk polling
+        const doc = await Document.findById(documentId)
+            .select("parseStatus parseError totalPages notebookId")
+            .populate<{ notebookId: { userId: { toString(): string } } }>("notebookId", "userId")
+
+        if (!doc) {
+            return response.notFoundError(res, "dokumen tidak ditemukan")
+        }
+
+        if (doc.notebookId.userId.toString() !== userId) {
+            return response.notAuthorizedError(res, "tidak punya akses ke dokumen ini")
+        }
+
+        return response.requestSuccessWithData(res, "berhasil get status dokumen", {
+            parseStatus: doc.parseStatus,
+            parseError:  doc.parseError,
+            totalPages:  doc.totalPages,
+        }, 200)
+    } catch (error) {
+        console.error(error)
+        return response.serverError(res, "gagal get status dokumen")
     }
 }

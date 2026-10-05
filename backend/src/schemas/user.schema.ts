@@ -1,7 +1,6 @@
 import { z } from "zod"
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_-]+$/
-const PASSWORD_REGEX = /^[a-zA-Z0-9]+$/
 
 export const registerSchema = {
     body: z.object({
@@ -9,13 +8,12 @@ export const registerSchema = {
             .string()
             .min(1, "username tidak boleh kosong")
             .max(16, "username maksimal 16 karakter")
-            .regex(USERNAME_REGEX, "username hanya boleh huruf, angka, underscore, dan strip"),
-        email: z.email("format email tidak valid"),
+            .regex(USERNAME_REGEX, "username hanya boleh huruf, angka, underscore(_), dan strip(-)"),
+        email: z.email("format email tidak valid").min(1, "email tidak boleh kosong"),
         password: z
             .string()
             .min(8, "password minimal 8 karakter")
             .max(16, "password maksimal 16 karakter")
-            .regex(PASSWORD_REGEX, "password tidak boleh mengandung karakter khusus"),
     })
     .superRefine((data, ctx) => {
         if (data.password.toLowerCase()=== data.username.toLowerCase()) {
@@ -30,7 +28,9 @@ export const registerSchema = {
 
 export const loginSchema = {
     body: z.object({
-        email: z.email("format email tidak valid"),
-        password: z.string().min(1, "password tidak boleh kosong"),
+        email: z.email("format email tidak valid").min(1, "email tidak boleh kosong"),
+        password: z.string()
+            .min(8, "password minimal 8 karakter")
+            .max(16, "password maksimal 16 karakter")
     })
 }

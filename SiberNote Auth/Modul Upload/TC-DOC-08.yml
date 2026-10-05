@@ -1,0 +1,24 @@
+info:
+  name: TC-DOC-08
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: http://localhost:8080/documents/6abf682494ba188d4de23ead
+  body:
+    type: multipart-form
+    data:
+      - name: file
+        type: file
+        value:
+          - c:\Users\Lenovo\Downloads\sibernote\SiberNote Auth\empty_file.pdf
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YWJmNjZlYTBhZWM5MWNjMjlhYzI4MWUiLCJpYXQiOjE3OTA5MzM3OTEsImV4cCI6MTc5MDkzNzM5MX0.Lg__7jlwvt6q1355JFLV-6aY4I-r2CzjfxCVoDW5zUo
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

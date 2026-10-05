@@ -1,0 +1,21 @@
+info:
+  name: TC-AUTH-21
+  type: http
+  seq: 4
+
+http:
+  method: POST
+  url: http://localhost:8080/user/logout
+  body:
+    type: json
+    data: |-
+      {
+        "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YWJjYjhlY2FmNzdkMjc3Y2Y0MWRhMjIiLCJpYXQiOjE3OTA3NTU4MDIsImV4cCI6MTc5MTM2MDYwMn0.vQK0Dm7tf359Bzf5jwSIrzh4ojm6lp3azRN67upRdFA"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

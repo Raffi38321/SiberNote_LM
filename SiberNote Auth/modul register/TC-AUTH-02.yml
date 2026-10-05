@@ -1,0 +1,24 @@
+info:
+  name: TC-AUTH-02
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://localhost:8080/user/register
+  body:
+    type: json
+    data: |-
+      {
+        "email": "mahasiswa@example.com",
+        "username": "mahasiswaBaru",
+        "password": "password123"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+​
