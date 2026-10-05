@@ -1,0 +1,23 @@
+info:
+  name: TC-DOC-14
+  type: http
+  seq: 17
+
+http:
+  method: PATCH
+  url: http://localhost:8080/documents/6ac3521a9cbb0f82ee14a45d
+  body:
+    type: json
+    data: |-
+      {
+        "name": "bolobolo.pdf"
+      }
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YWJmNjZlYTBhZWM5MWNjMjlhYzI4MWUiLCJpYXQiOjE3OTExODU5MDksImV4cCI6MTc5MTE4OTUwOX0.dRKr8CE5nI8_xqC_vJbL3HH0TvLUk3uTJRZzxYYoP2o
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

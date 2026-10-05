@@ -10,8 +10,8 @@ http:
     type: json
     data: |-
       {
-        "email": "mahasiswa@example.com",
-        "password": "password123"
+        "email": "usnusn@example.com",
+        "password": "usnusnusn"
       }
   auth: inherit
 
@@ -20,4 +20,3 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
-​
