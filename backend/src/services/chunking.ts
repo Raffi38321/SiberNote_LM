@@ -1,12 +1,34 @@
 import { PDFParse } from "pdf-parse"
 import { OfficeParser } from "officeparser"
-import type { OfficeContentNode } from "officeparser"
+import type { ImageMetadata, OfficeAttachment, OfficeContentNode } from "officeparser"
 import type { Types } from "mongoose"
 import { generateEmbeddings } from "./embedding.js"
+import { processPageTexts } from "./ocr.js"
 
 const MAX_CHARS_PER_CHUNK = 3000
+/** Minimal karakter OCR agar dianggap teks valid (bukan noise dari logo/ikon). */
+const MIN_OCR_CHARS = 30
 
-//types
+// ─── custom errors ────────────────────────────────────────────────────────────
+
+/** Dilempar ketika dokumen berhasil diparsing tapi tidak mengandung teks sama sekali. */
+export class NoTextError extends Error {
+    constructor() {
+        super("Tidak ada konten yang dapat diekstrak dari dokumen ini.")
+        this.name = "NoTextError"
+    }
+}
+
+/** Dilempar ketika file tidak bisa dibaca / corrupt. */
+export class ParseError extends Error {
+    constructor(cause?: unknown) {
+        const detail = cause instanceof Error ? cause.message : String(cause)
+        super(`Gagal memproses dokumen, silakan coba lagi. (${detail})`)
+        this.name = "ParseError"
+    }
+}
+
+// types
 
 export interface RawChunk {
     documentId: Types.ObjectId
@@ -61,13 +83,24 @@ const pageToChunks = (
 }
 
 
-const extractTextFromNode = (node: OfficeContentNode): string => {
+const extractTextFromNode = (
+    node: OfficeContentNode,
+    attachmentsByName?: Map<string, OfficeAttachment>,
+): string => {
     if (node.text) return node.text
+
+    // gambar tertanam: ambil hasil OCR dari attachment (jika ada)
+    if (node.type === "image" && attachmentsByName) {
+        const name = (node.metadata as ImageMetadata | undefined)?.attachmentName
+        const ocrText = name ? attachmentsByName.get(name)?.ocrText?.trim() : undefined
+        if (ocrText && ocrText.length >= MIN_OCR_CHARS) return ocrText
+        return ""
+    }
 
     const parts: string[] = []
     if (node.children && Array.isArray(node.children)) {
         for (const child of node.children) {
-            const t = extractTextFromNode(child)
+            const t = extractTextFromNode(child, attachmentsByName)
             if (t) parts.push(t)
         }
     }
@@ -90,43 +123,98 @@ export const chunkPDF = async (
     buffer: Buffer,
     documentId: Types.ObjectId,
 ): Promise<{ chunks: RawChunk[]; totalPages: number }> => {
-    const parser = new PDFParse({ data: buffer })
-    const result = await parser.getText()
-    await parser.destroy()
+    let parser: PDFParse | undefined
+    try {
+        parser = new PDFParse({ data: buffer })
+        const result = await parser.getText()
 
-    const chunks: RawChunk[] = []
-    let chunkIndex = 0
+        // hybrid routing: halaman teks normal pakai langsung,
+        // halaman kosong/gambar/scan di-OCR lewat screenshot pdf-parse
+        // (satu stack pdfjs — menghindari mismatch API vs Worker)
+        const pageResults = await processPageTexts(result.pages, async (pageNumber) => {
+            const shot = await parser!.getScreenshot({
+                partial:      [pageNumber],
+                scale:        2.0,
+                imageBuffer:  true,
+                imageDataUrl: false,
+            })
+            const page = shot.pages[0]
+            if (!page?.data) {
+                throw new Error(`screenshot halaman ${pageNumber} kosong`)
+            }
+            return Buffer.from(page.data)
+        })
 
-    for (const page of result.pages) {
-        const pageChunks = pageToChunks(page.text, page.num, documentId, chunkIndex)
-        chunks.push(...pageChunks)
-        chunkIndex += pageChunks.length
+        const chunks: RawChunk[] = []
+        let chunkIndex = 0
+
+        for (const page of pageResults) {
+            const pageChunks = pageToChunks(page.text, page.pageNumber, documentId, chunkIndex)
+            chunks.push(...pageChunks)
+            chunkIndex += pageChunks.length
+        }
+
+        if (chunks.length === 0) throw new NoTextError()
+
+        const ocrCount  = pageResults.filter((p) => p.method === "ocr").length
+        const textCount = pageResults.filter((p) => p.method === "text").length
+        console.log(`[chunking] ${result.total} halaman — ${textCount} teks, ${ocrCount} OCR`)
+
+        return { chunks: await attachEmbeddings(chunks), totalPages: result.total }
+    } catch (err) {
+        if (err instanceof NoTextError) throw err
+        throw new ParseError(err)
+    } finally {
+        await parser?.destroy()
     }
-
-    return { chunks: await attachEmbeddings(chunks), totalPages: result.total }
 }
 
 export const chunkPPTX = async (
     buffer: Buffer,
     documentId: Types.ObjectId,
 ): Promise<{ chunks: RawChunk[]; totalPages: number }> => {
-    const ast = await OfficeParser.parseOffice(buffer)
+    try {
+        // extractAttachments + ocr: OCR otomatis untuk gambar tertanam di slide
+        const ast = await OfficeParser.parseOffice(buffer, {
+            fileType: "pptx",
+            extractAttachments: true,
+            ocr: true,
+            ocrConfig: { language: "ind+eng" },
+        })
 
-    const chunks: RawChunk[] = []
-    let chunkIndex = 0
-    let totalSlides = 0
+        const attachmentsByName = new Map<string, OfficeAttachment>(
+            (ast.attachments ?? [])
+                .filter((a) => a.name)
+                .map((a) => [a.name, a]),
+        )
 
-    for (const node of ast.content) {
-        if (node.type !== "slide") continue
+        const ocrImageCount = (ast.attachments ?? []).filter(
+            (a) => a.type === "image" && (a.ocrText?.trim().length ?? 0) >= MIN_OCR_CHARS,
+        ).length
 
-        totalSlides++
-        const slideNumber = (node.metadata as { slideNumber?: number } | undefined)?.slideNumber ?? totalSlides
+        const chunks: RawChunk[] = []
+        let chunkIndex = 0
+        let totalSlides = 0
 
-        const text = extractTextFromNode(node)
-        const slideChunks = pageToChunks(text, slideNumber, documentId, chunkIndex)
-        chunks.push(...slideChunks)
-        chunkIndex += slideChunks.length
+        for (const node of ast.content) {
+            if (node.type !== "slide") continue
+
+            totalSlides++
+            const slideNumber = (node.metadata as { slideNumber?: number } | undefined)?.slideNumber ?? totalSlides
+
+            const text = extractTextFromNode(node, attachmentsByName)
+            const slideChunks = pageToChunks(text, slideNumber, documentId, chunkIndex)
+            chunks.push(...slideChunks)
+            chunkIndex += slideChunks.length
+        }
+
+        if (chunks.length === 0) throw new NoTextError()
+
+        console.log(`[chunking] ${totalSlides} slide — ${ocrImageCount} gambar di-OCR`)
+
+        return { chunks: await attachEmbeddings(chunks), totalPages: totalSlides }
+    } catch (err) {
+        if (err instanceof NoTextError) throw err
+        throw new ParseError(err)
     }
-
-    return { chunks: await attachEmbeddings(chunks), totalPages: totalSlides }
 }

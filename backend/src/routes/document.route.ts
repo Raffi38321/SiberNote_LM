@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express"
-import { uploadDocument, getDocumentsByNotebook, deleteDocument, updateDocument } from "../controllers/document.controller.js"
+import { uploadDocument, getDocumentsByNotebook, deleteDocument, updateDocument, getDocumentStatus } from "../controllers/document.controller.js"
 import { authenticate } from "../middlewares/auth.middleware.js"
 import { handleDocumentUpload } from "../middlewares/handleDocument.middleware.js"
 import { validateRequest } from "../middlewares/validateSchema.middelare.js"
@@ -12,6 +12,7 @@ documentRouter.use(authenticate)
 
 documentRouter.post("/:notebookId", handleDocumentUpload, uploadDocument)
 documentRouter.get("/:notebookId", getDocumentsByNotebook)
+documentRouter.get("/status/:documentId", getDocumentStatus)
 documentRouter.patch("/:documentId",validateRequest(updateDocumentSchema),updateDocument)
 documentRouter.delete("/:documentId", deleteDocument)
 // documentRouter.get("/:documentId/chunk",async(req:Request,res:Response)=>{

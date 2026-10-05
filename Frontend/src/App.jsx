@@ -2,27 +2,33 @@ import { useState } from "react";
 import {
   login,
   register,
+  logoutApi,
   saveSession,
   clearSession,
-  getToken,
-  getSavedUser,
+  getAccessToken,
+  getRefreshToken,
+  isLoggedIn,
 } from "./api";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PASSWORD_HINT =
-  "Password minimal 8 karakter dan harus mengandung huruf besar, huruf kecil, angka, dan simbol.";
+// ─── validasi ─────────────────────────────────────────────────────────────────
 
-function isStrongPassword(pw) {
-  return (
-    pw.length >= 8 &&
-    /[a-z]/.test(pw) &&
-    /[A-Z]/.test(pw) &&
-    /\d/.test(pw) &&
-    /[^A-Za-z0-9]/.test(pw)
-  );
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// sesuai aturan backend: hanya huruf dan angka, 8–16 karakter
+const PASSWORD_HINT = "Password 8–16 karakter, hanya huruf dan angka (a-z, A-Z, 0-9).";
+
+function isValidPassword(pw) {
+  return pw.length >= 8 && pw.length <= 16 && /^[a-zA-Z0-9]+$/.test(pw);
 }
 
+// sesuai aturan backend: hanya huruf, angka, underscore, strip — max 16
+const USERNAME_HINT = "Username 1–16 karakter, hanya huruf, angka, _ dan -.";
 
+function isValidUsername(u) {
+  return u.length >= 1 && u.length <= 16 && /^[a-zA-Z0-9_-]+$/.test(u);
+}
+
+// ─── shared UI components ─────────────────────────────────────────────────────
 
 function Header() {
   return (
@@ -95,11 +101,11 @@ function PasswordInput({ id, error, describedBy, ...props }) {
   );
 }
 
-/* ---------- Halaman Login ---------- */
+// ─── LoginPage ────────────────────────────────────────────────────────────────
 
 function LoginPage({ onSuccess, goRegister, notice }) {
-  const [form, setForm] = useState({ email: "", password: "" });
-  const [errors, setErrors] = useState({});
+  const [form, setForm]       = useState({ email: "", password: "" });
+  const [errors, setErrors]   = useState({});
   const [apiError, setApiError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -107,19 +113,22 @@ function LoginPage({ onSuccess, goRegister, notice }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
+
+    // validasi client-side
     const next = {};
-    if (!form.email.trim()) next.email = "Email wajib diisi.";
+    if (!form.email.trim())           next.email    = "Email wajib diisi.";
     else if (!EMAIL_RE.test(form.email)) next.email = "Format email tidak valid.";
-    if (!form.password) next.password = "Password wajib diisi.";
+    if (!form.password)               next.password = "Password wajib diisi.";
     setErrors(next);
     setApiError("");
     if (Object.keys(next).length) return;
 
     setLoading(true);
     try {
-      const data = await login({ email: form.email.trim(), password: form.password });
-      saveSession(data);
-      onSuccess(data?.user || null);
+      // backend return: { status, message, data: { accessToken, refreshToken } }
+      const res = await login({ email: form.email.trim(), password: form.password });
+      saveSession(res.data);
+      onSuccess();
     } catch (err) {
       setApiError(err.message);
     } finally {
@@ -157,38 +166,51 @@ function LoginPage({ onSuccess, goRegister, notice }) {
   );
 }
 
-
+// ─── RegisterPage ─────────────────────────────────────────────────────────────
 
 function RegisterPage({ onSuccess, goLogin }) {
-  const [form, setForm] = useState({ username: "", email: "", password: "", confirm: "" });
-  const [errors, setErrors] = useState({});
+  const [form, setForm]         = useState({ username: "", email: "", password: "", confirm: "" });
+  const [errors, setErrors]     = useState({});
   const [apiError, setApiError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]   = useState(false);
 
   const update = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
 
   async function handleSubmit(e) {
     e.preventDefault();
+
+    // validasi client-side — cerminkan aturan backend
     const next = {};
-    if (!form.username.trim()) next.username = "Username wajib diisi.";
-    else if (form.username.trim().length < 3) next.username = "Username minimal 3 karakter.";
-    if (!form.email.trim()) next.email = "Email wajib diisi.";
+    const uname = form.username.trim();
+    if (!uname)                  next.username = "Username wajib diisi.";
+    else if (!isValidUsername(uname)) next.username = USERNAME_HINT;
+
+    if (!form.email.trim())           next.email = "Email wajib diisi.";
     else if (!EMAIL_RE.test(form.email)) next.email = "Format email tidak valid.";
-    if (!isStrongPassword(form.password)) next.password = PASSWORD_HINT;
-    if (!form.confirm) next.confirm = "Konfirmasi password wajib diisi.";
+
+    if (!form.password)               next.password = "Password wajib diisi.";
+    else if (!isValidPassword(form.password)) next.password = PASSWORD_HINT;
+    else if (form.password.toLowerCase().includes(uname.toLowerCase())) {
+      next.password = "Password tidak boleh mengandung username.";
+    }
+
+    if (!form.confirm)                next.confirm = "Konfirmasi password wajib diisi.";
     else if (form.confirm !== form.password) next.confirm = "Konfirmasi password tidak sama.";
+
     setErrors(next);
     setApiError("");
     if (Object.keys(next).length) return;
 
     setLoading(true);
     try {
-      const data = await register({
-        username: form.username.trim(),
-        email: form.email.trim(),
+      // backend return: { status, message, data: { accessToken, refreshToken } }
+      const res = await register({
+        username: uname,
+        email:    form.email.trim(),
         password: form.password,
       });
-      onSuccess(data);
+      saveSession(res.data);
+      onSuccess();
     } catch (err) {
       setApiError(err.message);
     } finally {
@@ -215,7 +237,10 @@ function RegisterPage({ onSuccess, goLogin }) {
           <PasswordInput id="reg-password" name="password" autoComplete="new-password"
             placeholder="Masukkan password" value={form.password} onChange={update}
             error={errors.password ? " " : ""} describedBy="password-hint" />
-          <p className="msg-error" id="password-hint">{PASSWORD_HINT}</p>
+          <p className="hint" id="password-hint">{PASSWORD_HINT}</p>
+          {errors.password && (
+            <p className="msg-error" id="reg-password-error" role="alert">{errors.password}</p>
+          )}
         </div>
 
         <Field id="confirm" label="Konfirmasi password" error={errors.confirm}>
@@ -237,57 +262,55 @@ function RegisterPage({ onSuccess, goLogin }) {
   );
 }
 
+// ─── HomePlaceholder ──────────────────────────────────────────────────────────
 
-
-function HomePlaceholder({ user, onLogout }) {
+function HomePlaceholder({ onLogout }) {
   return (
     <main className="auth">
-      <h1>Selamat datang{user?.username ? `, ${user.username}` : ""}</h1>
+      <h1>Selamat datang!</h1>
       <p className="switch">Halaman notebook akan ditampilkan di sini.</p>
       <button className="btn" type="button" onClick={onLogout}>Keluar</button>
     </main>
   );
 }
 
+// ─── App root ─────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [view, setView] = useState(getToken() ? "home" : "login");
-  const [user, setUser] = useState(getSavedUser());
+  const [view, setView]     = useState(isLoggedIn() ? "home" : "login");
   const [notice, setNotice] = useState("");
 
-  function handleLogout() {
+  async function handleLogout() {
+    const rt = getRefreshToken();
+    if (rt) {
+      try { await logoutApi(rt); } catch { /* ignore — bersihkan session tetap */ }
+    }
     clearSession();
-    setUser(null);
     setView("login");
   }
 
   return (
     <>
       <Header />
+
       {view === "login" && (
         <LoginPage
           notice={notice}
           goRegister={() => { setNotice(""); setView("register"); }}
-          onSuccess={(u) => { setUser(u); setView("home"); }}
+          onSuccess={() => setView("home")}
         />
       )}
+
       {view === "register" && (
         <RegisterPage
           goLogin={() => setView("login")}
-          onSuccess={(data) => {
-            // Jika backend langsung mengirim token setelah register, langsung masuk.
-            if (data?.token) {
-              saveSession(data);
-              setUser(data.user || null);
-              setView("home");
-            } else {
-              setNotice("Akun berhasil dibuat. Silakan login.");
-              setView("login");
-            }
-          }}
+          onSuccess={() => setView("home")}
         />
       )}
-      {view === "home" && <HomePlaceholder user={user} onLogout={handleLogout} />}
+
+      {view === "home" && (
+        <HomePlaceholder onLogout={handleLogout} />
+      )}
     </>
   );
 }

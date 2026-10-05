@@ -5,7 +5,7 @@ import cloudinary from "../services/cloudinary.js"
 import Document from "../models/document.model.js"
 import Notebook from "../models/notebook.model.js"
 import Chunk from "../models/chunk.model.js"
-import { chunkPDF, chunkPPTX } from "../services/chunking.js"
+import { chunkPDF, chunkPPTX, NoTextError } from "../services/chunking.js"
 import response from "../utils/response.js"
 
 type FileType = "pdf" | "pptx"
@@ -95,25 +95,32 @@ export const uploadDocument = async (req: Request, res: Response) => {
         // proses chunking jalan setelah response dikirim ke fe supaya tidak block user
         setImmediate(async () => {
             try {
-
                 const { chunks, totalPages } = fileType === "pdf"
                     ? await chunkPDF(buffer, doc._id)
                     : await chunkPPTX(buffer, doc._id)
 
                 if (chunks.length > 0) {
                     await Chunk.insertMany(chunks)
-                    console.log(`[chunking] insertMany selesai`)
                 }
 
                 await Document.findByIdAndUpdate(doc._id, {
                     parseStatus: "done",
                     totalPages,
+                    parseError: "",
                 })
 
                 console.log(`[chunking] berhasil ${doc.title} — ${totalPages} halaman, ${chunks.length} chunks`)
             } catch (err) {
+                const errorMessage = err instanceof Error
+                    ? err.message
+                    : "Gagal memproses dokumen, silakan coba lagi."
+
                 console.error(`[chunking] gagal proses ${doc.title}:`, err)
-                await Document.findByIdAndUpdate(doc._id, { parseStatus: "error" })
+
+                await Document.findByIdAndUpdate(doc._id, {
+                    parseStatus: "error",
+                    parseError: errorMessage,
+                })
             }
         })
 
@@ -208,5 +215,39 @@ export const updateDocument = async(req:Request,res:Response)=>{
         return response.requestSuccessWithData(res,"berhasil update document",{document},200)
     } catch (error) {
         return response.serverError(res, "gagal update dokumen")
+    }
+}
+
+// GET /documents/:documentId/status — polling endpoint untuk FE
+export const getDocumentStatus = async (req: Request, res: Response) => {
+    try {
+        const userId = req.userId
+        if (!userId) {
+            return response.userError(res, "tidak terautentikasi")
+        }
+
+        const { documentId } = req.params
+
+        // ambil hanya field yang dibutuhkan FE untuk polling
+        const doc = await Document.findById(documentId)
+            .select("parseStatus parseError totalPages notebookId")
+            .populate<{ notebookId: { userId: { toString(): string } } }>("notebookId", "userId")
+
+        if (!doc) {
+            return response.notFoundError(res, "dokumen tidak ditemukan")
+        }
+
+        if (doc.notebookId.userId.toString() !== userId) {
+            return response.notAuthorizedError(res, "tidak punya akses ke dokumen ini")
+        }
+
+        return response.requestSuccessWithData(res, "berhasil get status dokumen", {
+            parseStatus: doc.parseStatus,
+            parseError:  doc.parseError,
+            totalPages:  doc.totalPages,
+        }, 200)
+    } catch (error) {
+        console.error(error)
+        return response.serverError(res, "gagal get status dokumen")
     }
 }

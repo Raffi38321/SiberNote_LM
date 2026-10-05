@@ -6,6 +6,7 @@ interface IDocument {
   title: string;
   fileType: "pdf" | "pptx";
   parseStatus: "pending" | "done" | "error";
+  parseError: string;
   fileUrl: string;
   fileSize: number;
   totalPages: number;
@@ -39,13 +40,17 @@ const documentSchema = new mongoose.Schema<IDocument>(
     totalPages: {
       type: Number,
       required: true,
-      default: 0
+      default: 0,
     },
     parseStatus: {
       type: String,
       required: true,
       enum: ["pending", "done", "error"],
       default: "pending",
+    },
+    parseError: {
+      type: String,
+      default: "",
     },
   },
   { timestamps: true },

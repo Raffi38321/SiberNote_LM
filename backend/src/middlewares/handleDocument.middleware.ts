@@ -15,7 +15,7 @@ export const handleDocumentUpload = (
             if (error.code === "LIMIT_FILE_SIZE") {
                 return response.userError(
                     res,
-                    "ukuran file maksimal 20 MB",
+                    "ukuran file maksimal 10 MB",
                 )
             }
             return response.userError(res, error.message)

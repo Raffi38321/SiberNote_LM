@@ -457,6 +457,12 @@ Response dikembalikan langsung setelah file terupload ke Cloudinary. Proses chun
 
 > `parseStatus` akan berubah menjadi `"done"` setelah chunking dan embedding selesai, atau `"error"` jika gagal. Frontend bisa polling field ini untuk tahu kapan dokumen siap dipakai.
 
+> **Catatan OCR:**
+> - **PDF:** Halaman yang terdeteksi sebagai scan/gambar (teks < 30 karakter) di-render lalu di-OCR dengan Tesseract (`ind+eng`).
+> - **PPTX:** Teks slide diambil dari shape seperti biasa; gambar tertanam di slide juga di-OCR otomatis (Tesseract `ind+eng`) lalu digabung ke konten slide. Hasil OCR yang terlalu pendek (< 30 karakter, misalnya logo) diabaikan.
+>
+> Proses OCR lebih lambat dibanding ekstraksi teks biasa.
+
 **Error Responses**
 
 | Status | Kondisi                                         |
@@ -605,23 +611,88 @@ DELETE /documents/:documentId
 
 ---
 
+### Get Document Status
+
+Polling endpoint untuk mengecek status pemrosesan dokumen (chunking + embedding). Lebih ringan dari `GET /documents/:notebookId` karena hanya return field status.
+
+```
+GET /documents/status/:documentId
+```
+
+**URL Params**
+
+| Param        | Keterangan         |
+|--------------|--------------------|
+| `documentId` | ID dokumen MongoDB |
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "berhasil get status dokumen",
+  "data": {
+    "parseStatus": "done",
+    "parseError": "",
+    "totalPages": 42
+  }
+}
+```
+
+**Nilai `parseStatus`**
+
+| Nilai       | Arti                                                  |
+|-------------|-------------------------------------------------------|
+| `"pending"` | File sudah terupload, chunking belum selesai          |
+| `"done"`    | Chunking dan embedding selesai, dokumen siap dipakai  |
+| `"error"`   | Proses gagal — lihat `parseError` untuk detail        |
+
+**Nilai `parseError` saat gagal**
+
+| Kondisi dokumen                    | Pesan `parseError`                                          |
+|------------------------------------|-------------------------------------------------------------|
+| File corrupt / tidak bisa dibaca   | `"Gagal memproses dokumen, silakan coba lagi. (detail)"`    |
+| Tidak ada teks dan OCR tidak berhasil | `"Tidak ada konten yang dapat diekstrak dari dokumen ini."` |
+
+**Error Responses**
+
+| Status | Kondisi                            |
+|--------|------------------------------------|
+| `401`  | Tidak terautentikasi               |
+| `403`  | Dokumen bukan milik user           |
+| `404`  | Dokumen tidak ditemukan            |
+| `500`  | Kesalahan server                   |
+
+---
+
 ## parseStatus Flow
 
-Field `parseStatus` pada dokumen menunjukkan status pemrosesan background:
+Field `parseStatus` pada dokumen menunjukkan status pemrosesan background. Frontend polling `GET /documents/status/:documentId` sampai `parseStatus` bukan `"pending"`.
 
 ```
 upload selesai → parseStatus: "pending"
                       │
                       ▼
-         chunking + embedding berjalan
+         chunking + embedding berjalan di background
                       │
-          ┌───────────┴───────────┐
-          ▼                       ▼
-   parseStatus: "done"    parseStatus: "error"
-   totalPages: N          (chunking/embedding gagal)
+         ┌────────────┴──────────────────────────┐
+         │                                       │
+         ▼                                       ▼
+  per halaman PDF:                     parseStatus: "error"
+  teks >= 30 char → pakai langsung     parseError: "<pesan>"
+  teks < 30 char  → render → OCR       → file corrupt / semua halaman kosong
+         │
+         ▼
+  embed semua chunks (Gemini)
+         │
+         ▼
+  parseStatus: "done"
+  totalPages: N
+  → dokumen siap dipakai
 ```
 
-Frontend sebaiknya polling `GET /documents/:notebookId` sampai `parseStatus` bukan `"pending"` sebelum mengizinkan user memulai chat.
+> **OCR otomatis:**
+> - **PDF:** Halaman dengan teks < 30 karakter di-render ke PNG lalu di-OCR (Tesseract `ind+eng`). Halaman yang gagal di-OCR di-skip tanpa menghentikan proses keseluruhan.
+> - **PPTX:** Gambar tertanam di slide di-OCR saat parsing; teks hasil OCR digabung dengan teks shape. Hasil OCR < 30 karakter diabaikan.
 
 ---
 
@@ -637,7 +708,7 @@ Register / Login
       Kirim accessToken di setiap request → Authorization: Bearer <accessToken>
              │
              ▼
-      accessToken expired (1 jam)?
+      accessToken expired (15 menit)?
              │
              └── POST /user/refresh + refreshToken → accessToken baru
              │
