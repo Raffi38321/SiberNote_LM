@@ -27,7 +27,6 @@ export const isUserAuthorize = async (req: Request,res: Response,next: NextFunct
   next();
 };
 
-/** Cek dokumen milik user lewat notebook pemilik (untuk PATCH/DELETE document). */
 export const isDocumentOwner = async (
   req: Request,
   res: Response,
