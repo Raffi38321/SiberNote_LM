@@ -1,0 +1,26 @@
+info:
+  name: TC-DOC-12
+  type: http
+  seq: 1
+
+http:
+  method: PATCH
+  url: http://localhost:8080/documents/6ac3382750f3faf8007e215e
+  headers:
+    - name: Authorization
+      value: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YWJmNjZlYTBhZWM5MWNjMjlhYzI4MWUiLCJpYXQiOjE3OTExNzg2NTgsImV4cCI6MTc5MTE4MjI1OH0.mrDv7WyI7tSicCAHE_UTO0lVB0n-yO-J1dK2mGdjqc0
+  body:
+    type: json
+    data: |-
+      {
+        "name": ""
+      }
+  auth:
+    type: bearer
+    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YWJmNjZlYTBhZWM5MWNjMjlhYzI4MWUiLCJpYXQiOjE3OTExNzg2NTgsImV4cCI6MTc5MTE4MjI1OH0.mrDv7WyI7tSicCAHE_UTO0lVB0n-yO-J1dK2mGdjqc0
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
