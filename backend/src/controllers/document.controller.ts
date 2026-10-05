@@ -160,26 +160,15 @@ export const getDocumentsByNotebook = async (req: Request, res: Response) => {
     }
 }
 
-// delete document
+// delete document — kepemilikan dicek di isDocumentOwner
 export const deleteDocument = async (req: Request, res: Response) => {
     try {
-        const userId = req.userId
-        if (!userId) {
-            return response.userError(res, "tidak terautentikasi")
-        }
-
         const { documentId } = req.params
 
-        const doc = await Document.findById(documentId).populate<{
-            notebookId: { userId: { toString(): string } }
-        }>("notebookId")
+        const doc = await Document.findById(documentId)
 
         if (!doc) {
             return response.notFoundError(res, "dokumen tidak ditemukan")
-        }
-
-        if (doc.notebookId.userId.toString() !== userId) {
-            return response.notAuthorizedError(res, "tidak punya akses ke dokumen ini")
         }
 
         const urlParts = doc.fileUrl.split("/")
@@ -201,18 +190,21 @@ export const deleteDocument = async (req: Request, res: Response) => {
 }
 
 
-export const updateDocument = async(req:Request,res:Response)=>{
+// update nama document — kepemilikan dicek di isDocumentOwner
+export const updateDocument = async (req: Request, res: Response) => {
     try {
-        const {name} = req.body
+        const { name } = req.body
         const { documentId } = req.params
-        if (!documentId) {
-            return response.userError(res, "id document kosong")
-        }
-        const document = await Document.findByIdAndUpdate(documentId, { title: name },{returnDocument:"after"})
+
+        const document = await Document.findByIdAndUpdate(
+            documentId,
+            { title: name },
+            { returnDocument: "after" },
+        )
         if (!document) {
-        return response.notFoundError(res, "document ga ketemu")
+            return response.notFoundError(res, "document ga ketemu")
         }
-        return response.requestSuccessWithData(res,"berhasil update document",{document},200)
+        return response.requestSuccessWithData(res, "berhasil update document", { document }, 200)
     } catch (error) {
         return response.serverError(res, "gagal update dokumen")
     }

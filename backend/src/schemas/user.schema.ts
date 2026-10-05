@@ -9,7 +9,7 @@ export const registerSchema = {
             .min(1, "username tidak boleh kosong")
             .max(16, "username maksimal 16 karakter")
             .regex(USERNAME_REGEX, "username hanya boleh huruf, angka, underscore(_), dan strip(-)"),
-        email: z.email("format email tidak valid"),
+        email: z.email("format email tidak valid").min(1, "email tidak boleh kosong"),
         password: z
             .string()
             .min(8, "password minimal 8 karakter")
@@ -28,7 +28,7 @@ export const registerSchema = {
 
 export const loginSchema = {
     body: z.object({
-        email: z.email("format email tidak valid"),
+        email: z.email("format email tidak valid").min(1, "email tidak boleh kosong"),
         password: z.string()
             .min(8, "password minimal 8 karakter")
             .max(16, "password maksimal 16 karakter")
