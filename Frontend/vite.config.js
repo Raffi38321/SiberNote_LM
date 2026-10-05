@@ -1,19 +1,12 @@
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), "");
-
-  return {
-    plugins: [react()],
-    server: {
-      port: 5173,
-      proxy: {
-        "/api": {
-          target: env.VITE_PROXY_TARGET || "http://localhost:8000",
-          changeOrigin: true,
-        },
-      },
-    },
-  };
+// Backend SiberNote LM dipanggil langsung lewat VITE_API_BASE_URL (lihat src/api.js),
+// jadi tidak perlu proxy di sini. Pastikan backend mengaktifkan CORS untuk
+// origin http://localhost:8080 saat development.
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 8080,
+  },
 });
