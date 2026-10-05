@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { registerUser, ApiError } from "./api";
+import {  ApiError, register } from "./api";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_RE = /^[a-zA-Z0-9_-]{1,16}$/;
@@ -222,7 +222,7 @@ function RegisterPage({ goLogin, onRegistered }) {
     try {
       // Hasil register (accessToken/refreshToken) sengaja tidak dipakai dulu
       // karena Login belum terintegrasi — user diarahkan login manual.
-      await registerUser({
+      await register({
         username: form.username.trim(),
         email: form.email.trim(),
         password: form.password,
