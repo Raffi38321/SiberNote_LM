@@ -5,8 +5,7 @@ const ALLOWED_MIME_TYPES = [
     "application/vnd.openxmlformats-officedocument.presentationml.presentation", // pptx
 ]
 
-// Cloudinary free plan limit = 10MB per file
-const MAX_FILE_SIZE_MB = 10
+const MAX_FILE_SIZE_MB = 20
 
 const storage = multer.memoryStorage()
 

@@ -12,8 +12,8 @@ const documentRouter = Router()
 documentRouter.use(authenticate)
 
 documentRouter.post("/:notebookId", handleDocumentUpload, uploadDocument)
-documentRouter.get("/:notebookId", getDocumentsByNotebook)
 documentRouter.get("/status/:documentId", getDocumentStatus)
+documentRouter.get("/:notebookId", getDocumentsByNotebook)
 documentRouter.patch("/:documentId", validateRequest(updateDocumentSchema), isDocumentOwner, updateDocument)
 documentRouter.delete("/:documentId", isDocumentOwner, deleteDocument)
 // documentRouter.get("/:documentId/chunk",async(req:Request,res:Response)=>{
