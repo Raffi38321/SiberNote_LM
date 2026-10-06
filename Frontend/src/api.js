@@ -1,26 +1,25 @@
-
+// Semua request ke backend SiberNote LM ada di file ini.
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8080").replace(/\/$/, "");
-const TOKEN_KEY = "";
-const USER_KEY = "";
 const TIMEOUT_MS = 15000;
+const REFRESH_TOKEN_KEY = "sibernotelm_refresh_token";
 
 export class ApiError extends Error {
-  constructor(message, status = 0, data = null) {
+  constructor(message, status = 0, fieldErrors = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
-    this.data = data;
+    this.fieldErrors = fieldErrors;
   }
 }
 
-async function request(path, { method = "GET", body, token } = {}) {
+async function request(path, { method = "GET", body, accessToken } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   const headers = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
-  if (token) headers.Authorization = `Bearer ${token}`;
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
   let res;
   try {
@@ -31,9 +30,8 @@ async function request(path, { method = "GET", body, token } = {}) {
       signal: controller.signal,
     });
   } catch (err) {
-    const timedOut = err.name === "AbortError";
     throw new ApiError(
-      timedOut
+      err.name === "AbortError"
         ? "Server terlalu lama merespons. Coba lagi."
         : "Tidak dapat terhubung ke server. Periksa koneksi internet Anda."
     );
@@ -41,60 +39,44 @@ async function request(path, { method = "GET", body, token } = {}) {
     clearTimeout(timer);
   }
 
-  let data = null;
+  let payload = null;
   const text = await res.text();
   if (text) {
     try {
-      data = JSON.parse(text);
+      payload = JSON.parse(text);
     } catch {
-      data = { message: text };
+      payload = { message: text };
     }
   }
 
-  if (!res.ok) {
-    const message =
-      data?.message ||
-      data?.detail ||
-      data?.error ||
-      `Permintaan gagal (kode ${res.status}).`;
-    throw new ApiError(typeof message === "string" ? message : JSON.stringify(message), res.status, data);
+  if (!res.ok || payload?.status === "failed") {
+    throw new ApiError(
+      payload?.message || `Permintaan gagal (kode ${res.status}).`,
+      res.status,
+      payload?.errors || null
+    );
   }
 
-  return data;
+  return payload?.data ?? null;
 }
 
+/** POST /user/register -> { accessToken, refreshToken } */
+export function register({ email, username, password }) {
+  return request("/user/register", { method: "POST", body: { email, username, password } });
+}
 
+/** POST /user/login -> { accessToken, refreshToken } */
 export function login({ email, password }) {
   return request("/user/login", { method: "POST", body: { email, password } });
 }
 
-export function register({ username, email, password }) {
-  return request("/user/register", { method: "POST", body: { username, email, password } });
+// ---------- Penyimpanan refreshToken ----------
+// accessToken sengaja tidak disimpan ke localStorage, cukup di state React.
+
+export function saveRefreshToken(token) {
+  if (token) localStorage.setItem(REFRESH_TOKEN_KEY, token);
 }
 
-export function getProfile(token) {
-  return request("/user/me", { token });
-}
-
-
-export function saveSession({ token, user }) {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
-}
-
-export function getToken() {
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function getSavedUser() {
-  try {
-    return JSON.parse(localStorage.getItem(USER_KEY));
-  } catch {
-    return null;
-  }
-}
-
-export function clearSession() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
+export function clearRefreshToken() {
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
