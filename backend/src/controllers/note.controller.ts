@@ -54,6 +54,9 @@ export const getNoteById = async(req: Request, res: Response)=>{
             return response.userError(res, "noteId tidak valid")
         }
         const note = await Note.findById(noteId)
+        if (!note) {
+            return response.notFoundError(res, "note tidak ditemukan")
+        }
         response.requestSuccessWithData(res, "berhasil dapet note", { note }, 200)
     } catch (error) {
         response.serverError(res,"gagal dapet note by id")
