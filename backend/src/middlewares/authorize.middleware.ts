@@ -2,6 +2,7 @@ import { type Request, type Response, type NextFunction } from "express";
 import response from "../utils/response.js";
 import Notebook from "../models/notebook.model.js";
 import Document from "../models/document.model.js";
+import Note from "../models/note.model.js";
 
 export const isUserAuthorize = async (req: Request,res: Response,next: NextFunction,) => {
   const userId = req.userId;
@@ -60,4 +61,32 @@ export const isDocumentOwner = async (
   }
 
   next();
+};
+
+export const isUserAuthorizeToAccessNote = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { notebookId, noteId } = req.params;
+
+    if (!notebookId || !noteId) {
+      return response.userError(res, "notebookId atau noteId kosong");
+    }
+
+    const note = await Note.findOne({
+      _id: noteId,
+      notebookId: notebookId,
+    });
+
+    if (!note) {
+      return response.notFoundError(res, "Note tidak ditemukan");
+    }
+
+    next();
+  } catch (error) {
+    console.error(error);
+    return response.serverError(res, "Gagal memeriksa akses note");
+  }
 };
