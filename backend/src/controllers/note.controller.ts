@@ -37,12 +37,50 @@ export const deleteNote = async (req: Request, res: Response) => {
         }
         const note = await Note.findById(noteId)
         if (!note) {
-            return response.notFoundError(res,"note tidak ditemukan")
+            return response.notFoundError(res,"note tidak ditemukan atau sudah dihapus")
         }
         await Note.findByIdAndDelete(noteId)
 
         response.requestSuccess(res,"berhasil hapus note")
     } catch (error) {
         response.serverError(res,"gagal hapus note")
+    }
+}
+
+export const getNoteById = async(req: Request, res: Response)=>{
+    try {
+        const { noteId } = req.params
+        if (!noteId || typeof noteId !== "string") {
+            return response.userError(res, "noteId tidak valid")
+        }
+        const note = await Note.findById(noteId)
+        response.requestSuccessWithData(res, "berhasil dapet note", { note }, 200)
+    } catch (error) {
+        response.serverError(res,"gagal dapet note by id")
+    }
+}
+
+export const updateNote = async (req: Request, res: Response) => {
+    try {
+        const { noteId } = req.params
+        if (!noteId || typeof noteId !== "string") {
+            return response.userError(res, "noteId tidak valid")
+        }
+        const { title, content } = req.body
+        let updateDataNote = {}
+        if (title) {
+            updateDataNote = { title }
+        }
+        if (content) {
+            updateDataNote = { ...updateDataNote, content }
+        }
+        
+        const note = await Note.findByIdAndUpdate(noteId, { ...updateDataNote }, { returnDocument: "after" })
+        if (!note) {
+            return response.notFoundError(res,"note tidak ditemukan")
+        }
+        response.requestSuccessWithData(res, "berhasil update note", { note }, 200)
+    } catch (error) {
+        response.serverError(res,"gagal update note")
     }
 }

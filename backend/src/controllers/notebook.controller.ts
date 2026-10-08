@@ -5,6 +5,7 @@ import User from "../models/user.model.js";
 import Document from "../models/document.model.js";
 import Chunk from "../models/chunk.model.js";
 import cloudinary from "../services/cloudinary.js";
+import Note from "../models/note.model.js";
 
 export const createNotebook = async (req: Request, res: Response) => {
   try {
@@ -119,6 +120,7 @@ export const deleteNotebook = async (req: Request, res: Response) => {
             })
         }
 
+        await Note.deleteMany({ notebookId:notebook._id})
         await notebook.deleteOne()
 
         return response.requestSuccess(
@@ -131,6 +133,30 @@ export const deleteNotebook = async (req: Request, res: Response) => {
         return response.serverError(
             res,
             "gagal hapus notebook"
+        )
+    }
+}
+
+export const getNotebookById = async (req: Request, res: Response) => {
+    try {
+        const { notebookId } = req.params
+        if (!notebookId || typeof notebookId !== "string") {
+            return response.userError(res, "notebookId tidak valid")
+        }
+        const notebook = await Notebook.findById(notebookId)
+        if (!notebook) {
+            return response.notFoundError(
+                res,
+                "notebook tidak ditemukan"
+            )
+        }
+        const notes = await Note.find({notebookId})
+        const documents = await Document.find({ notebookId })
+        response.requestSuccessWithData(res,"berhasil dapet notebook",{notebook,notes,documents},200)
+    } catch (error) {
+        return response.serverError(
+            res,
+            "gagal dapet notebook by id"
         )
     }
 }
