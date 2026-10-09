@@ -35,20 +35,29 @@ export const getAllNotebookUser = async (req: Request, res: Response) => {
       return response.userError(res, "tidak terautentikasi");
     }
 
-    const notebooks = await Notebook.find({ userId }).sort({
-      isPinned: -1,
-      updatedAt: -1,
-    });
+    const notebooks = await Notebook.find({ userId })
+      .sort({
+        isPinned: -1,
+        updatedAt: -1,
+      })
+      .populate({
+        path: "jumlah_sumber",
+        select: "-fileUrl",
+      })
+      .lean({ virtuals: true });
 
     return response.requestSuccessWithData(
       res,
-      "berhasil dapet semua notebook user",
+      "berhasil mendapatkan semua notebook user",
       { notebooks },
       200,
     );
   } catch (error) {
-    console.log(error);
-    return response.serverError(res, "gagal dapetin semua notebook user");
+    console.error(error);
+    return response.serverError(
+      res,
+      "gagal mendapatkan semua notebook user",
+    );
   }
 };
 

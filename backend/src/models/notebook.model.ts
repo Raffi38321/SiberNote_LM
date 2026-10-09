@@ -25,6 +25,18 @@ const notebookSchema = new mongoose.Schema<INotebook>({
     }
 }, { timestamps: true })
 
+
+notebookSchema.virtual("jumlah_sumber", {
+  ref: "Document",
+  localField: "_id",
+    foreignField: "notebookId",
+  count:true
+});
+
+notebookSchema.set("toJSON", { virtuals: true });
+notebookSchema.set("toObject", { virtuals: true });
+
+
 const Notebook = mongoose.model("Notebook", notebookSchema)
 
 export default Notebook
