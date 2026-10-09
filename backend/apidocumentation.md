@@ -284,10 +284,10 @@ POST /notebooks
 
 **Request Body**
 
-| Field         | Aturan  |
-|---------------|---------|
-| `title`       | Wajib   |
-| `description` | Wajib   |
+| Field         | Aturan                    |
+|---------------|---------------------------|
+| `title`       | Wajib, 1–100 karakter     |
+| `description` | Wajib                     |
 
 ```json
 {
@@ -307,6 +307,7 @@ POST /notebooks
       "userId": "665f1a2b3c4d5e6f7a8b9c0d",
       "title": "Catatan Belajar",
       "description": "Kumpulan catatan belajar machine learning",
+      "isPinned": false,
       "createdAt": "2026-09-24T10:00:00.000Z",
       "updatedAt": "2026-09-24T10:00:00.000Z"
     }
@@ -320,14 +321,13 @@ POST /notebooks
 |--------|----------------------|
 | `400`  | Validasi gagal       |
 | `401`  | Tidak terautentikasi |
-| `404`  | User tidak ditemukan |
 | `500`  | Kesalahan server     |
 
 ---
 
 ### Get All Notebooks
 
-Mengambil semua notebook milik user, diurutkan dari yang terbaru diupdate.
+Mengambil semua notebook milik user, diurutkan berdasarkan pin lalu terbaru diupdate.
 
 ```
 GET /notebooks
@@ -337,7 +337,7 @@ GET /notebooks
 ```json
 {
   "status": "success",
-  "message": "berhasil dapet smua notebook use",
+  "message": "berhasil dapet semua notebook user",
   "data": {
     "notebooks": [
       {
@@ -345,6 +345,7 @@ GET /notebooks
         "userId": "665f1a2b3c4d5e6f7a8b9c0d",
         "title": "Catatan Belajar",
         "description": "Kumpulan catatan belajar machine learning",
+        "isPinned": false,
         "createdAt": "2026-09-24T10:00:00.000Z",
         "updatedAt": "2026-09-24T10:00:00.000Z"
       }
@@ -358,7 +359,6 @@ GET /notebooks
 | Status | Kondisi              |
 |--------|----------------------|
 | `401`  | Tidak terautentikasi |
-| `404`  | User tidak ditemukan |
 | `500`  | Kesalahan server     |
 
 ---
@@ -389,12 +389,11 @@ DELETE /notebooks/:notebookId
 
 **Error Responses**
 
-| Status | Kondisi                                 |
-|--------|-----------------------------------------|
-| `401`  | Tidak terautentikasi                    |
-| `403`  | Notebook bukan milik user               |
-| `404`  | Notebook tidak ditemukan                |
-| `500`  | Kesalahan server                        |
+| Status | Kondisi                                        |
+|--------|------------------------------------------------|
+| `401`  | Tidak terautentikasi                           |
+| `404`  | Notebook tidak ditemukan atau bukan milik user |
+| `500`  | Kesalahan server                               |
 
 ---
 
