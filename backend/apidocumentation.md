@@ -398,7 +398,411 @@ DELETE /notebooks/:notebookId
 
 ---
 
-## Documents
+### Get Notebook By ID
+
+Mengambil detail notebook beserta semua notes dan documents di dalamnya.
+
+```
+GET /notebooks/:notebookId
+```
+
+**URL Params**
+
+| Param        | Keterangan          |
+|--------------|---------------------|
+| `notebookId` | ID notebook MongoDB |
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "berhasil dapet notebook",
+  "data": {
+    "notebook": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c0e",
+      "userId": "665f1a2b3c4d5e6f7a8b9c0d",
+      "title": "Catatan Belajar",
+      "description": "Kumpulan catatan belajar machine learning",
+      "isPinned": false,
+      "createdAt": "2026-09-24T10:00:00.000Z",
+      "updatedAt": "2026-09-24T10:00:00.000Z"
+    },
+    "notes": [],
+    "documents": []
+  }
+}
+```
+
+**Error Responses**
+
+| Status | Kondisi                                 |
+|--------|-----------------------------------------|
+| `401`  | Tidak terautentikasi                    |
+| `404`  | Notebook tidak ditemukan atau bukan milik user |
+| `500`  | Kesalahan server                        |
+
+---
+
+### Update Notebook
+
+Mengubah judul atau deskripsi notebook. Minimal salah satu field harus diisi.
+
+```
+PUT /notebooks/:notebookId
+```
+
+**URL Params**
+
+| Param        | Keterangan          |
+|--------------|---------------------|
+| `notebookId` | ID notebook MongoDB |
+
+**Request Body**
+
+| Field         | Aturan                              |
+|---------------|-------------------------------------|
+| `title`       | Opsional, 1–100 karakter            |
+| `description` | Opsional                            |
+
+```json
+{
+  "title": "Catatan Belajar — Updated",
+  "description": "Deskripsi baru"
+}
+```
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "berhasil update notebook",
+  "data": {
+    "notebook": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c0e",
+      "title": "Catatan Belajar — Updated",
+      "description": "Deskripsi baru",
+      "isPinned": false,
+      "createdAt": "2026-09-24T10:00:00.000Z",
+      "updatedAt": "2026-09-24T10:05:00.000Z"
+    }
+  }
+}
+```
+
+**Error Responses**
+
+| Status | Kondisi                                        |
+|--------|------------------------------------------------|
+| `400`  | Validasi gagal                                 |
+| `401`  | Tidak terautentikasi                           |
+| `404`  | Notebook tidak ditemukan atau bukan milik user |
+| `500`  | Kesalahan server                               |
+
+---
+
+### Pin / Unpin Notebook
+
+Mengubah status pin notebook.
+
+```
+PATCH /notebooks/:notebookId/pin
+```
+
+**URL Params**
+
+| Param        | Keterangan          |
+|--------------|---------------------|
+| `notebookId` | ID notebook MongoDB |
+
+**Request Body**
+
+| Field    | Aturan           |
+|----------|------------------|
+| `pinned` | Wajib, boolean   |
+
+```json
+{
+  "pinned": true
+}
+```
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "berhasil pin notebook",
+  "data": {
+    "notebook": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c0e",
+      "title": "Catatan Belajar",
+      "isPinned": true,
+      "createdAt": "2026-09-24T10:00:00.000Z",
+      "updatedAt": "2026-09-24T10:06:00.000Z"
+    }
+  }
+}
+```
+
+**Error Responses**
+
+| Status | Kondisi                                        |
+|--------|------------------------------------------------|
+| `400`  | Validasi gagal (`pinned` bukan boolean)        |
+| `401`  | Tidak terautentikasi                           |
+| `404`  | Notebook tidak ditemukan atau bukan milik user |
+| `500`  | Kesalahan server                               |
+
+---
+
+## Notes
+
+Semua endpoint note membutuhkan `accessToken` yang valid di header:
+
+```
+Authorization: Bearer <accessToken>
+```
+
+Semua endpoint note berada di bawah `/:notebookId`, artinya setiap request otomatis memverifikasi bahwa notebook tersebut milik user yang login.
+
+---
+
+### Create Note
+
+Membuat note baru di dalam notebook.
+
+```
+POST /notes/:notebookId
+```
+
+**URL Params**
+
+| Param        | Keterangan          |
+|--------------|---------------------|
+| `notebookId` | ID notebook MongoDB |
+
+**Request Body**
+
+| Field     | Aturan                        |
+|-----------|-------------------------------|
+| `title`   | Wajib, 1–100 karakter         |
+| `content` | Wajib                         |
+
+```json
+{
+  "title": "Ringkasan Bab 1",
+  "content": "Isi catatan di sini..."
+}
+```
+
+**Response `201 Created`**
+```json
+{
+  "status": "success",
+  "message": "berhasil buat note",
+  "data": {
+    "note": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c10",
+      "notebookId": "665f1a2b3c4d5e6f7a8b9c0e",
+      "title": "Ringkasan Bab 1",
+      "content": "Isi catatan di sini...",
+      "createdAt": "2026-09-24T10:00:00.000Z",
+      "updatedAt": "2026-09-24T10:00:00.000Z"
+    }
+  }
+}
+```
+
+**Error Responses**
+
+| Status | Kondisi                                        |
+|--------|------------------------------------------------|
+| `400`  | Validasi gagal                                 |
+| `401`  | Tidak terautentikasi                           |
+| `404`  | Notebook tidak ditemukan atau bukan milik user |
+| `500`  | Kesalahan server                               |
+
+---
+
+### Get All Notes by Notebook
+
+Mengambil semua note dalam satu notebook.
+
+```
+GET /notes/:notebookId/all
+```
+
+**URL Params**
+
+| Param        | Keterangan          |
+|--------------|---------------------|
+| `notebookId` | ID notebook MongoDB |
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "berhasil dapet semua note",
+  "data": {
+    "notes": [
+      {
+        "_id": "665f1a2b3c4d5e6f7a8b9c10",
+        "notebookId": "665f1a2b3c4d5e6f7a8b9c0e",
+        "title": "Ringkasan Bab 1",
+        "content": "Isi catatan di sini...",
+        "createdAt": "2026-09-24T10:00:00.000Z",
+        "updatedAt": "2026-09-24T10:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+**Error Responses**
+
+| Status | Kondisi                                        |
+|--------|------------------------------------------------|
+| `401`  | Tidak terautentikasi                           |
+| `404`  | Notebook tidak ditemukan atau bukan milik user |
+| `500`  | Kesalahan server                               |
+
+---
+
+### Get Note By ID
+
+Mengambil satu note berdasarkan ID.
+
+```
+GET /notes/:notebookId/:noteId
+```
+
+**URL Params**
+
+| Param        | Keterangan          |
+|--------------|---------------------|
+| `notebookId` | ID notebook MongoDB |
+| `noteId`     | ID note MongoDB     |
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "berhasil dapet note",
+  "data": {
+    "note": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c10",
+      "notebookId": "665f1a2b3c4d5e6f7a8b9c0e",
+      "title": "Ringkasan Bab 1",
+      "content": "Isi catatan di sini...",
+      "createdAt": "2026-09-24T10:00:00.000Z",
+      "updatedAt": "2026-09-24T10:00:00.000Z"
+    }
+  }
+}
+```
+
+**Error Responses**
+
+| Status | Kondisi                                        |
+|--------|------------------------------------------------|
+| `401`  | Tidak terautentikasi                           |
+| `404`  | Notebook tidak ditemukan atau bukan milik user |
+| `404`  | Note tidak ditemukan di notebook ini           |
+| `500`  | Kesalahan server                               |
+
+---
+
+### Update Note
+
+Mengubah judul atau konten note. Minimal salah satu field harus diisi.
+
+```
+PUT /notes/:notebookId/:noteId
+```
+
+**URL Params**
+
+| Param        | Keterangan          |
+|--------------|---------------------|
+| `notebookId` | ID notebook MongoDB |
+| `noteId`     | ID note MongoDB     |
+
+**Request Body**
+
+| Field     | Aturan                               |
+|-----------|--------------------------------------|
+| `title`   | Opsional, 1–100 karakter             |
+| `content` | Opsional                             |
+
+```json
+{
+  "title": "Ringkasan Bab 1 — Revisi",
+  "content": "Konten yang sudah diperbarui..."
+}
+```
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "berhasil update note",
+  "data": {
+    "note": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c10",
+      "notebookId": "665f1a2b3c4d5e6f7a8b9c0e",
+      "title": "Ringkasan Bab 1 — Revisi",
+      "content": "Konten yang sudah diperbarui...",
+      "createdAt": "2026-09-24T10:00:00.000Z",
+      "updatedAt": "2026-09-24T10:10:00.000Z"
+    }
+  }
+}
+```
+
+**Error Responses**
+
+| Status | Kondisi                                        |
+|--------|------------------------------------------------|
+| `400`  | Validasi gagal                                 |
+| `401`  | Tidak terautentikasi                           |
+| `404`  | Notebook tidak ditemukan atau bukan milik user |
+| `404`  | Note tidak ditemukan di notebook ini           |
+| `500`  | Kesalahan server                               |
+
+---
+
+### Delete Note
+
+Menghapus note dari notebook.
+
+```
+DELETE /notes/:notebookId/:noteId
+```
+
+**URL Params**
+
+| Param        | Keterangan          |
+|--------------|---------------------|
+| `notebookId` | ID notebook MongoDB |
+| `noteId`     | ID note MongoDB     |
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "berhasil hapus note"
+}
+```
+
+**Error Responses**
+
+| Status | Kondisi                                        |
+|--------|------------------------------------------------|
+| `401`  | Tidak terautentikasi                           |
+| `404`  | Notebook tidak ditemukan atau bukan milik user |
+| `404`  | Note tidak ditemukan di notebook ini           |
+| `500`  | Kesalahan server                               |
+
+---
 
 Semua endpoint document membutuhkan `accessToken` yang valid di header:
 

@@ -4,6 +4,7 @@ interface INotebook {
     userId: Types.ObjectId
     title: string
     description: string
+    isPinned: boolean
 }
 
 const notebookSchema = new mongoose.Schema<INotebook>({
@@ -18,6 +19,10 @@ const notebookSchema = new mongoose.Schema<INotebook>({
         required: true,
         trim: true,
     },
+    isPinned: {
+        type: Boolean,
+        default: false
+    }
 }, { timestamps: true })
 
 const Notebook = mongoose.model("Notebook", notebookSchema)
