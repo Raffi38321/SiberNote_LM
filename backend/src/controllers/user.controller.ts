@@ -138,3 +138,23 @@ export const getUser = async (req: Request, res: Response) => {
         return response.serverError(res, "gagal get data user")
     }
 }
+
+
+export const updateUsernameUser = async(req: Request, res: Response)=>{
+    try {
+        const userId = req.userId
+        const {username}= req.body
+
+        if (!userId) {
+            return response.userError(res, "tidak terautentikasi")
+        }
+        const isUsernameExist = await User.findOne({username})
+        if (isUsernameExist) {
+            return response.userError(res, "username sudah terdaftar")
+        }
+        const user = await User.findByIdAndUpdate(userId,{username},{returnDocument:"after"})
+        return response.requestSuccessWithData(res, "Profil berhasil diperbarui", { user }, 200)
+    } catch (error) {
+        return response.serverError(res, "gagal get data user")       
+    }
+}
