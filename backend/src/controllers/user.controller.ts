@@ -155,6 +155,6 @@ export const updateUsernameUser = async(req: Request, res: Response)=>{
         const user = await User.findByIdAndUpdate(userId,{username},{returnDocument:"after"})
         return response.requestSuccessWithData(res, "Profil berhasil diperbarui", { user }, 200)
     } catch (error) {
-        return response.serverError(res, "gagal get data user")       
+        return response.serverError(res, "gagal update data user")       
     }
 }

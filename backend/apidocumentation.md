@@ -46,10 +46,10 @@ Base URL: `http://localhost:8080`
 
 ## Token
 
-| Token          | Expire   | Kegunaan                                        |
-|----------------|----------|-------------------------------------------------|
-| `accessToken`  | 15 menit | Dikirim di header `Authorization` tiap request  |
-| `refreshToken` | 7 hari   | Dipakai untuk mendapatkan `accessToken` baru    |
+| Token          | Expire  | Kegunaan                                        |
+|----------------|---------|-------------------------------------------------|
+| `accessToken`  | 1 jam   | Dikirim di header `Authorization` tiap request  |
+| `refreshToken` | 7 hari  | Dipakai untuk mendapatkan `accessToken` baru    |
 
 Payload JWT: `{ userId: string }`
 
@@ -67,11 +67,11 @@ POST /user/register
 
 **Validasi**
 
-| Field      | Aturan                                                                       |
-|------------|------------------------------------------------------------------------------|
-| `email`    | Wajib, format email valid, unik                                              |
-| `username` | Wajib, 1–16 karakter, hanya `a-z A-Z 0-9 _ -`, unik                        |
-| `password` | Wajib, 8–16 karakter, hanya `a-z A-Z 0-9`, tidak boleh mengandung username  |
+| Field      | Aturan                                                                            |
+|------------|-----------------------------------------------------------------------------------|
+| `email`    | Wajib, format email valid, unik                                                   |
+| `username` | Wajib, 1–16 karakter, hanya `a-z A-Z 0-9 _ -`, unik                             |
+| `password` | Wajib, 8–16 karakter, tidak boleh sama dengan username (case-insensitive)         |
 
 **Request Body**
 ```json
@@ -260,6 +260,61 @@ GET /user/me
 |--------|---------------------------------------------------|
 | `401`  | Token tidak ada, format salah, atau sudah expired |
 | `404`  | User tidak ditemukan                              |
+| `500`  | Kesalahan server                                  |
+
+---
+
+### Update Username
+
+Mengubah username user yang sedang login.
+
+```
+PUT /user
+```
+
+**Headers**
+
+| Key             | Value                  | Required |
+|-----------------|------------------------|----------|
+| `Authorization` | `Bearer <accessToken>` | ✅        |
+
+**Validasi**
+
+| Field      | Aturan                        |
+|------------|-------------------------------|
+| `username` | Wajib, 1–16 karakter, unik    |
+
+**Request Body**
+```json
+{
+  "username": "raffi_baru"
+}
+```
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "Profil berhasil diperbarui",
+  "data": {
+    "user": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c0d",
+      "email": "raffi@example.com",
+      "username": "raffi_baru",
+      "createdAt": "2026-09-24T10:00:00.000Z",
+      "updatedAt": "2026-09-24T10:15:00.000Z"
+    }
+  }
+}
+```
+
+**Error Responses**
+
+| Status | Kondisi                                           |
+|--------|---------------------------------------------------|
+| `400`  | Validasi gagal                                    |
+| `401`  | Token tidak ada, format salah, atau sudah expired |
+| `401`  | Username sudah terdaftar                          |
 | `500`  | Kesalahan server                                  |
 
 ---
