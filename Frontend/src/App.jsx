@@ -743,7 +743,7 @@ function WorkspacePage({ notebook, onBack, onLogout }) {
       <main className="workspace" aria-label={`Workspace ${notebook.title}`}>
         {/* Panel kiri: dikosongkan dulu */}
         <section className="panel panel-sources">
-          <h2 className="panel-title">Sumber</h2>
+          <h2 className="panel-title"></h2>
         </section>
 
         {/* Panel tengah: Chat AI */}
@@ -779,7 +779,7 @@ function WorkspacePage({ notebook, onBack, onLogout }) {
 
         {/* Panel kanan: dikosongkan dulu */}
         <section className="panel panel-notes">
-          <h2 className="panel-title">Catatan</h2>
+          <h2 className="panel-title"></h2>
         </section>
       </main>
     </div>

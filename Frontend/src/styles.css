@@ -1,6 +1,7 @@
 :root {
   --bg: #1a1c1d;
   --surface: #202020;
+  --panel: #272727;
   --text: #cecece;
   --text-muted: #8f8f8f;
   --border: #a37a7a;
@@ -172,7 +173,7 @@ body {
 }
 
 .error-summary {
-  margin: 0 0 12px;
+  margin: 0 -20px 12px;
   padding: 10px 14px;
   border-radius: 8px;
   background: #ff8080;
@@ -180,10 +181,11 @@ body {
 
 .error-summary p {
   margin: 0;
-  color: #ff0000;
+  color: #7a0000;
   font-weight: 500;
   font-size: 0.75rem;
   line-height: 1.6;
+  white-space: nowrap;
 }
 
 .error-summary p + p {
@@ -245,54 +247,6 @@ body {
   border-radius: 2px;
 }
 
-/* ----- Notebook ----- */
-.notebooks {
-  max-width: 480px;
-}
-
-.notebook-list {
-  list-style: none;
-  margin: 18px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.notebook-item {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-}
-
-.notebook-item strong {
-  display: block;
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.notebook-item p {
-  margin: 2px 0 0;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  * {
-    transition: none !important;
-  }
-}
-
-input[type="password"]::-ms-reveal,
-input[type="password"]::-ms-clear {
-  display: none;
-}
-
 /* ----- Dashboard ----- */
 .app-topbar {
   justify-content: space-between;
@@ -303,30 +257,6 @@ input[type="password"]::-ms-clear {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.toggle {
-  width: 40px;
-  height: 22px;
-  padding: 2px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-}
-
-.toggle-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--text);
-  transition: transform 0.15s;
-}
-
-.toggle.is-on .toggle-thumb {
-  transform: translateX(18px);
 }
 
 .avatar {
@@ -373,20 +303,26 @@ input[type="password"]::-ms-clear {
 }
 
 .search-wrap {
-  flex: 1;
-  max-width: 320px;
+  flex: 0 1 auto;       /* lebar mengikuti isi, tidak melebar sendiri */
+  max-width: 300px;     /* batas maksimal, ubah sesuai kebutuhan */
+  height: 38px;
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 38px;
-  padding: 0 14px;
+  padding: 0 20px;
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--text-muted);
 }
 
+.search-wrap svg {
+  flex-shrink: 0;       /* ikon kaca pembesar tidak ikut mengecil */
+}
+
 .search-input {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+  field-sizing: content;
   background: none;
   border: 0;
   outline: none;
@@ -401,7 +337,7 @@ input[type="password"]::-ms-clear {
 
 .notebooks-panel-head {
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
   justify-content: space-between;
   margin-bottom: 14px;
 }
@@ -420,13 +356,73 @@ input[type="password"]::-ms-clear {
   padding: 0 12px;
   background: none;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 10px;
   color: var(--text);
   font: inherit;
   font-size: 0.75rem;
   cursor: pointer;
 }
 
+/* ----- Dropdown (profil, urutan, aksi baris) ----- */
+.menu-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  z-index: 11;
+  min-width: 150px;
+  margin-top: 6px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.dropdown-menu--right {
+  right: 0;
+}
+
+.dropdown-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.dropdown-menu button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dropdown-menu button.is-active {
+  color: var(--link);
+}
+
+.dropdown-menu button.danger {
+  color: var(--error);
+}
+
+/* ----- Tabel catatan ----- */
 .notebooks-table {
   width: 100%;
   border-collapse: collapse;
@@ -445,11 +441,12 @@ input[type="password"]::-ms-clear {
   padding: 14px 8px;
   border-bottom: 1px solid var(--border);
   font-size: 0.875rem;
+  vertical-align: middle;
 }
 
 .notebooks-table-actions {
   text-align: right;
-  width: 32px;
+  width: 40px;
 }
 
 .icon-btn {
@@ -457,6 +454,7 @@ input[type="password"]::-ms-clear {
   border: 0;
   color: var(--text-muted);
   cursor: pointer;
+  padding: 4px 8px;
   font-size: 1rem;
   line-height: 1;
 }
@@ -465,9 +463,203 @@ input[type="password"]::-ms-clear {
   color: var(--text);
 }
 
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: progress;
+}
+
 .empty-state {
-  padding: 24px 8px;
+  padding: 32px 8px;
   text-align: center;
   color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* ----- Tabel: baris bisa diklik ----- */
+.row-clickable {
+  cursor: pointer;
+}
+
+.row-clickable:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.row-title {
+  padding: 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row-title:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ----- Header: logo + nama aplikasi bisa diklik ----- */
+.brand-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* ----- Workspace ----- */
+.workspace-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.workspace {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 12px;
+  padding: 0 20px 20px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 16px 20px;
+  background: var(--panel);
+  border-radius: 18px;
+}
+
+.panel-title {
+  margin: 0 0 14px;
   font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+/* ----- Chat AI ----- */
+.chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 4px 4px 12px 0;
+}
+
+.msg-user {
+  align-self: flex-end;
+  max-width: 85%;
+}
+
+.bubble {
+  margin: 0;
+  padding: 10px 16px;
+  background: var(--bg);
+  border-radius: 18px;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.msg-ai p {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.source-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 10px;
+  background: var(--bg);
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  vertical-align: middle;
+}
+
+.chat-input {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin: 8px 16px 0;
+  padding: 12px 14px;
+  background: var(--bg);
+  border-radius: 18px;
+}
+
+.chat-input:focus-within {
+  box-shadow: 0 0 0 1px var(--border-focus);
+}
+
+.chat-input textarea {
+  flex: 1;
+  min-width: 0;
+  max-height: 150px;
+  padding: 0;
+  resize: none;
+  field-sizing: content;
+  background: none;
+  border: 0;
+  outline: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.chat-input textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.send-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: #ffffff;
+}
+
+.send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Layar sempit: sementara hanya tampilkan panel Chat */
+@media (max-width: 900px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .panel-sources,
+  .panel-notes {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
 }
