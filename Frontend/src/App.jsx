@@ -1,5 +1,13 @@
-import { useState } from "react";
-import { ApiError, register, login, saveRefreshToken, clearRefreshToken } from "./api";
+import { useEffect, useRef, useState } from "react";
+import {
+  ApiError,
+  register,
+  login,
+  getNotebooks,
+  deleteNotebook,
+  saveRefreshToken,
+  clearRefreshToken,
+} from "./api";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_RE = /^[a-zA-Z0-9_-]{1,16}$/;
@@ -21,6 +29,7 @@ function validatePassword(password, username) {
   return "";
 }
 
+/** Ubah array errors dari backend ([{field, message}]) jadi { [field]: message }. */
 function mapFieldErrors(err) {
   const map = {};
   if (err instanceof ApiError && Array.isArray(err.fieldErrors)) {
@@ -53,6 +62,7 @@ function EyeIcon({ hidden }) {
   );
 }
 
+/** Area pesan error terpusat — satu box merah di bawah header. */
 function ErrorSummary({ messages }) {
   if (!messages.length) return null;
   return (
@@ -181,6 +191,7 @@ function LoginPage({ goRegister, notice, onLoginSuccess }) {
 
 /* ---------- Halaman Register (terhubung ke POST /user/register) ---------- */
 
+/** Validasi satu field secara terpisah, dipakai untuk validasi real-time. */
 function validateField(name, value, form) {
   switch (name) {
     case "username":
@@ -207,6 +218,9 @@ function RegisterPage({ goLogin, onRegistered }) {
   const [apiError, setApiError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Validasi real-time: begitu field pernah disentuh (blur), error langsung
+  // diperbarui setiap kali nilainya berubah — termasuk field "confirm" yang
+  // ikut tervalidasi ulang saat "password" diedit.
   function update(e) {
     const { name, value } = e.target;
     const nextForm = { ...form, [name]: value };
@@ -304,7 +318,7 @@ function RegisterPage({ goLogin, onRegistered }) {
   );
 }
 
-/* ---------- Dashboard (skeleton — data masih statis) ---------- */
+/* ---------- Dashboard ---------- */
 
 function PersonIcon() {
   return (
@@ -335,55 +349,190 @@ function ChevronDownIcon() {
   );
 }
 
-/** Toggle visual saja — belum mengganti tema sungguhan. */
-function ThemeToggle() {
-  const [on, setOn] = useState(false);
+function PencilIcon() {
   return (
-    <button
-      type="button"
-      className={`toggle${on ? " is-on" : ""}`}
-      onClick={() => setOn((v) => !v)}
-      aria-pressed={on}
-      aria-label="Ganti tema"
-    >
-      <span className="toggle-thumb" />
-    </button>
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
   );
 }
 
-function AppHeader({ onLogout }) {
+function PinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 2v6" />
+      <path d="M7 10h10l-1 4H8l-1-4Z" />
+      <path d="M12 14v8" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-8 0 1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13" />
+    </svg>
+  );
+}
+
+function ArrowRightIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+         strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+function formatDate(value) {
+  return new Date(value).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+const SORT_OPTIONS = [
+  { value: "newest", label: "Terbaru" },
+  { value: "az", label: "A-Z" },
+];
+
+/**
+ * Header untuk halaman setelah login.
+ * - onBrandClick (opsional): kalau diisi, logo + nama aplikasi jadi tombol kembali.
+ * - actions (opsional): elemen tambahan di sisi kanan, sebelum avatar.
+ */
+function AppHeader({ onLogout, onBrandClick, actions }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const brand = (
+    <>
+      <span className="logo" aria-hidden="true">Logo</span>
+      <span className="brand">SiberNoteLM</span>
+    </>
+  );
+
   return (
     <header className="topbar app-topbar">
       <div className="topbar-left">
-        <div className="logo" aria-hidden="true">Logo</div>
-        <span className="brand">SiberNoteLM</span>
+        {onBrandClick ? (
+          <button
+            type="button"
+            className="brand-link"
+            onClick={onBrandClick}
+            aria-label="Kembali ke dashboard"
+          >
+            {brand}
+          </button>
+        ) : (
+          brand
+        )}
       </div>
+
       <div className="topbar-right">
-        <ThemeToggle />
-        <button type="button" className="avatar" onClick={onLogout} aria-label="Keluar">
-          <PersonIcon />
-        </button>
+        {actions}
+        <div className="menu-wrap">
+          <button
+            type="button"
+            className="avatar"
+            aria-label="Menu profil"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            <PersonIcon />
+          </button>
+          {menuOpen && (
+            <>
+              <div className="menu-backdrop" onClick={() => setMenuOpen(false)} />
+              <div className="dropdown-menu dropdown-menu--right" role="menu">
+                {/* Edit Profil: UI saja, belum ada endpoint di backend */}
+                <button type="button" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  Edit Profil
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { setMenuOpen(false); onLogout(); }}
+                >
+                  Keluar
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );
 }
 
-const SAMPLE_NOTEBOOKS = [
-  { id: "1", title: "Judul Catatan", sources: 2, createdAt: "18 September 2026" },
-];
-
-function NotebooksPage({ onLogout }) {
+function NotebooksPage({ accessToken, onLogout, onOpenNotebook }) {
+  const [notebooks, setNotebooks] = useState([]);
+  const [loadingList, setLoadingList] = useState(true);
+  const [listError, setListError] = useState("");
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("newest");
+  const [sortOpen, setSortOpen] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
-  const filtered = SAMPLE_NOTEBOOKS.filter((nb) =>
-    nb.title.toLowerCase().includes(search.trim().toLowerCase())
-  );
+  async function loadNotebooks() {
+    setLoadingList(true);
+    setListError("");
+    try {
+      const data = await getNotebooks(accessToken);
+      setNotebooks(data?.notebooks || []);
+    } catch (err) {
+      setListError(err.message);
+    } finally {
+      setLoadingList(false);
+    }
+  }
+
+  useEffect(() => {
+    loadNotebooks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleDelete(notebook) {
+    const confirmed = window.confirm(
+      `Hapus "${notebook.title}"? Semua dokumen di dalamnya juga akan terhapus permanen.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(notebook._id);
+    setListError("");
+    try {
+      await deleteNotebook(notebook._id, accessToken);
+      setNotebooks((list) => list.filter((nb) => nb._id !== notebook._id));
+    } catch (err) {
+      setListError(err.message);
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  const visible = notebooks
+    .filter((nb) => nb.title.toLowerCase().includes(search.trim().toLowerCase()))
+    .sort((a, b) =>
+      sortBy === "az"
+        ? a.title.localeCompare(b.title, "id")
+        : new Date(b.createdAt) - new Date(a.createdAt)
+    );
+
+  const sortLabel = SORT_OPTIONS.find((o) => o.value === sortBy).label;
 
   return (
     <>
       <AppHeader onLogout={onLogout} />
       <main className="dashboard">
         <div className="toolbar">
+          {/* Catatan Baru: sementara belum melakukan apa-apa */}
           <button type="button" className="btn-pill">Catatan Baru +</button>
           <div className="search-wrap">
             <SearchIcon />
@@ -401,40 +550,239 @@ function NotebooksPage({ onLogout }) {
         <section className="notebooks-panel">
           <div className="notebooks-panel-head">
             <h2>Catatan Saya</h2>
-            <button type="button" className="sort-btn">
-              Terbaru <ChevronDownIcon />
-            </button>
+
+            <div className="menu-wrap">
+              <button
+                type="button"
+                className="sort-btn"
+                aria-haspopup="menu"
+                aria-expanded={sortOpen}
+                onClick={() => setSortOpen((v) => !v)}
+              >
+                {sortLabel} <ChevronDownIcon />
+              </button>
+              {sortOpen && (
+                <>
+                  <div className="menu-backdrop" onClick={() => setSortOpen(false)} />
+                  <div className="dropdown-menu dropdown-menu--right" role="menu">
+                    {SORT_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={sortBy === opt.value}
+                        className={sortBy === opt.value ? "is-active" : ""}
+                        onClick={() => { setSortBy(opt.value); setSortOpen(false); }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
-          <table className="notebooks-table">
-            <thead>
-              <tr>
-                <th>Judul</th>
-                <th>Sumber</th>
-                <th>Dibuat</th>
-                <th aria-hidden="true"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((nb) => (
-                <tr key={nb.id}>
-                  <td>{nb.title}</td>
-                  <td>{nb.sources} Sumber</td>
-                  <td>{nb.createdAt}</td>
-                  <td className="notebooks-table-actions">
-                    <button type="button" className="icon-btn" aria-label="Opsi lainnya">⋮</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {listError && <ErrorSummary messages={[listError]} />}
 
-          {filtered.length === 0 && (
-            <p className="empty-state">Belum ada catatan. Buat catatan pertamamu lewat tombol di atas.</p>
+          {loadingList ? (
+            <p className="empty-state">Memuat catatan...</p>
+          ) : visible.length === 0 ? (
+            !listError && (
+              <p className="empty-state">
+                {notebooks.length === 0
+                  ? "Belum ada catatan dibuat"
+                  : "Tidak ada catatan yang cocok dengan pencarian."}
+              </p>
+            )
+          ) : (
+            <table className="notebooks-table">
+              <thead>
+                <tr>
+                  <th>Judul</th>
+                  <th>Sumber</th>
+                  <th>Tanggal Dibuat</th>
+                  <th aria-hidden="true"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((nb) => (
+                  // Klik di mana saja pada baris membuka workspace catatan ini.
+                  <tr
+                    key={nb._id}
+                    className="row-clickable"
+                    onClick={() => onOpenNotebook(nb)}
+                  >
+                    <td>
+                      {/* Tombol sungguhan supaya bisa dipilih & ditekan lewat keyboard */}
+                      <button type="button" className="row-title">{nb.title}</button>
+                    </td>
+                    {/* TODO: jumlah sumber belum tersedia dari backend */}
+                    <td>—</td>
+                    <td>{formatDate(nb.createdAt)}</td>
+                    {/* stopPropagation: klik menu titik tiga tidak ikut membuka workspace */}
+                    <td className="notebooks-table-actions" onClick={(e) => e.stopPropagation()}>
+                      <div className="menu-wrap">
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          aria-label={`Opsi untuk ${nb.title}`}
+                          aria-haspopup="menu"
+                          aria-expanded={openMenuId === nb._id}
+                          disabled={deletingId === nb._id}
+                          onClick={() => setOpenMenuId((id) => (id === nb._id ? null : nb._id))}
+                        >
+                          ⋮
+                        </button>
+                        {openMenuId === nb._id && (
+                          <>
+                            <div className="menu-backdrop" onClick={() => setOpenMenuId(null)} />
+                            <div className="dropdown-menu dropdown-menu--right" role="menu">
+                              {/* Rename & Pin: UI saja, backend belum punya endpoint */}
+                              <button type="button" role="menuitem" onClick={() => setOpenMenuId(null)}>
+                                <PencilIcon /> Rename
+                              </button>
+                              <button type="button" role="menuitem" onClick={() => setOpenMenuId(null)}>
+                                <PinIcon /> Pin
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className="danger"
+                                onClick={() => { setOpenMenuId(null); handleDelete(nb); }}
+                              >
+                                <TrashIcon /> Hapus
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </section>
       </main>
     </>
+  );
+}
+
+/* ---------- Workspace (panel tengah: Chat AI) ---------- */
+
+// Data contoh untuk tampilan. Ganti dengan riwayat chat dari backend.
+const SAMPLE_MESSAGES = [
+  { id: 1, role: "user", text: "Lorem ipsum" },
+  {
+    id: 2,
+    role: "ai",
+    text:
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec varius non risus id consequat. " +
+      "Mauris congue magna a semper sagittis. Maecenas malesuada elit ac diam sollicitudin eleifend. " +
+      "Fusce varius a tellus luctus commodo. In pulvinar sagittis feugiat.",
+    sources: ["PDF"],
+  },
+];
+
+function ChatMessage({ message }) {
+  if (message.role === "user") {
+    return (
+      <div className="msg msg-user">
+        <p className="bubble">{message.text}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="msg msg-ai">
+      <p>
+        {message.text}
+        {(message.sources || []).map((src, i) => (
+          <span key={`${src}-${i}`} className="source-chip">{src}</span>
+        ))}
+      </p>
+    </div>
+  );
+}
+
+function WorkspacePage({ notebook, onBack, onLogout }) {
+  const [messages, setMessages] = useState(SAMPLE_MESSAGES);
+  const [draft, setDraft] = useState("");
+  const endRef = useRef(null);
+
+  // Setiap ada pesan baru, gulung otomatis ke bawah.
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages]);
+
+  function handleSend(e) {
+    e.preventDefault();
+    const text = draft.trim();
+    if (!text) return;
+    setMessages((list) => [...list, { id: Date.now(), role: "user", text }]);
+    setDraft("");
+    // TODO: kirim ke endpoint chat, lalu tambahkan balasan AI beserta label sumbernya.
+  }
+
+  // Enter = kirim, Shift+Enter = baris baru.
+  function handleKeyDown(e) {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+      handleSend(e);
+    }
+  }
+
+  return (
+    <div className="workspace-page">
+      <AppHeader
+        onLogout={onLogout}
+        onBrandClick={onBack}
+        actions={<button type="button" className="btn-pill">Catatan Baru +</button>}
+      />
+
+      <main className="workspace" aria-label={`Workspace ${notebook.title}`}>
+        {/* Panel kiri: dikosongkan dulu */}
+        <section className="panel panel-sources">
+          <h2 className="panel-title"></h2>
+        </section>
+
+        {/* Panel tengah: Chat AI */}
+        <section className="panel panel-chat">
+          <h2 className="panel-title">Chat AI</h2>
+
+          <div className="chat-messages" role="log">
+            {messages.map((m) => (
+              <ChatMessage key={m.id} message={m} />
+            ))}
+            <div ref={endRef} />
+          </div>
+
+          <form className="chat-input" onSubmit={handleSend}>
+            <textarea
+              rows={1}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Tulis pesan..."
+              aria-label="Tulis pesan"
+            />
+            <button
+              type="submit"
+              className="send-btn"
+              aria-label="Kirim pesan"
+              disabled={!draft.trim()}
+            >
+              <ArrowRightIcon />
+            </button>
+          </form>
+        </section>
+
+        {/* Panel kanan: dikosongkan dulu */}
+        <section className="panel panel-notes">
+          <h2 className="panel-title"></h2>
+        </section>
+      </main>
+    </div>
   );
 }
 
@@ -444,6 +792,7 @@ export default function App() {
   const [view, setView] = useState("login");
   const [notice, setNotice] = useState("");
   const [accessToken, setAccessToken] = useState(null);
+  const [activeNotebook, setActiveNotebook] = useState(null);
 
   function handleLoginSuccess(token) {
     setAccessToken(token);
@@ -453,12 +802,39 @@ export default function App() {
   function handleLogout() {
     clearRefreshToken();
     setAccessToken(null);
+    setActiveNotebook(null);
     setNotice("");
     setView("login");
   }
 
+  function handleOpenNotebook(notebook) {
+    setActiveNotebook(notebook);
+    setView("workspace");
+  }
+
+  function handleBackToDashboard() {
+    setActiveNotebook(null);
+    setView("dashboard");
+  }
+
+  if (view === "workspace" && accessToken && activeNotebook) {
+    return (
+      <WorkspacePage
+        notebook={activeNotebook}
+        onBack={handleBackToDashboard}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
   if (view === "dashboard" && accessToken) {
-    return <NotebooksPage onLogout={handleLogout} />;
+    return (
+      <NotebooksPage
+        accessToken={accessToken}
+        onLogout={handleLogout}
+        onOpenNotebook={handleOpenNotebook}
+      />
+    );
   }
 
   return (

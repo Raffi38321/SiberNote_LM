@@ -60,6 +60,8 @@ async function request(path, { method = "GET", body, accessToken } = {}) {
   return payload?.data ?? null;
 }
 
+// ---------- Auth ----------
+
 /** POST /user/register -> { accessToken, refreshToken } */
 export function register({ email, username, password }) {
   return request("/user/register", { method: "POST", body: { email, username, password } });
@@ -68,6 +70,23 @@ export function register({ email, username, password }) {
 /** POST /user/login -> { accessToken, refreshToken } */
 export function login({ email, password }) {
   return request("/user/login", { method: "POST", body: { email, password } });
+}
+
+// ---------- Notebooks ----------
+
+/** POST /notebooks -> { notebook } (belum dipakai di UI, disiapkan untuk nanti) */
+export function createNotebook({ title, description }, accessToken) {
+  return request("/notebooks", { method: "POST", body: { title, description }, accessToken });
+}
+
+/** GET /notebooks -> { notebooks: [] } */
+export function getNotebooks(accessToken) {
+  return request("/notebooks", { accessToken });
+}
+
+/** DELETE /notebooks/:notebookId */
+export function deleteNotebook(notebookId, accessToken) {
+  return request(`/notebooks/${notebookId}`, { method: "DELETE", accessToken });
 }
 
 // ---------- Penyimpanan refreshToken ----------
