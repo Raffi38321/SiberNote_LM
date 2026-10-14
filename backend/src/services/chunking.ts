@@ -218,3 +218,36 @@ export const chunkPPTX = async (
         throw new ParseError(err)
     }
 }
+
+export const chunkTXT = async (
+    buffer: Buffer,
+    documentId: Types.ObjectId,
+): Promise<{ chunks: RawChunk[]; totalPages: number }> => {
+    try {
+        const text = buffer.toString("utf-8")
+
+        if (!text.trim()) throw new NoTextError()
+
+        // TXT tidak punya konsep "halaman" — split per 3000 karakter, semua di page 1
+        const parts = splitBySize(text.trim())
+        const chunks: RawChunk[] = parts
+            .filter((part) => part.length >= 20)
+            .map((content, i) => ({
+                documentId,
+                chunkIndex: i,
+                content,
+                pageStart: 1,
+                pageEnd: 1,
+                embedding: [],
+            }))
+
+        if (chunks.length === 0) throw new NoTextError()
+
+        console.log(`[chunking] TXT — ${chunks.length} chunks`)
+
+        return { chunks: await attachEmbeddings(chunks), totalPages: 1 }
+    } catch (err) {
+        if (err instanceof NoTextError) throw err
+        throw new ParseError(err)
+    }
+}
