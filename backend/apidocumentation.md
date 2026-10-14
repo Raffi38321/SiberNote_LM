@@ -46,10 +46,10 @@ Base URL: `http://localhost:8080`
 
 ## Token
 
-| Token          | Expire   | Kegunaan                                        |
-|----------------|----------|-------------------------------------------------|
-| `accessToken`  | 15 menit | Dikirim di header `Authorization` tiap request  |
-| `refreshToken` | 7 hari   | Dipakai untuk mendapatkan `accessToken` baru    |
+| Token          | Expire  | Kegunaan                                        |
+|----------------|---------|-------------------------------------------------|
+| `accessToken`  | 1 jam   | Dikirim di header `Authorization` tiap request  |
+| `refreshToken` | 7 hari  | Dipakai untuk mendapatkan `accessToken` baru    |
 
 Payload JWT: `{ userId: string }`
 
@@ -67,11 +67,11 @@ POST /user/register
 
 **Validasi**
 
-| Field      | Aturan                                                                       |
-|------------|------------------------------------------------------------------------------|
-| `email`    | Wajib, format email valid, unik                                              |
-| `username` | Wajib, 1–16 karakter, hanya `a-z A-Z 0-9 _ -`, unik                        |
-| `password` | Wajib, 8–16 karakter, hanya `a-z A-Z 0-9`, tidak boleh mengandung username  |
+| Field      | Aturan                                                                            |
+|------------|-----------------------------------------------------------------------------------|
+| `email`    | Wajib, format email valid, unik                                                   |
+| `username` | Wajib, 1–16 karakter, hanya `a-z A-Z 0-9 _ -`, unik                             |
+| `password` | Wajib, 8–16 karakter, tidak boleh sama dengan username (case-insensitive)         |
 
 **Request Body**
 ```json
@@ -260,6 +260,61 @@ GET /user/me
 |--------|---------------------------------------------------|
 | `401`  | Token tidak ada, format salah, atau sudah expired |
 | `404`  | User tidak ditemukan                              |
+| `500`  | Kesalahan server                                  |
+
+---
+
+### Update Username
+
+Mengubah username user yang sedang login.
+
+```
+PUT /user
+```
+
+**Headers**
+
+| Key             | Value                  | Required |
+|-----------------|------------------------|----------|
+| `Authorization` | `Bearer <accessToken>` | ✅        |
+
+**Validasi**
+
+| Field      | Aturan                        |
+|------------|-------------------------------|
+| `username` | Wajib, 1–16 karakter, unik    |
+
+**Request Body**
+```json
+{
+  "username": "raffi_baru"
+}
+```
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "Profil berhasil diperbarui",
+  "data": {
+    "user": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c0d",
+      "email": "raffi@example.com",
+      "username": "raffi_baru",
+      "createdAt": "2026-09-24T10:00:00.000Z",
+      "updatedAt": "2026-09-24T10:15:00.000Z"
+    }
+  }
+}
+```
+
+**Error Responses**
+
+| Status | Kondisi                                           |
+|--------|---------------------------------------------------|
+| `400`  | Validasi gagal                                    |
+| `401`  | Token tidak ada, format salah, atau sudah expired |
+| `401`  | Username sudah terdaftar                          |
 | `500`  | Kesalahan server                                  |
 
 ---
@@ -813,7 +868,7 @@ Authorization: Bearer <accessToken>
 
 ### Upload Document
 
-Upload file PDF atau PPTX ke notebook. File disimpan ke Cloudinary, lalu dipecah menjadi chunks dan di-embed menggunakan Gemini secara background (tidak memblokir response).
+Upload file PDF, PPTX, atau TXT ke notebook. File disimpan ke Cloudinary, lalu dipecah menjadi chunks dan di-embed menggunakan Gemini secara background (tidak memblokir response).
 
 ```
 POST /documents/:notebookId
@@ -831,7 +886,7 @@ POST /documents/:notebookId
 
 | Field  | Type   | Required | Keterangan                        |
 |--------|--------|----------|-----------------------------------|
-| `file` | file   | ✅        | File PDF atau PPTX, maksimal 20MB |
+| `file` | file   | ✅        | File PDF, PPTX, atau TXT, maksimal 20MB |
 
 **Response `201 Created`**
 
@@ -860,9 +915,10 @@ Response dikembalikan langsung setelah file terupload ke Cloudinary. Proses chun
 
 > `parseStatus` akan berubah menjadi `"done"` setelah chunking dan embedding selesai, atau `"error"` jika gagal. Frontend bisa polling field ini untuk tahu kapan dokumen siap dipakai.
 
-> **Catatan OCR:**
+> **Catatan OCR & parsing:**
 > - **PDF:** Halaman yang terdeteksi sebagai scan/gambar (teks < 30 karakter) di-render lalu di-OCR dengan Tesseract (`ind+eng`).
 > - **PPTX:** Teks slide diambil dari shape seperti biasa; gambar tertanam di slide juga di-OCR otomatis (Tesseract `ind+eng`) lalu digabung ke konten slide. Hasil OCR yang terlalu pendek (< 30 karakter, misalnya logo) diabaikan.
+> - **TXT:** Konten dibaca langsung sebagai UTF-8, dipecah per 3000 karakter. Tidak ada OCR. `totalPages` selalu `1`.
 >
 > Proses OCR lebih lambat dibanding ekstraksi teks biasa.
 
@@ -871,7 +927,7 @@ Response dikembalikan langsung setelah file terupload ke Cloudinary. Proses chun
 | Status | Kondisi                                         |
 |--------|-------------------------------------------------|
 | `401`  | Tidak terautentikasi                            |
-| `401`  | Tipe file tidak didukung (bukan PDF atau PPTX)  |
+| `401`  | Tipe file tidak didukung (bukan PDF, PPTX, atau TXT) |
 | `401`  | File tidak disertakan                           |
 | `404`  | Notebook tidak ditemukan atau bukan milik user  |
 | `500`  | Kesalahan server / gagal upload ke Cloudinary   |
@@ -1083,19 +1139,23 @@ upload selesai → parseStatus: "pending"
   per halaman PDF:                     parseStatus: "error"
   teks >= 30 char → pakai langsung     parseError: "<pesan>"
   teks < 30 char  → render → OCR       → file corrupt / semua halaman kosong
+         │                             
+  PPTX: teks shape + OCR gambar
+  TXT:  baca langsung sebagai UTF-8
          │
          ▼
   embed semua chunks (Gemini)
          │
          ▼
   parseStatus: "done"
-  totalPages: N
+  totalPages: N  (TXT selalu 1)
   → dokumen siap dipakai
 ```
 
 > **OCR otomatis:**
 > - **PDF:** Halaman dengan teks < 30 karakter di-render ke PNG lalu di-OCR (Tesseract `ind+eng`). Halaman yang gagal di-OCR di-skip tanpa menghentikan proses keseluruhan.
 > - **PPTX:** Gambar tertanam di slide di-OCR saat parsing; teks hasil OCR digabung dengan teks shape. Hasil OCR < 30 karakter diabaikan.
+> - **TXT:** Tidak ada OCR. Konten dibaca langsung sebagai UTF-8 dan dipecah per 3000 karakter.
 
 ---
 

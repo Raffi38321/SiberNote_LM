@@ -22,7 +22,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
         const decoded = jwt.verify(token, envVariable.JWT_KEY) as JwtPayload
 
         if (typeof decoded.userId !== "string") {
-            response.userError(res, "token tidak valid")
+            response.userError(res, "Sesi Anda telah berakhir, silahkan login kembali")
             return
         }
 
