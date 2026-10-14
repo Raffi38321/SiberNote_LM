@@ -3,6 +3,7 @@ import multer from "multer"
 const ALLOWED_MIME_TYPES = [
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation", // pptx
+    "text/plain", // txt
 ]
 
 const MAX_FILE_SIZE_MB = 20
