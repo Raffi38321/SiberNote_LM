@@ -3,6 +3,7 @@ import multer from "multer"
 const ALLOWED_MIME_TYPES = [
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation", // pptx
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",    // docx
     "text/plain", // txt
 ]
 

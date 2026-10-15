@@ -5,14 +5,15 @@ import cloudinary from "../services/cloudinary.js"
 import Document from "../models/document.model.js"
 import Notebook from "../models/notebook.model.js"
 import Chunk from "../models/chunk.model.js"
-import { chunkPDF, chunkPPTX, chunkTXT, NoTextError } from "../services/chunking.js"
+import { chunkPDF, chunkPPTX, chunkTXT, chunkDOCX, NoTextError } from "../services/chunking.js"
 import response from "../utils/response.js"
 
-type FileType = "pdf" | "pptx" | "txt"
+type FileType = "pdf" | "pptx" | "txt" | "docx"
 
 const MIME_TO_FILETYPE: Record<string, FileType> = {
     "application/pdf": "pdf",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
     "text/plain": "txt",
 }
 
@@ -72,7 +73,7 @@ export const uploadDocument = async (req: Request, res: Response) => {
         const fileType = MIME_TO_FILETYPE[mimetype]
 
         if (!fileType) {
-            return response.userError(res, "tipe file tidak didukung, hanya PDF, PPTX, dan TXT")
+            return response.userError(res, "tipe file tidak didukung, hanya PDF, PPTX, DOCX, dan TXT")
         }
 
         const baseName = originalname.replace(/\.[^.]+$/, "").replace(/\s+/g, "_")
@@ -100,7 +101,9 @@ export const uploadDocument = async (req: Request, res: Response) => {
                     ? await chunkPDF(buffer, doc._id)
                     : fileType === "pptx"
                         ? await chunkPPTX(buffer, doc._id)
-                        : await chunkTXT(buffer, doc._id)
+                        : fileType === "docx"
+                            ? await chunkDOCX(buffer, doc._id)
+                            : await chunkTXT(buffer, doc._id)
 
                 if (chunks.length > 0) {
                     await Chunk.insertMany(chunks)

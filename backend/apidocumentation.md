@@ -868,7 +868,7 @@ Authorization: Bearer <accessToken>
 
 ### Upload Document
 
-Upload file PDF, PPTX, atau TXT ke notebook. File disimpan ke Cloudinary, lalu dipecah menjadi chunks dan di-embed menggunakan Gemini secara background (tidak memblokir response).
+Upload file PDF, PPTX, DOCX, atau TXT ke notebook. File disimpan ke Cloudinary, lalu dipecah menjadi chunks dan di-embed menggunakan Gemini secara background (tidak memblokir response).
 
 ```
 POST /documents/:notebookId
@@ -886,7 +886,7 @@ POST /documents/:notebookId
 
 | Field  | Type   | Required | Keterangan                        |
 |--------|--------|----------|-----------------------------------|
-| `file` | file   | ✅        | File PDF, PPTX, atau TXT, maksimal 20MB |
+| `file` | file   | ✅        | File PDF, PPTX, DOCX, atau TXT, maksimal 20MB |
 
 **Response `201 Created`**
 
@@ -918,6 +918,7 @@ Response dikembalikan langsung setelah file terupload ke Cloudinary. Proses chun
 > **Catatan OCR & parsing:**
 > - **PDF:** Halaman yang terdeteksi sebagai scan/gambar (teks < 30 karakter) di-render lalu di-OCR dengan Tesseract (`ind+eng`).
 > - **PPTX:** Teks slide diambil dari shape seperti biasa; gambar tertanam di slide juga di-OCR otomatis (Tesseract `ind+eng`) lalu digabung ke konten slide. Hasil OCR yang terlalu pendek (< 30 karakter, misalnya logo) diabaikan.
+> - **DOCX:** Teks paragraf, heading, dan tabel diambil dari AST; gambar tertanam juga di-OCR otomatis (Tesseract `ind+eng`). `totalPages` selalu `1`.
 > - **TXT:** Konten dibaca langsung sebagai UTF-8, dipecah per 3000 karakter. Tidak ada OCR. `totalPages` selalu `1`.
 >
 > Proses OCR lebih lambat dibanding ekstraksi teks biasa.
@@ -927,7 +928,7 @@ Response dikembalikan langsung setelah file terupload ke Cloudinary. Proses chun
 | Status | Kondisi                                         |
 |--------|-------------------------------------------------|
 | `401`  | Tidak terautentikasi                            |
-| `401`  | Tipe file tidak didukung (bukan PDF, PPTX, atau TXT) |
+| `401`  | Tipe file tidak didukung (bukan PDF, PPTX, DOCX, atau TXT) |
 | `401`  | File tidak disertakan                           |
 | `404`  | Notebook tidak ditemukan atau bukan milik user  |
 | `500`  | Kesalahan server / gagal upload ke Cloudinary   |
@@ -1141,6 +1142,7 @@ upload selesai → parseStatus: "pending"
   teks < 30 char  → render → OCR       → file corrupt / semua halaman kosong
          │                             
   PPTX: teks shape + OCR gambar
+  DOCX: teks paragraf/heading/tabel + OCR gambar
   TXT:  baca langsung sebagai UTF-8
          │
          ▼
@@ -1148,13 +1150,14 @@ upload selesai → parseStatus: "pending"
          │
          ▼
   parseStatus: "done"
-  totalPages: N  (TXT selalu 1)
+  totalPages: N  (DOCX dan TXT selalu 1)
   → dokumen siap dipakai
 ```
 
 > **OCR otomatis:**
 > - **PDF:** Halaman dengan teks < 30 karakter di-render ke PNG lalu di-OCR (Tesseract `ind+eng`). Halaman yang gagal di-OCR di-skip tanpa menghentikan proses keseluruhan.
 > - **PPTX:** Gambar tertanam di slide di-OCR saat parsing; teks hasil OCR digabung dengan teks shape. Hasil OCR < 30 karakter diabaikan.
+> - **DOCX:** Gambar tertanam di-OCR saat parsing; teks hasil OCR digabung dengan teks paragraf/heading. Hasil OCR < 30 karakter diabaikan.
 > - **TXT:** Tidak ada OCR. Konten dibaca langsung sebagai UTF-8 dan dipecah per 3000 karakter.
 
 ---

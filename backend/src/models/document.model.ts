@@ -4,7 +4,7 @@ import mongoose, { Schema } from "mongoose";
 interface IDocument {
   notebookId: Types.ObjectId;
   title: string;
-  fileType: "pdf" | "pptx"|"txt";
+  fileType: "pdf" | "pptx" | "txt" | "docx";
   parseStatus: "pending" | "done" | "error";
   parseError: string;
   fileUrl: string;
@@ -27,7 +27,7 @@ const documentSchema = new mongoose.Schema<IDocument>(
     fileType: {
       type: String,
       required: true,
-      enum: ["pdf", "pptx", "txt"],
+      enum: ["pdf", "pptx", "txt", "docx"],
     },
     fileUrl: {
       type: String,
