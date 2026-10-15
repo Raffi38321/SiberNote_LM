@@ -379,12 +379,34 @@ function TrashIcon() {
   );
 }
 
+/* ---------- Section Chat AI ---------- */
+
 function ArrowRightIcon() {
   return (
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
          strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M5 12h14" />
       <path d="m13 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+function MenuOptionsIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="18" x2="20" y2="18" />
     </svg>
   );
 }
@@ -758,6 +780,15 @@ function WorkspacePage({ notebook, onBack, onLogout }) {
           </div>
 
           <form className="chat-input" onSubmit={handleSend}>
+            <button
+              type="button"
+              className="chat-menu-btn"
+              aria-label="Opsi menu chat"
+              // onClick={() => {masukkan logika dropdown}}
+            >
+              <MenuOptionsIcon />
+            </button>
+            
             <textarea
               rows={1}
               value={draft}
@@ -766,6 +797,7 @@ function WorkspacePage({ notebook, onBack, onLogout }) {
               placeholder="Tulis pesan..."
               aria-label="Tulis pesan"
             />
+
             <button
               type="submit"
               className="send-btn"

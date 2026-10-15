@@ -646,6 +646,24 @@ body {
   cursor: not-allowed;
 }
 
+.chat-menu-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.chat-menu-btn:hover {
+  background: #ffffff;
+}
+
 /* Layar sempit: sementara hanya tampilkan panel Chat */
 @media (max-width: 900px) {
   .workspace {
