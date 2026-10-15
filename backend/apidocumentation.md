@@ -264,9 +264,9 @@ GET /user/me
 
 ---
 
-### Update Username
+### Update Profil
 
-Mengubah username user yang sedang login.
+Mengubah username dan/atau foto profil user yang sedang login. Minimal salah satu harus diisi.
 
 ```
 PUT /user
@@ -274,22 +274,19 @@ PUT /user
 
 **Headers**
 
-| Key             | Value                  | Required |
-|-----------------|------------------------|----------|
-| `Authorization` | `Bearer <accessToken>` | ✅        |
+| Key             | Value                             | Required |
+|-----------------|-----------------------------------|----------|
+| `Authorization` | `Bearer <accessToken>`            | ✅        |
+| `Content-Type`  | `multipart/form-data`             | ✅        |
 
-**Validasi**
+**Form Fields**
 
-| Field      | Aturan                        |
-|------------|-------------------------------|
-| `username` | Wajib, 1–16 karakter, unik    |
+| Field      | Type   | Aturan                                   |
+|------------|--------|------------------------------------------|
+| `username` | string | Opsional, 1–16 karakter, unik            |
+| `avatar`   | file   | Opsional, format JPG saja, maksimal 5 MB |
 
-**Request Body**
-```json
-{
-  "username": "raffi_baru"
-}
-```
+> Minimal salah satu dari `username` atau `avatar` harus disertakan.
 
 **Response `200 OK`**
 ```json
@@ -301,6 +298,7 @@ PUT /user
       "_id": "665f1a2b3c4d5e6f7a8b9c0d",
       "email": "raffi@example.com",
       "username": "raffi_baru",
+      "avatarUrl": "https://res.cloudinary.com/.../avatar.jpg",
       "createdAt": "2026-09-24T10:00:00.000Z",
       "updatedAt": "2026-09-24T10:15:00.000Z"
     }
@@ -308,11 +306,16 @@ PUT /user
 }
 ```
 
+> Foto profil lama otomatis dihapus dari Cloudinary saat foto baru berhasil diupload.
+
 **Error Responses**
 
 | Status | Kondisi                                           |
 |--------|---------------------------------------------------|
 | `400`  | Validasi gagal                                    |
+| `400`  | Tidak ada field yang diisi                        |
+| `400`  | Format avatar bukan JPG                           |
+| `400`  | Ukuran avatar melebihi 5 MB                       |
 | `401`  | Token tidak ada, format salah, atau sudah expired |
 | `401`  | Username sudah terdaftar                          |
 | `500`  | Kesalahan server                                  |

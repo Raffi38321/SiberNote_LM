@@ -3,6 +3,7 @@ import { registerUser, loginUser, refreshAccessToken, logoutUser, getUser, updat
 import { authenticate } from "../middlewares/auth.middleware.js"
 import { registerSchema, loginSchema, updateUsernameSchema } from "../schemas/user.schema.js"
 import { validateRequest } from "../middlewares/validateSchema.middelare.js"
+import { handleAvatarUpload } from "../middlewares/handleDocument.middleware.js"
 
 const userRouter = Router()
 
@@ -11,6 +12,6 @@ userRouter.post("/login", validateRequest(loginSchema), loginUser)
 userRouter.post("/refresh", refreshAccessToken)
 userRouter.post("/logout", logoutUser)
 userRouter.get("/me", authenticate, getUser)
-userRouter.put("/",[authenticate,validateRequest(updateUsernameSchema)],updateUsernameUser)
+userRouter.put("/", [authenticate, handleAvatarUpload, validateRequest(updateUsernameSchema)], updateUsernameUser)
 
 export default userRouter
