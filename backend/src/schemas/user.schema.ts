@@ -40,5 +40,6 @@ export const updateUsernameSchema = {
         username: z.string()
             .min(1, "Nama Profil tidak boleh kosong")
             .max(16, "Nama Profil maksimal 16 karakter")
+            .optional()
     })
 }

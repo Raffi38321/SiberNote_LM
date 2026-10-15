@@ -1,10 +1,12 @@
 import { type Request, type Response } from "express"
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
+import { Readable } from "stream"
 import User from "../models/user.model.js"
 import RefreshToken from "../models/refreshToken.model.js"
 import envVariable from "../utils/ENV.js"
 import response from "../utils/response.js"
+import cloudinary from "../services/cloudinary.js"
 
 const REFRESH_TOKEN_EXPIRES_DAYS = 7
 
@@ -143,18 +145,69 @@ export const getUser = async (req: Request, res: Response) => {
 export const updateUsernameUser = async(req: Request, res: Response)=>{
     try {
         const userId = req.userId
-        const {username}= req.body
+        const { username } = req.body
+        const avatarFile = req.file
 
         if (!userId) {
             return response.userError(res, "tidak terautentikasi")
         }
-        const isUsernameExist = await User.findOne({username})
-        if (isUsernameExist) {
-            return response.userError(res, "username sudah terdaftar")
+
+        // minimal salah satu harus ada
+        if (!username && !avatarFile) {
+            return response.userError(res, "minimal username atau avatar harus diisi")
         }
-        const user = await User.findByIdAndUpdate(userId,{username},{returnDocument:"after"})
+
+        const updateData: { username?: string; avatarUrl?: string } = {}
+
+        if (username) {
+            const isUsernameExist = await User.findOne({ username })
+            if (isUsernameExist) {
+                return response.userError(res, "username sudah terdaftar")
+            }
+            updateData.username = username
+        }
+
+        if (avatarFile) {
+            // ambil avatar lama untuk dihapus dari cloudinary
+            const existingUser = await User.findById(userId).select("avatarUrl")
+            if (existingUser?.avatarUrl) {
+                const urlParts = existingUser.avatarUrl.split("/")
+                const uploadIndex = urlParts.indexOf("upload")
+                if (uploadIndex !== -1) {
+                    const publicIdWithExt = urlParts.slice(uploadIndex + 2).join("/")
+                    const publicId = publicIdWithExt.replace(/\.[^.]+$/, "")
+                    await cloudinary.uploader.destroy(publicId, { resource_type: "image" }).catch(() => {})
+                }
+            }
+
+            // upload avatar baru ke cloudinary
+            const avatarUrl = await new Promise<string>((resolve, reject) => {
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    {
+                        folder: `sibernote/avatars/${userId}`,
+                        resource_type: "image",
+                        public_id: "avatar",
+                        overwrite: true,
+                        unique_filename: false,
+                    },
+                    (error, result) => {
+                        if (error || !result) {
+                            reject(error ?? new Error("cloudinary upload gagal"))
+                        } else {
+                            resolve(result.secure_url)
+                        }
+                    },
+                )
+                Readable.from(avatarFile.buffer).pipe(uploadStream)
+            })
+
+            updateData.avatarUrl = avatarUrl
+        }
+
+        const user = await User.findByIdAndUpdate(userId, updateData, { returnDocument: "after" }).select("-password")
         return response.requestSuccessWithData(res, "Profil berhasil diperbarui", { user }, 200)
     } catch (error) {
+        console.error(error)
         return response.serverError(res, "gagal update data user")       
     }
 }

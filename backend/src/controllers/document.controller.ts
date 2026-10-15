@@ -73,7 +73,7 @@ export const uploadDocument = async (req: Request, res: Response) => {
         const fileType = MIME_TO_FILETYPE[mimetype]
 
         if (!fileType) {
-            return response.userError(res, "tipe file tidak didukung, hanya PDF, PPTX, DOCX, dan TXT")
+            return response.userError(res, "Format tidak didukung, hanya PDF, PPTX, DOCX, dan TXT")
         }
 
         const baseName = originalname.replace(/\.[^.]+$/, "").replace(/\s+/g, "_")

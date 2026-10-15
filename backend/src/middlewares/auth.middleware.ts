@@ -7,14 +7,14 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
     const authHeader = req.headers.authorization
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        response.userError(res, "token tidak ada atau format salah")
+        response.userError(res, "Sesi Anda telah berakhir, silakan login kembal")
         return
     }
 
     const token = authHeader.split(" ")[1]
 
     if (!token) {
-        response.userError(res, "token tidak ada atau format salah")
+        response.userError(res, "Sesi Anda telah berakhir, silakan login kembal")
         return
     }
 
