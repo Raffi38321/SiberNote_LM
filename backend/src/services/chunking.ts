@@ -251,3 +251,58 @@ export const chunkTXT = async (
         throw new ParseError(err)
     }
 }
+
+export const chunkDOCX = async (
+    buffer: Buffer,
+    documentId: Types.ObjectId,
+): Promise<{ chunks: RawChunk[]; totalPages: number }> => {
+    try {
+        const ast = await OfficeParser.parseOffice(buffer, {
+            fileType: "docx",
+            extractAttachments: true,
+            ocr: true,
+            ocrConfig: { language: "ind+eng" },
+        })
+
+        const attachmentsByName = new Map<string, OfficeAttachment>(
+            (ast.attachments ?? [])
+                .filter((a) => a.name)
+                .map((a) => [a.name, a]),
+        )
+
+        const ocrImageCount = (ast.attachments ?? []).filter(
+            (a) => a.type === "image" && (a.ocrText?.trim().length ?? 0) >= MIN_OCR_CHARS,
+        ).length
+
+        // kumpulkan semua teks dari node-node top-level (paragraph, heading, table, dll.)
+        const textParts: string[] = []
+        for (const node of ast.content) {
+            const text = extractTextFromNode(node, attachmentsByName).trim()
+            if (text.length >= 20) textParts.push(text)
+        }
+
+        const fullText = textParts.join("\n\n").trim()
+        if (!fullText) throw new NoTextError()
+
+        const parts = splitBySize(fullText)
+        const chunks: RawChunk[] = parts
+            .filter((part) => part.length >= 20)
+            .map((content, i) => ({
+                documentId,
+                chunkIndex: i,
+                content,
+                pageStart: 1,
+                pageEnd: 1,
+                embedding: [],
+            }))
+
+        if (chunks.length === 0) throw new NoTextError()
+
+        console.log(`[chunking] DOCX — ${chunks.length} chunks, ${ocrImageCount} gambar di-OCR`)
+
+        return { chunks: await attachEmbeddings(chunks), totalPages: 1 }
+    } catch (err) {
+        if (err instanceof NoTextError) throw err
+        throw new ParseError(err)
+    }
+}
