@@ -26,8 +26,8 @@ const response = {
             message
         })
     },
-    userError:(res:Response,message:string)=>{
-        return res.status(401).json({
+    userError:(res:Response,message:string,code=400)=>{
+        return res.status(code).json({
             status:"failed",
             message,
         })
