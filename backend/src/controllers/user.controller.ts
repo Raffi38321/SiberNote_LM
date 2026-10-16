@@ -153,7 +153,7 @@ export const updateUsernameOravatarUser = async(req: Request, res: Response)=>{
         }
 
         if (!username && !avatarFile) {
-            return response.userError(res, "minimal username atau avatar harus diisi")
+            return response.userError(res, "minimal username atau avatar harus diisi",400)
         }
 
         const updateData: { username?: string; avatarUrl?: string } = {}
@@ -161,7 +161,7 @@ export const updateUsernameOravatarUser = async(req: Request, res: Response)=>{
         if (username) {
             const isUsernameExist = await User.findOne({ username })
             if (isUsernameExist) {
-                return response.userError(res, "username sudah terdaftar")
+                return response.userError(res, "username sudah terdaftar",400)
             }
             updateData.username = username
         }
