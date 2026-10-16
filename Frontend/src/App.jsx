@@ -693,6 +693,9 @@ function NotebooksPage({ accessToken, onLogout, onOpenNotebook }) {
 
 /* ---------- Workspace (panel tengah: Chat AI) ---------- */
 
+// Isi minimal 1 item untuk mengaktifkan input; kosongkan ([]) untuk menonaktifkannya.
+const SAMPLE_DOCUMENTS = [{ id: "d1", title: "Judul Sumber" }];
+
 // Data contoh untuk tampilan. Ganti dengan riwayat chat dari backend.
 const SAMPLE_MESSAGES = [
   { id: 1, role: "user", text: "Lorem ipsum" },
@@ -732,6 +735,8 @@ function WorkspacePage({ notebook, onBack, onLogout }) {
   const [messages, setMessages] = useState(SAMPLE_MESSAGES);
   const [draft, setDraft] = useState("");
   const endRef = useRef(null);
+  const [documents] = useState(SAMPLE_DOCUMENTS);
+  const hasDocuments = documents.length > 0;
 
   // Setiap ada pesan baru, gulung otomatis ke bawah.
   useEffect(() => {
@@ -740,6 +745,7 @@ function WorkspacePage({ notebook, onBack, onLogout }) {
 
   function handleSend(e) {
     e.preventDefault();
+    if (!hasDocuments) return;
     const text = draft.trim();
     if (!text) return;
     setMessages((list) => [...list, { id: Date.now(), role: "user", text }]);
@@ -779,7 +785,10 @@ function WorkspacePage({ notebook, onBack, onLogout }) {
             <div ref={endRef} />
           </div>
 
-          <form className="chat-input" onSubmit={handleSend}>
+          <form
+            className={`chat-input${hasDocuments ? "" : " is-disabled"}`}
+            onSubmit={handleSend}
+          >
             <button
               type="button"
               className="chat-menu-btn"
@@ -802,7 +811,7 @@ function WorkspacePage({ notebook, onBack, onLogout }) {
               type="submit"
               className="send-btn"
               aria-label="Kirim pesan"
-              disabled={!draft.trim()}
+              disabled={!hasDocuments || !draft.trim()}
             >
               <ArrowRightIcon />
             </button>

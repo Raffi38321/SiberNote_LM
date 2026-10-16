@@ -604,6 +604,16 @@ body {
   box-shadow: 0 0 0 1px var(--border-focus);
 }
 
+.chat-input.is-disabled {
+  background: var(--surface);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-input textarea:disabled {
+  cursor: not-allowed;
+}
+
 .chat-input textarea {
   flex: 1;
   min-width: 0;
