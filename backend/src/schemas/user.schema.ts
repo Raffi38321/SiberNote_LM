@@ -35,7 +35,7 @@ export const loginSchema = {
     })
 }
 
-export const updateUsernameSchema = {
+export const updateUserProfilSchema = {
     body: z.object({
         username: z.string()
             .min(1, "Nama Profil tidak boleh kosong")

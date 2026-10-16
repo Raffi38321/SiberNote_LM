@@ -141,8 +141,8 @@ export const getUser = async (req: Request, res: Response) => {
     }
 }
 
-
-export const updateUsernameUser = async(req: Request, res: Response)=>{
+// update username atau avatar
+export const updateUsernameOravatarUser = async(req: Request, res: Response)=>{
     try {
         const userId = req.userId
         const { username } = req.body
@@ -152,7 +152,6 @@ export const updateUsernameUser = async(req: Request, res: Response)=>{
             return response.userError(res, "tidak terautentikasi")
         }
 
-        // minimal salah satu harus ada
         if (!username && !avatarFile) {
             return response.userError(res, "minimal username atau avatar harus diisi")
         }
@@ -168,7 +167,6 @@ export const updateUsernameUser = async(req: Request, res: Response)=>{
         }
 
         if (avatarFile) {
-            // ambil avatar lama untuk dihapus dari cloudinary
             const existingUser = await User.findById(userId).select("avatarUrl")
             if (existingUser?.avatarUrl) {
                 const urlParts = existingUser.avatarUrl.split("/")
@@ -180,7 +178,6 @@ export const updateUsernameUser = async(req: Request, res: Response)=>{
                 }
             }
 
-            // upload avatar baru ke cloudinary
             const avatarUrl = await new Promise<string>((resolve, reject) => {
                 const uploadStream = cloudinary.uploader.upload_stream(
                     {
