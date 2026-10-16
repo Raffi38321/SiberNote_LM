@@ -617,7 +617,7 @@ body {
 .chat-input textarea {
   flex: 1;
   min-width: 0;
-  max-height: 150px;
+  max-height: 160px;
   padding: 0;
   resize: none;
   field-sizing: content;
@@ -626,7 +626,7 @@ body {
   outline: none;
   color: var(--text);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   line-height: 1.5;
 }
 
@@ -656,7 +656,52 @@ body {
   cursor: not-allowed;
 }
 
-.chat-menu-btn {
+/* ----- Skeleton loading (panel Chat AI) ----- */
+.chat-skeleton {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 4px 4px 12px 0;
+}
+
+.chat-skeleton-title {
+  margin: 0 0 12px;
+  font-size: 2rem;
+  font-weight: 300;
+}
+
+/* Efek kilau yang bergerak dari kiri ke kanan */
+.skeleton {
+  background: linear-gradient(90deg, #4a4a4a 25%, #5f5f5f 50%, #4a4a4a 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-line {
+  flex-shrink: 0;
+  height: 38px;
+  border-radius: 8px;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.chat-input--skeleton {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chat-input-icon {
   flex-shrink: 0;
   width: 32px;
   height: 32px;
@@ -664,14 +709,101 @@ body {
   place-items: center;
   background: var(--btn-bg);
   color: var(--btn-text);
-  border: 0;
   border-radius: 50%;
-  cursor: pointer;
-  transition: background 0.15s;
 }
 
-.chat-menu-btn:hover {
+/* ----- Popup (dialog) ----- */
+.modal {
+  width: min(480px, calc(100vw - 32px));
+  padding: 0;
+  background: var(--panel);
+  color: var(--text);
+  border: 0;
+  border-radius: 14px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+/* Latar di belakang popup: hitam dengan opacity 75% */
+.modal::backdrop {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+  padding: 20px 16px 16px;
+}
+
+.modal-label {
+  display: block;
+  margin: 0 0 8px 4px;
+  font-size: 0.875rem;
+}
+
+.modal-input {
+  background: transparent;
+}
+
+.modal .error-summary {
+  margin: 10px auto 0;
+  padding: 4px 8px;
+  max-width: 260px;
+}
+
+
+.modal .error-summary p {
+  text-align: center;
+  white-space: normal;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.modal-cancel,
+.modal-save {
+  padding: 4px 14px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.modal-cancel {
+  background: none;
+  color: var(--text);
+}
+
+.modal-cancel:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.modal-save {
+  background: var(--btn-bg);
+  color: var(--btn-text);
+}
+
+.modal-save:hover:not(:disabled) {
   background: #ffffff;
+}
+
+.modal-cancel:focus-visible,
+.modal-save:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.modal-cancel:disabled,
+.modal-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Layar sempit: sementara hanya tampilkan panel Chat */
@@ -689,5 +821,9 @@ body {
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
+  }
+
+  .skeleton {
+    animation: none;
   }
 }

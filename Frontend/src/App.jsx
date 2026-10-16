@@ -3,6 +3,7 @@ import {
   ApiError,
   register,
   login,
+  createNotebook,
   getNotebooks,
   deleteNotebook,
   saveRefreshToken,
@@ -379,8 +380,6 @@ function TrashIcon() {
   );
 }
 
-/* ---------- Section Chat AI ---------- */
-
 function ArrowRightIcon() {
   return (
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
@@ -391,22 +390,11 @@ function ArrowRightIcon() {
   );
 }
 
-function MenuOptionsIcon() {
+function MenuIcon() {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      width="18"
-      height="18"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <line x1="4" y1="6" x2="20" y2="6" />
-      <line x1="4" y1="12" x2="20" y2="12" />
-      <line x1="4" y1="18" x2="20" y2="18" />
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+         strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+      <path d="M5 8h14M5 12h14M5 16h14" />
     </svg>
   );
 }
@@ -493,6 +481,96 @@ function AppHeader({ onLogout, onBrandClick, actions }) {
   );
 }
 
+/**
+ * Popup untuk membuat catatan baru. Memakai elemen <dialog> bawaan browser,
+ * sehingga tombol Esc, fokus keyboard, dan lapisan gelap di belakangnya
+ * ditangani browser.
+ * onCreate(title) harus mengembalikan Promise; kalau gagal (throw), pesan
+ * errornya ditampilkan di dalam popup.
+ */
+function CreateNotebookDialog({ onClose, onCreate }) {
+  const dialogRef = useRef(null);
+  const [title, setTitle] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Tampilkan sebagai popup modal saat pertama kali muncul.
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+  }, []);
+
+  // Selama proses simpan berjalan, popup tidak boleh ditutup.
+  function requestClose() {
+    if (!saving) onClose();
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (saving) return;
+
+    const trimmed = title.trim();
+    if (!trimmed) {
+      setError("Judul tidak boleh kosong.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    try {
+      await onCreate(trimmed);
+      onClose();
+    } catch (err) {
+      const messages = Object.values(mapFieldErrors(err));
+      setError(messages.length ? messages.join(" ") : err.message);
+      setSaving(false);
+    }
+  }
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="modal"
+      aria-label="Catatan baru"
+      onCancel={(e) => {
+        // Tombol Esc: ditutup lewat state supaya popup ikut dilepas dari halaman.
+        e.preventDefault();
+        requestClose();
+      }}
+      onClose={onClose}
+      onClick={(e) => {
+        // Klik di area gelap (di luar kotak popup) menutup popup.
+        if (e.target === dialogRef.current) requestClose();
+      }}
+    >
+      <form className="modal-form" onSubmit={handleSubmit} noValidate>
+        <label htmlFor="new-notebook-title" className="modal-label">Judul Catatan</label>
+        <input
+          id="new-notebook-title"
+          className="input modal-input"
+          value={title}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            setError(""); // pesan error hilang begitu pengguna mulai mengetik
+          }}
+          placeholder="Judul Catatan"
+          aria-invalid={error ? "true" : undefined}
+          autoComplete="off"
+        />
+        <ErrorSummary messages={error ? [error] : []} />
+        <div className="modal-actions">
+          <button type="button" className="modal-cancel" onClick={requestClose} disabled={saving}>
+            Batal
+          </button>
+          <button type="submit" className="modal-save" disabled={saving}>
+            Simpan
+          </button>
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
 function NotebooksPage({ accessToken, onLogout, onOpenNotebook }) {
   const [notebooks, setNotebooks] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
@@ -502,6 +580,7 @@ function NotebooksPage({ accessToken, onLogout, onOpenNotebook }) {
   const [sortOpen, setSortOpen] = useState(false);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   async function loadNotebooks() {
     setLoadingList(true);
@@ -539,6 +618,18 @@ function NotebooksPage({ accessToken, onLogout, onOpenNotebook }) {
     }
   }
 
+  async function handleCreate(title) {
+    // Backend mewajibkan description, sedangkan popup di desain hanya punya kolom judul.
+    // Sementara description diisi sama dengan judul.
+    // TODO: konfirmasi ke tim backend/designer (jadikan description opsional, atau tambah kolomnya).
+    const data = await createNotebook({ title, description: title }, accessToken);
+    if (data?.notebook) {
+      setNotebooks((list) => [data.notebook, ...list]);
+    } else {
+      await loadNotebooks();
+    }
+  }
+
   const visible = notebooks
     .filter((nb) => nb.title.toLowerCase().includes(search.trim().toLowerCase()))
     .sort((a, b) =>
@@ -554,8 +645,9 @@ function NotebooksPage({ accessToken, onLogout, onOpenNotebook }) {
       <AppHeader onLogout={onLogout} />
       <main className="dashboard">
         <div className="toolbar">
-          {/* Catatan Baru: sementara belum melakukan apa-apa */}
-          <button type="button" className="btn-pill">Catatan Baru +</button>
+          <button type="button" className="btn-pill" onClick={() => setCreateOpen(true)}>
+            Catatan Baru +
+          </button>
           <div className="search-wrap">
             <SearchIcon />
             <input
@@ -662,10 +754,10 @@ function NotebooksPage({ accessToken, onLogout, onOpenNotebook }) {
                             <div className="dropdown-menu dropdown-menu--right" role="menu">
                               {/* Rename & Pin: UI saja, backend belum punya endpoint */}
                               <button type="button" role="menuitem" onClick={() => setOpenMenuId(null)}>
-                                <PencilIcon /> Rename
+                                <PencilIcon /> Ganti nama
                               </button>
                               <button type="button" role="menuitem" onClick={() => setOpenMenuId(null)}>
-                                <PinIcon /> Pin
+                                <PinIcon /> Sematkan
                               </button>
                               <button
                                 type="button"
@@ -687,16 +779,24 @@ function NotebooksPage({ accessToken, onLogout, onOpenNotebook }) {
           )}
         </section>
       </main>
+
+      {createOpen && (
+        <CreateNotebookDialog
+          onClose={() => setCreateOpen(false)}
+          onCreate={handleCreate}
+        />
+      )}
     </>
   );
 }
 
 /* ---------- Workspace (panel tengah: Chat AI) ---------- */
 
-// Isi minimal 1 item untuk mengaktifkan input; kosongkan ([]) untuk menonaktifkannya.
+// Data contoh untuk tampilan. Ganti dengan data dari backend.
+// Isi SAMPLE_DOCUMENTS dengan minimal 1 item untuk mengaktifkan input chat;
+// kosongkan ([]) untuk melihat input dalam keadaan nonaktif.
 const SAMPLE_DOCUMENTS = [{ id: "d1", title: "Judul Sumber" }];
 
-// Data contoh untuk tampilan. Ganti dengan riwayat chat dari backend.
 const SAMPLE_MESSAGES = [
   { id: 1, role: "user", text: "Lorem ipsum" },
   {
@@ -709,6 +809,21 @@ const SAMPLE_MESSAGES = [
     sources: ["PDF"],
   },
 ];
+
+// Lebar tiap baris skeleton, diukur dari gambar desain.
+const SKELETON_LINE_WIDTHS = ["100%", "75%", "86%", "80%", "94%", "100%"];
+
+// Lama loading simulasi (ms). Hapus bersama fetchChatHistory saat memakai backend.
+const CHAT_LOAD_DELAY_MS = 1500;
+
+// Mengambil riwayat chat.
+// TODO: ganti dengan request ke backend saat endpoint riwayat chat tersedia.
+// Sementara, loading disimulasikan supaya skeleton bisa terlihat.
+function fetchChatHistory() {
+  return new Promise((resolve) => {
+    setTimeout(() => resolve(SAMPLE_MESSAGES), CHAT_LOAD_DELAY_MS);
+  });
+}
 
 function ChatMessage({ message }) {
   if (message.role === "user") {
@@ -732,16 +847,39 @@ function ChatMessage({ message }) {
 }
 
 function WorkspacePage({ notebook, onBack, onLogout }) {
-  const [messages, setMessages] = useState(SAMPLE_MESSAGES);
+  // TODO: ganti dengan dokumen milik catatan ini dari backend.
+  const [documents] = useState(SAMPLE_DOCUMENTS);
+  const [messages, setMessages] = useState([]);
+  const [loadingChat, setLoadingChat] = useState(true);
   const [draft, setDraft] = useState("");
   const endRef = useRef(null);
-  const [documents] = useState(SAMPLE_DOCUMENTS);
+
+  // Input chat hanya aktif kalau ada minimal 1 dokumen.
   const hasDocuments = documents.length > 0;
 
-  // Setiap ada pesan baru, gulung otomatis ke bawah.
+  // Muat riwayat chat setiap workspace dibuka (termasuk setelah di-refresh).
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingChat(true);
+    fetchChatHistory()
+      .then((history) => {
+        if (cancelled) return;
+        setMessages(history);
+        setLoadingChat(false);
+      })
+      .catch(() => {
+        // TODO: tampilan error belum ada di desain. Sementara skeleton dihentikan.
+        if (!cancelled) setLoadingChat(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [notebook._id]);
+
+  // Setiap ada pesan baru (atau loading selesai), gulung otomatis ke bawah.
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages]);
+  }, [messages, loadingChat]);
 
   function handleSend(e) {
     e.preventDefault();
@@ -769,58 +907,67 @@ function WorkspacePage({ notebook, onBack, onLogout }) {
       />
 
       <main className="workspace" aria-label={`Workspace ${notebook.title}`}>
-        {/* Panel kiri: dikosongkan dulu */}
+        {/* Panel kiri: dikosongkan dulu, menunggu desain panel Sumber */}
         <section className="panel panel-sources">
-          <h2 className="panel-title"></h2>
+          <h2 className="panel-title">Sumber</h2>
         </section>
 
         {/* Panel tengah: Chat AI */}
         <section className="panel panel-chat">
           <h2 className="panel-title">Chat AI</h2>
 
-          <div className="chat-messages" role="log">
-            {messages.map((m) => (
-              <ChatMessage key={m.id} message={m} />
-            ))}
-            <div ref={endRef} />
-          </div>
+          {loadingChat ? (
+            <>
+              {/* Skeleton loading, sesuai gambar desain */}
+              <div className="chat-skeleton" role="status" aria-live="polite" aria-busy="true">
+                <p className="chat-skeleton-title">Loading...</p>
+                {SKELETON_LINE_WIDTHS.map((width, i) => (
+                  <div key={i} className="skeleton skeleton-line" style={{ width }} />
+                ))}
+              </div>
+              <div className="chat-input chat-input--skeleton" aria-hidden="true">
+                <span className="chat-input-icon"><MenuIcon /></span>
+                <span className="chat-input-icon"><ArrowRightIcon /></span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="chat-messages" role="log">
+                {messages.map((m) => (
+                  <ChatMessage key={m.id} message={m} />
+                ))}
+                <div ref={endRef} />
+              </div>
 
-          <form
-            className={`chat-input${hasDocuments ? "" : " is-disabled"}`}
-            onSubmit={handleSend}
-          >
-            <button
-              type="button"
-              className="chat-menu-btn"
-              aria-label="Opsi menu chat"
-              // onClick={() => {masukkan logika dropdown}}
-            >
-              <MenuOptionsIcon />
-            </button>
-            
-            <textarea
-              rows={1}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Tulis pesan..."
-              aria-label="Tulis pesan"
-            />
-
-            <button
-              type="submit"
-              className="send-btn"
-              aria-label="Kirim pesan"
-              disabled={!hasDocuments || !draft.trim()}
-            >
-              <ArrowRightIcon />
-            </button>
-          </form>
+              <form
+                className={`chat-input${hasDocuments ? "" : " is-disabled"}`}
+                onSubmit={handleSend}
+              >
+                <textarea
+                  rows={1}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={!hasDocuments}
+                  placeholder="Tulis pesan..."
+                  aria-label="Tulis pesan"
+                />
+                <button
+                  type="submit"
+                  className="send-btn"
+                  aria-label="Kirim pesan"
+                  disabled={!hasDocuments || !draft.trim()}
+                >
+                  <ArrowRightIcon />
+                </button>
+              </form>
+            </>
+          )}
         </section>
 
         {/* Panel kanan: dikosongkan dulu */}
         <section className="panel panel-notes">
-          <h2 className="panel-title"></h2>
+          <h2 className="panel-title">Catatan</h2>
         </section>
       </main>
     </div>
