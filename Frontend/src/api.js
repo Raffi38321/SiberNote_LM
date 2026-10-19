@@ -236,3 +236,17 @@ export function deleteDocument(documentId, accessToken) {
 export function getDocumentStatus(documentId, accessToken) {
   return request(`/documents/status/${documentId}`, { accessToken });
 }
+
+// ---------- Notes ----------
+export function getNotes(notebookId, accessToken) {
+  return request(`/notes/${notebookId}/all`, { accessToken });
+}
+export function createNote(notebookId, { title, content }, accessToken) {
+  return request(`/notes/${notebookId}`, { method: "POST", body: { title, content }, accessToken });
+}
+export function updateNote(notebookId, noteId, { title, content }, accessToken) {
+  return request(`/notes/${notebookId}/${noteId}`, { method: "PUT", body: { title, content }, accessToken });
+}
+export function deleteNote(notebookId, noteId, accessToken) {
+  return request(`/notes/${notebookId}/${noteId}`, { method: "DELETE", accessToken });
+}

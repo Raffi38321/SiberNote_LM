@@ -18,6 +18,7 @@ import {
   getCurrentUser,
   updateProfile,
 } from "./api";
+import { NotesPanel, useNotes } from "./NotesPanel";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_RE = /^[a-zA-Z0-9_-]{1,16}$/;
@@ -256,9 +257,6 @@ function RegisterPage({ goLogin, onRegistered }) {
   const [apiError, setApiError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Validasi real-time: begitu field pernah disentuh (blur), error langsung
-  // diperbarui setiap kali nilainya berubah — termasuk field "confirm" yang
-  // ikut tervalidasi ulang saat "password" diedit.
   function update(e) {
     const { name, value } = e.target;
     const nextForm = { ...form, [name]: value };
@@ -372,7 +370,6 @@ function PersonIcon({ size = 18 }) {
 function Avatar({ src, size = 32 }) {
   const [failed, setFailed] = useState(false);
 
-  // Foto baru: coba tampilkan lagi.
   useEffect(() => {
     setFailed(false);
   }, [src]);
@@ -418,10 +415,9 @@ function PencilIcon() {
 <rect fill="white" x="3" y="5" width="16" height="16"/>
 <path d="M13.5858 7.41421L6.39171 14.6083C6.19706 14.8029 6.09974 14.9003 6.03276 15.0186C5.96579 15.1368 5.93241 15.2704 5.86564 15.5374L5.20211 18.1915C5.11186 18.5526 5.06673 18.7331 5.16682 18.8332C5.2669 18.9333 5.44742 18.8881 5.80844 18.7979L5.80845 18.7979L8.46257 18.1344C8.72963 18.0676 8.86316 18.0342 8.98145 17.9672C9.09974 17.9003 9.19706 17.8029 9.39171 17.6083L16.5858 10.4142L16.5858 10.4142C17.2525 9.74755 17.5858 9.41421 17.5858 9C17.5858 8.58579 17.2525 8.25245 16.5858 7.58579L16.4142 7.41421C15.7475 6.74755 15.4142 6.41421 15 6.41421C14.5858 6.41421 14.2525 6.74755 13.5858 7.41421Z"/>
 </mask>
-<path d="M6.39171 14.6083L13.5858 7.41421C14.2525 6.74755 14.5858 6.41421 15 6.41421C15.4142 6.41421 15.7475 6.74755 16.4142 7.41421L16.5858 7.58579C17.2525 8.25245 17.5858 8.58579 17.5858 9C17.5858 9.41421 17.2525 9.74755 16.5858 10.4142L16.5858 10.4142L9.39171 17.6083C9.19706 17.8029 9.09974 17.9003 8.98145 17.9672C8.86316 18.0342 8.72963 18.0676 8.46257 18.1344L5.80845 18.7979L5.80844 18.7979C5.44742 18.8881 5.2669 18.9333 5.16682 18.8332C5.06673 18.7331 5.11186 18.5526 5.20211 18.1915L5.86564 15.5374C5.93241 15.2704 5.96579 15.1368 6.03276 15.0186C6.09974 14.9003 6.19706 14.8029 6.39171 14.6083Z" stroke-width="2.4" stroke="#CECECE" mask="url(#stroke0_565_1005)"/>
+<path d="M6.39171 14.6083L13.5858 7.41421C14.2525 6.74755 14.5858 6.41421 15 6.41421C15.4142 6.41421 15.7475 6.74755 16.4142 7.41421L16.5858 7.58579C17.2525 8.25245 17.5858 8.58579 17.5858 9C17.5858 9.41421 17.2525 9.74755 16.5858 10.4142L16.5858 10.4142L9.39171 17.6083C9.19706 17.8029 9.09974 17.9003 8.98145 17.9672C8.86316 18.0342 8.72963 18.0676 8.46257 18.1344L5.80845 18.7979L5.80844 18.7979C5.44742 18.8881 5.2669 18.9333 5.16682 18.8332C5.06673 18.7331 5.11186 18.5526 5.20211 18.1915L5.86564 15.5374C5.93241 15.2704 5.96579 15.1368 6.03276 15.0186C6.09974 14.9003 6.19706 14.8029 6.39171 14.6083Z" strokeWidth="2.4" stroke="#CECECE" mask="url(#stroke0_565_1005)"/>
 <path d="M12.5 7.5L16.5 11.5" stroke="#CECECE"/>
 </svg>
-
   );
 }
 
@@ -429,19 +425,16 @@ function PinIcon() {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M14.7455 18.1315C14.7322 18.1223 14.7255 18.1177 14.7189 18.1131C11.2692 15.7225 8.27754 12.7308 5.88691 9.28108C5.88233 9.27448 5.87772 9.26782 5.86851 9.25451C5.86655 9.25169 5.86558 9.25028 5.86486 9.24924C5.45815 8.65858 5.78704 7.84444 6.4899 7.70202C6.49113 7.70177 6.49282 7.70144 6.49618 7.70076L7.45114 7.50977C8.44433 7.31113 8.94092 7.21182 9.4175 7.05236C9.77083 6.93415 10.1155 6.79139 10.4489 6.62514C10.8987 6.40089 11.32 6.11998 12.1628 5.55815L14.6358 3.90949C15.2888 3.47412 15.6153 3.25643 15.9711 3.29166C16.3269 3.32689 16.6044 3.60439 17.1594 4.15938L19.8406 6.84062C20.3956 7.39561 20.6731 7.67311 20.7083 8.02888C20.7436 8.38465 20.5259 8.71118 20.0905 9.36424L18.4419 11.8372C17.88 12.68 17.5991 13.1013 17.3749 13.5511C17.2086 13.8845 17.0659 14.2292 16.9476 14.5825C16.7882 15.0591 16.6889 15.5557 16.4902 16.5489L16.2992 17.5038C16.2986 17.5072 16.2982 17.5089 16.298 17.5101C16.1556 18.213 15.3414 18.5419 14.7508 18.1351C14.7497 18.1344 14.7483 18.1334 14.7455 18.1315Z" stroke="#CECECE"/>
-<path d="M5 19L9.5 14.5" stroke-linecap="round" stroke="#CECECE"/>
+<path d="M5 19L9.5 14.5" strokeLinecap="round" stroke="#CECECE"/>
 </svg>
-
   );
 }
 
 function TrashIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M2.5 4.99984H4.16667M4.16667 4.99984H17.5M4.16667 4.99984V16.6665C4.16667 17.1085 4.34226 17.5325 4.65482 17.845C4.96738 18.1576 5.39131 18.3332 5.83333 18.3332H14.1667C14.6087 18.3332 15.0326 18.1576 15.3452 17.845C15.6577 17.5325 15.8333 17.1085 15.8333 16.6665V4.99984M6.66667 4.99984V3.33317C6.66667 2.89114 6.84226 2.46722 7.15482 2.15466C7.46738 1.8421 7.89131 1.6665 8.33333 1.6665H11.6667C12.1087 1.6665 12.5326 1.8421 12.8452 2.15466C13.1577 2.46722 13.3333 2.89114 13.3333 3.33317V4.99984M8.33333 9.1665V14.1665M11.6667 9.1665V14.1665" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke="#FF0000"/>
+<path d="M2.5 4.99984H4.16667M4.16667 4.99984H17.5M4.16667 4.99984V16.6665C4.16667 17.1085 4.34226 17.5325 4.65482 17.845C4.96738 18.1576 5.39131 18.3332 5.83333 18.3332H14.1667C14.6087 18.3332 15.0326 18.1576 15.3452 17.845C15.6577 17.5325 15.8333 17.1085 15.8333 16.6665V4.99984M6.66667 4.99984V3.33317C6.66667 2.89114 6.84226 2.46722 7.15482 2.15466C7.46738 1.8421 7.89131 1.6665 8.33333 1.6665H11.6667C12.1087 1.6665 12.5326 1.8421 12.8452 2.15466C13.1577 2.46722 13.3333 2.89114 13.3333 3.33317V4.99984M8.33333 9.1665V14.1665M11.6667 9.1665V14.1665" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" stroke="#FF0000"/>
 </svg>
-
-
   );
 }
 
@@ -484,13 +477,6 @@ const SORT_OPTIONS = [
   { value: "az", label: "A-Z" },
 ];
 
-/**
- * Header untuk halaman setelah login.
- * - onBrandClick (opsional): kalau diisi, logo + nama aplikasi jadi tombol kembali.
- * - actions (opsional): elemen tambahan di sisi kanan, sebelum avatar.
- * - profile (opsional): { username, email, avatarUrl } untuk foto dan info akun di dropdown.
- * - onEditProfile: membuka halaman profil.
- */
 function AppHeader({ onLogout, onBrandClick, onEditProfile, profile, actions }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -564,15 +550,9 @@ function AppHeader({ onLogout, onBrandClick, onEditProfile, profile, actions }) 
   );
 }
 
-/**
- * Pembungkus popup modal memakai elemen <dialog> bawaan browser, sehingga tombol Esc,
- * fokus keyboard, dan lapisan gelap di belakangnya ditangani browser.
- * canClose=false menahan popup agar tidak bisa ditutup (misalnya saat proses simpan berjalan).
- */
 function Modal({ label, className = "", canClose = true, onClose, children }) {
   const dialogRef = useRef(null);
 
-  // Tampilkan sebagai popup modal saat pertama kali muncul.
   useEffect(() => {
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) dialog.showModal();
@@ -584,13 +564,11 @@ function Modal({ label, className = "", canClose = true, onClose, children }) {
       className={`modal ${className}`.trim()}
       aria-label={label}
       onCancel={(e) => {
-        // Tombol Esc: ditutup lewat state supaya popup ikut dilepas dari halaman.
         e.preventDefault();
         if (canClose) onClose();
       }}
       onClose={onClose}
       onClick={(e) => {
-        // Klik di area gelap (di luar kotak popup) menutup popup.
         if (e.target === dialogRef.current && canClose) onClose();
       }}
     >
@@ -599,11 +577,6 @@ function Modal({ label, className = "", canClose = true, onClose, children }) {
   );
 }
 
-/**
- * Popup untuk membuat catatan baru.
- * onCreate(title) harus mengembalikan Promise; kalau gagal (throw), pesan
- * errornya ditampilkan di dalam popup.
- */
 function CreateNotebookDialog({ onClose, onCreate }) {
   const [title, setTitle] = useState("");
   const [error, setError] = useState("");
@@ -641,7 +614,7 @@ function CreateNotebookDialog({ onClose, onCreate }) {
           value={title}
           onChange={(e) => {
             setTitle(e.target.value);
-            setError(""); // pesan error hilang begitu pengguna mulai mengetik
+            setError("");
           }}
           placeholder="Judul Catatan"
           aria-invalid={error ? "true" : undefined}
@@ -661,10 +634,6 @@ function CreateNotebookDialog({ onClose, onCreate }) {
   );
 }
 
-/**
- * Popup ganti nama catatan.
- * onRename(notebook, judul) boleh async; kalau gagal (throw), pesan errornya tampil di popup.
- */
 function RenameNotebookDialog({ notebook, onClose, onRename }) {
   const [title, setTitle] = useState(notebook.title);
   const [error, setError] = useState("");
@@ -680,7 +649,7 @@ function RenameNotebookDialog({ notebook, onClose, onRename }) {
       return;
     }
     if (trimmed === notebook.title) {
-      onClose(); // tidak ada perubahan, tidak perlu request
+      onClose();
       return;
     }
 
@@ -728,11 +697,6 @@ function RenameNotebookDialog({ notebook, onClose, onRename }) {
   );
 }
 
-/**
- * Popup konfirmasi hapus (menggantikan dialog konfirmasi bawaan browser).
- * Dipakai untuk hapus catatan dan hapus sumber; isi pertanyaan lewat prop message.
- * onConfirm boleh async dan harus menutup popup sendiri setelah selesai.
- */
 function ConfirmDeleteDialog({ message, onCancel, onConfirm }) {
   const [deleting, setDeleting] = useState(false);
 
@@ -772,12 +736,8 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [renameTarget, setRenameTarget] = useState(null);
   const [pinningId, setPinningId] = useState(null);
-  // Jumlah sumber per notebook: undefined = masih dimuat, null = gagal dimuat, angka = jumlah dokumen.
   const [sourceCounts, setSourceCounts] = useState({});
 
-  // GET /notebooks belum mengembalikan jumlah sumber, jadi dihitung dari
-  // GET /documents/:notebookId untuk tiap notebook (paralel). Satu notebook gagal
-  // tidak memengaruhi yang lain (tampil "—").
   async function loadSourceCounts(list) {
     const results = await Promise.allSettled(list.map((nb) => getDocuments(nb._id, accessToken)));
     const counts = {};
@@ -795,7 +755,7 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
       const data = await getNotebooks(accessToken);
       const list = data?.notebooks || [];
       setNotebooks(list);
-      loadSourceCounts(list); // tanpa await: tabel tampil dulu, kolom Sumber menyusul
+      loadSourceCounts(list);
     } catch (err) {
       setListError(err.message);
     } finally {
@@ -808,7 +768,6 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Dipanggil setelah pengguna menekan "Hapus" di popup konfirmasi.
   async function handleDelete(notebook) {
     setDeletingId(notebook._id);
     setListError("");
@@ -823,19 +782,14 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
   }
 
   async function handleCreate(title) {
-    // Backend mewajibkan description, sedangkan popup di desain hanya punya kolom judul.
-    // Sementara description diisi sama dengan judul.
-    // TODO: konfirmasi ke tim backend/designer (jadikan description opsional, atau tambah kolomnya).
     const data = await createNotebook({ title, description: title }, accessToken);
     if (data?.notebook) {
-      // Setelah dibuat, langsung buka workspace-nya. Daftar dimuat ulang saat kembali ke dashboard.
       onOpenNotebook(data.notebook);
     } else {
       await loadNotebooks();
     }
   }
 
-  // PATCH /notebooks/:id/pin. Respons backend tidak memuat semua field, jadi digabung ke data lama.
   async function handleTogglePin(notebook) {
     const pinned = !notebook.isPinned;
     setPinningId(notebook._id);
@@ -851,7 +805,6 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
     }
   }
 
-  // PUT /notebooks/:id (hanya title). Melempar error supaya popup ganti nama bisa menampilkannya.
   async function handleRename(notebook, title) {
     const data = await updateNotebook(notebook._id, { title }, accessToken);
     const updated = data?.notebook ?? { title };
@@ -861,7 +814,6 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
   const visible = notebooks
     .filter((nb) => nb.title.toLowerCase().includes(search.trim().toLowerCase()))
     .sort((a, b) => {
-      // Catatan yang di-pin selalu di atas, sisanya mengikuti pilihan urutan.
       const pinDiff = Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned));
       if (pinDiff) return pinDiff;
       return sortBy === "az"
@@ -952,14 +904,12 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
               </thead>
               <tbody>
                 {visible.map((nb) => (
-                  // Klik di mana saja pada baris membuka workspace catatan ini.
                   <tr
                     key={nb._id}
                     className="row-clickable"
                     onClick={() => onOpenNotebook(nb)}
                   >
                     <td>
-                      {/* Tombol sungguhan supaya bisa dipilih & ditekan lewat keyboard */}
                       <button type="button" className="row-title">
                         {nb.isPinned && (
                           <span
@@ -976,7 +926,6 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
                     </td>
                     <td>{formatSourceCount(sourceCounts[nb._id])}</td>
                     <td>{formatDate(nb.createdAt)}</td>
-                    {/* stopPropagation: klik menu titik tiga tidak ikut membuka workspace */}
                     <td className="notebooks-table-actions" onClick={(e) => e.stopPropagation()}>
                       <div className="menu-wrap">
                         <button
@@ -1060,11 +1009,10 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
 
 /* ---------- Workspace ---------- */
 
-// ----- Sumber (dokumen) -----
 const ALLOWED_EXTENSIONS = ["pdf", "pptx", "docx", "txt"];
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 const TOAST_DURATION_MS = 5000;
-const POLL_INTERVAL_MS = 2000; // jeda cek status OCR dokumen di backend
+const POLL_INTERVAL_MS = 2000;
 
 const MSG_FORMAT_NOT_SUPPORTED = "Format tidak didukung, hanya PDF, PPTX, DOCX, dan TXT";
 const MSG_FILE_TOO_LARGE = "Ukuran file melebihi batas maksimal 20 MB";
@@ -1073,44 +1021,33 @@ const MSG_FORBIDDEN = "Anda tidak memiliki akses ke notebook ini";
 const MSG_OCR_FAILED = "Gagal membaca dokumen, kualitas gambar terlalu rendah";
 const MSG_GENERIC_ERROR = "Terjadi kesalahan, silakan coba lagi.";
 
-const FILE_TYPE_COLORS = {
-  pdf: "#e5484d",
-  docx: "#3b82f6",
-  pptx: "#f59e0b",
-  txt: "#9ca3af",
-};
-
 function getFileExtension(name) {
   const index = name.lastIndexOf(".");
   return index === -1 ? "" : name.slice(index + 1).toLowerCase();
 }
 
-/** Mengembalikan pesan error (string) kalau file tidak boleh diunggah, atau "" kalau lolos. */
 function validateUploadFile(file) {
   if (!ALLOWED_EXTENSIONS.includes(getFileExtension(file.name))) return MSG_FORMAT_NOT_SUPPORTED;
   if (file.size > MAX_FILE_SIZE) return MSG_FILE_TOO_LARGE;
   return "";
 }
 
-/** Mengubah dokumen dari backend ke bentuk yang dipakai tampilan. */
 function normalizeDocument(d) {
   return {
     id: d._id,
     title: d.title,
     type: String(d.fileType || "").toLowerCase(),
-    parseStatus: d.parseStatus, // "pending" | "done" | "error"
+    parseStatus: d.parseStatus,
     parseError: d.parseError || "",
     totalPages: d.totalPages,
   };
 }
 
-/** Pesan toast saat upload gagal: 403 -> pesan akses, selain itu (koneksi putus, 500, dll) -> gagal upload. */
 function uploadErrorToMessage(err) {
   if (err instanceof ApiError && err.status === 403) return MSG_FORBIDDEN;
   return MSG_UPLOAD_FAILED;
 }
 
-/** Pesan untuk error operasi lain (muat daftar, ganti nama, hapus): 403 -> pesan akses, selain itu pesan dari backend. */
 function errorToMessage(err) {
   if (err instanceof ApiError && err.status === 403) return MSG_FORBIDDEN;
   return err?.message || MSG_GENERIC_ERROR;
@@ -1125,7 +1062,6 @@ function useToasts() {
     setToasts((list) => list.filter((t) => t.id !== id));
   }, []);
 
-  // type: "error" (default, merah) atau "success" (hijau).
   const notify = useCallback((message, type = "error") => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     setToasts((list) => [...list, { id, message, type }]);
@@ -1135,7 +1071,6 @@ function useToasts() {
 }
 
 function Toast({ toast, onDismiss }) {
-  // Hilang sendiri setelah beberapa detik.
   useEffect(() => {
     const timer = setTimeout(() => onDismiss(toast.id), TOAST_DURATION_MS);
     return () => clearTimeout(timer);
@@ -1148,7 +1083,8 @@ function Toast({ toast, onDismiss }) {
       className={`toast${isSuccess ? " toast--success" : ""}`}
       role={isSuccess ? "status" : "alert"}
     >
-      {toast.message}
+      {toast.type !== "success" && <span className="toast-icon" aria-hidden="true">⚠️</span>}
+      <span>{toast.message}</span>
     </div>
   );
 }
@@ -1164,14 +1100,13 @@ function ToastStack({ toasts, onDismiss }) {
   );
 }
 
-// ----- State daftar sumber (tersambung ke endpoint Documents) -----
+// ----- State daftar sumber -----
 
 function useSources({ notebookId, accessToken, notify }) {
-  const [documents, setDocuments] = useState([]); // urutan dari backend: terbaru di atas
-  const [uploads, setUploads] = useState([]); // file yang sedang dikirim ke server
+  const [documents, setDocuments] = useState([]);
+  const [uploads, setUploads] = useState([]);
   const [uploadError, setUploadError] = useState("");
 
-  // Muat daftar dokumen setiap workspace dibuka.
   useEffect(() => {
     let cancelled = false;
     getDocuments(notebookId, accessToken)
@@ -1186,8 +1121,6 @@ function useSources({ notebookId, accessToken, notify }) {
     };
   }, [notebookId, accessToken, notify]);
 
-  // OCR/embedding berjalan di background backend. Selama ada dokumen "pending",
-  // cek statusnya berkala sampai selesai ("done") atau gagal ("error").
   const pendingKey = documents
     .filter((d) => d.parseStatus === "pending")
     .map((d) => d.id)
@@ -1222,11 +1155,9 @@ function useSources({ notebookId, accessToken, notify }) {
         } catch (err) {
           if (cancelled) return;
           if (err instanceof ApiError && (err.status === 403 || err.status === 404)) {
-            // Dokumen tidak bisa diakses lagi: lepaskan dari daftar supaya pengecekan berhenti.
             setDocuments((list) => list.filter((d) => d.id !== id));
             if (err.status === 403) notify(MSG_FORBIDDEN);
           }
-          // Error lain (mis. koneksi putus): coba lagi pada putaran berikutnya.
         }
       }
       if (!cancelled) timer = setTimeout(check, POLL_INTERVAL_MS);
@@ -1255,8 +1186,6 @@ function useSources({ notebookId, accessToken, notify }) {
     try {
       const data = await uploadDocument(notebookId, file, accessToken, { onProgress: setProgress });
       if (data?.document) {
-        // Dokumen baru ditaruh di atas (sama dengan urutan backend). Statusnya "pending"
-        // sampai OCR selesai, lalu dicek otomatis oleh efek di atas.
         setDocuments((list) => [normalizeDocument(data.document), ...list]);
       }
     } catch (err) {
@@ -1266,14 +1195,12 @@ function useSources({ notebookId, accessToken, notify }) {
     }
   }
 
-  // Melempar error kalau gagal; popup ganti nama menampilkan pesannya.
   async function renameDocument(id, name) {
     const data = await updateDocumentTitle(id, name, accessToken);
     const title = data?.document?.title ?? name;
     setDocuments((list) => list.map((d) => (d.id === id ? { ...d, title } : d)));
   }
 
-  // Tidak melempar error: kalau gagal, tampil sebagai toast.
   async function removeDocument(id) {
     try {
       await deleteDocument(id, accessToken);
@@ -1288,7 +1215,6 @@ function useSources({ notebookId, accessToken, notify }) {
 
 // ----- Komponen panel Sumber -----
 
-/** Ikon dokumen: warna dan label mengikuti format file (pdf, pptx, docx, txt). */
 function FileIcon({ type = "" }) {
   const fileType = String(type).toLowerCase();
 
@@ -1304,7 +1230,6 @@ function FileIcon({ type = "" }) {
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
         >
-          {/* Frame Sudut Kiri Bawah & Kanan Atas */}
           <path
             d="M10 30V90H70"
             stroke="#E53935"
@@ -1317,7 +1242,6 @@ function FileIcon({ type = "" }) {
             strokeWidth="8"
             strokeLinecap="square"
           />
-          {/* Teks PDF */}
           <text
             x="50"
             y="57"
@@ -1343,14 +1267,12 @@ function FileIcon({ type = "" }) {
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
         >
-          {/* Dokumen dengan Lipatan Kanan Atas */}
           <path
             d="M15 10H68L85 27V90H15V10Z"
             stroke="#2B579A"
             strokeWidth="8"
             strokeLinejoin="round"
           />
-          {/* Teks DOCX */}
           <text
             x="50"
             y="58"
@@ -1376,7 +1298,6 @@ function FileIcon({ type = "" }) {
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
         >
-          {/* Layar Presentasi / Stand */}
           <rect
             x="12"
             y="12"
@@ -1392,7 +1313,6 @@ function FileIcon({ type = "" }) {
             strokeWidth="8"
             strokeLinecap="square"
           />
-          {/* Teks PPTX */}
           <text
             x="50"
             y="49"
@@ -1418,7 +1338,6 @@ function FileIcon({ type = "" }) {
           xmlns="http://www.w3.org/2000/svg"
           aria-hidden="true"
         >
-          {/* Bingkai Kotak Hitam & Garis Atas-Bawah */}
           <rect
             x="12"
             y="12"
@@ -1444,7 +1363,6 @@ function FileIcon({ type = "" }) {
             stroke="currentColor"
             strokeWidth="6"
           />
-          {/* Teks TXT */}
           <text
             x="50"
             y="57"
@@ -1500,20 +1418,18 @@ function SourcesPanel({
 }) {
   const fileInputRef = useRef(null);
   const listRef = useRef(null);
-  const [menu, setMenu] = useState(null); // { id, top, right }
+  const [menu, setMenu] = useState(null);
 
-  // Saat ada file baru dikirim, gulung daftar ke atas supaya progress bar-nya terlihat.
   useEffect(() => {
     if (uploads.length > 0 && listRef.current) listRef.current.scrollTop = 0;
   }, [uploads.length]);
 
   function handleFileChange(e) {
     const file = e.target.files?.[0];
-    e.target.value = ""; // supaya file yang sama bisa dipilih lagi
+    e.target.value = "";
     if (file) onAddFile(file);
   }
 
-  // Menu memakai posisi "fixed" supaya tidak terpotong daftar yang bisa di-scroll.
   function toggleMenu(e, id) {
     const rect = e.currentTarget.getBoundingClientRect();
     setMenu((current) =>
@@ -1563,7 +1479,6 @@ function SourcesPanel({
           )}
 
           <ul className="source-list" ref={listRef}>
-            {/* File yang sedang dikirim ke server: progress bar naik */}
             {uploads.map((u) => (
               <li key={u.id} className="source-item source-item--processing" aria-busy="true">
                 <FileIcon type={u.type} />
@@ -1585,7 +1500,6 @@ function SourcesPanel({
 
             {documents.map((doc) =>
               doc.parseStatus === "pending" ? (
-                // OCR/ekstraksi masih berjalan di backend: animasi loading, belum ada menu
                 <li key={doc.id} className="source-item source-item--processing" aria-busy="true">
                   <FileIcon type={doc.type} />
                   <div className="source-processing">
@@ -1635,7 +1549,6 @@ function SourcesPanel({
                 <button type="button" role="menuitem" onClick={() => pick(onRename)}>
                   <PencilIcon /> Ganti Nama
                 </button>
-                
               </div>
             </>
           )}
@@ -1645,14 +1558,6 @@ function SourcesPanel({
   );
 }
 
-/**
- * Popup pratinjau: menampilkan teks hasil ekstraksi / OCR dokumen.
- * TODO: kontrak API belum punya endpoint untuk membaca teks hasil ekstraksi
- * (GET /documents hanya mengembalikan metadata). Sementara tampil pesan kosong.
- * Saat endpoint tersedia, isi doc.extractedText sebelum membuka popup ini.
- */
-
-/** Popup ganti nama sumber. onRename(id, nama) boleh async dan melempar error kalau gagal. */
 function RenameDocumentDialog({ doc, onClose, onRename }) {
   const [title, setTitle] = useState(doc.title);
   const [error, setError] = useState("");
@@ -1712,8 +1617,6 @@ function RenameDocumentDialog({ doc, onClose, onRename }) {
 }
 
 // ----- Chat AI -----
-// Chat dikerjakan di sprint 3 (endpoint backend belum ada), jadi riwayat dan loading
-// di bawah ini masih data contoh.
 
 const SAMPLE_MESSAGES = [
   { id: 1, role: "user", text: "Lorem ipsum" },
@@ -1728,14 +1631,9 @@ const SAMPLE_MESSAGES = [
   },
 ];
 
-// Lebar tiap baris skeleton, diukur dari gambar desain.
 const SKELETON_LINE_WIDTHS = ["100%", "75%", "86%", "80%", "94%", "100%"];
-
-// Lama loading simulasi (ms). Hapus bersama fetchChatHistory saat memakai backend.
 const CHAT_LOAD_DELAY_MS = 1500;
 
-// Mengambil riwayat chat.
-// TODO (sprint 3): ganti dengan request ke backend saat endpoint riwayat chat tersedia.
 function fetchChatHistory() {
   return new Promise((resolve) => {
     setTimeout(() => resolve(SAMPLE_MESSAGES), CHAT_LOAD_DELAY_MS);
@@ -1767,6 +1665,16 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
   const { toasts, notify, dismiss } = useToasts();
   const { documents, uploads, uploadError, addFile, renameDocument, removeDocument } =
     useSources({ notebookId: notebook._id, accessToken, notify });
+  
+  // 3.b. Menambahkan API notes dan state collapsed
+  const notesApi = useNotes({ notebookId: notebook._id, accessToken, notify });
+  const [notesCollapsed, setNotesCollapsed] = useState(false);
+
+  function handleNewNote() {
+    setNotesCollapsed(false);
+    notesApi.addNote();
+  }
+
   const [sourcesCollapsed, setSourcesCollapsed] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
   const [renameDoc, setRenameDoc] = useState(null);
@@ -1777,10 +1685,8 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
   const [draft, setDraft] = useState("");
   const endRef = useRef(null);
 
-  // Input chat hanya aktif kalau ada minimal 1 dokumen yang sudah selesai diproses.
   const hasDocuments = documents.some((d) => d.parseStatus === "done");
 
-  // Muat riwayat chat setiap workspace dibuka (termasuk setelah di-refresh).
   useEffect(() => {
     let cancelled = false;
     setLoadingChat(true);
@@ -1791,7 +1697,6 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
         setLoadingChat(false);
       })
       .catch(() => {
-        // TODO: tampilan error belum ada di desain. Sementara skeleton dihentikan.
         if (!cancelled) setLoadingChat(false);
       });
     return () => {
@@ -1799,7 +1704,6 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
     };
   }, [notebook._id]);
 
-  // Setiap ada pesan baru (atau loading selesai), gulung otomatis ke bawah.
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, loadingChat]);
@@ -1811,10 +1715,8 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
     if (!text) return;
     setMessages((list) => [...list, { id: Date.now(), role: "user", text }]);
     setDraft("");
-    // TODO (sprint 3): kirim ke endpoint chat, lalu tambahkan balasan AI beserta sitasinya.
   }
 
-  // Enter = kirim, Shift+Enter = baris baru.
   function handleKeyDown(e) {
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       handleSend(e);
@@ -1823,16 +1725,24 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
 
   return (
     <div className="workspace-page">
+      {/* 3.c. Tombol “Catatan Baru +” disesuaikan */}
       <AppHeader
         onLogout={onLogout}
         onBrandClick={onBack}
         onEditProfile={onEditProfile}
         profile={profile}
-        actions={<button type="button" className="btn-pill">Catatan Baru +</button>}
+        actions={
+          <button type="button" className="btn-pill" onClick={handleNewNote} disabled={notesApi.creating}>
+            Catatan Baru +
+          </button>
+        }
       />
 
+      {/* 3.d. Menambahkan kelas kondisional pada main workspace */}
       <main
-        className={`workspace${sourcesCollapsed ? " workspace--sources-collapsed" : ""}`}
+        className={`workspace${sourcesCollapsed ? " workspace--sources-collapsed" : ""}${
+          notesCollapsed ? " workspace--notes-collapsed" : ""
+        }`}
         aria-label={`Workspace ${notebook.title}`}
       >
         {/* Panel kiri: Sumber */}
@@ -1854,7 +1764,6 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
 
           {loadingChat ? (
             <>
-              {/* Skeleton loading, sesuai gambar desain */}
               <div className="chat-skeleton" role="status" aria-live="polite" aria-busy="true">
                 <p className="chat-skeleton-title">Loading...</p>
                 {SKELETON_LINE_WIDTHS.map((width, i) => (
@@ -1901,10 +1810,13 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
           )}
         </section>
 
-        {/* Panel kanan: dikosongkan dulu */}
-        <section className="panel panel-notes">
-          <h2 className="panel-title">Catatan</h2>
-        </section>
+        {/* 3.e. Mengganti seluruh <section className="panel panel-notes"> dengan NotesPanel */}
+        <NotesPanel
+          notes={notesApi}
+          collapsed={notesCollapsed}
+          onToggle={() => setNotesCollapsed((v) => !v)}
+          icons={{ toggle: <ToggleSidebarIcon />, rename: <PencilIcon />, trash: <TrashIcon /> }}
+        />
       </main>
 
       {previewDoc && <PreviewDialog doc={previewDoc} onClose={() => setPreviewDoc(null)} />}
@@ -1935,13 +1847,12 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
 
 /* ---------- Profil ---------- */
 
-const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
 const MSG_AVATAR_FORMAT = "Format foto harus JPG";
 const MSG_AVATAR_TOO_LARGE = "Ukuran foto melebihi batas maksimal 5 MB";
 const MSG_USERNAME_SAVED = "Username berhasil diperbarui";
 const MSG_AVATAR_SAVED = "Foto profil berhasil diperbarui";
 
-/** Mengubah user dari backend ke bentuk yang dipakai tampilan. */
 function normalizeProfile(user) {
   return {
     username: user?.username || "",
@@ -1950,7 +1861,6 @@ function normalizeProfile(user) {
   };
 }
 
-/** Mengembalikan pesan error kalau foto tidak boleh dipakai, atau "" kalau lolos. */
 function validateAvatarFile(file) {
   const ext = getFileExtension(file.name);
   if (file.type !== "image/jpeg" || !["jpg", "jpeg"].includes(ext)) return MSG_AVATAR_FORMAT;
@@ -1958,7 +1868,6 @@ function validateAvatarFile(file) {
   return "";
 }
 
-// GET /user/me dimuat sekali setelah login, supaya avatar header dan halaman profil memakai data yang sama.
 function useProfile(accessToken) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -2004,12 +1913,6 @@ function ChevronRightIcon() {
   );
 }
 
-/**
- * Halaman Profil.
- * Username hanya ditampilkan (tombol menuju halaman ubah username); nilainya berubah
- * hanya setelah halaman ubah username berhasil menyimpan lewat API.
- * Foto langsung diunggah begitu dipilih.
- */
 function ProfilePage({
   accessToken,
   profile,
@@ -2030,7 +1933,7 @@ function ProfilePage({
 
   async function handleAvatarChange(e) {
     const file = e.target.files?.[0];
-    e.target.value = ""; // supaya file yang sama bisa dipilih lagi
+    e.target.value = "";
     if (!file || uploading) return;
 
     const message = validateAvatarFile(file);
@@ -2100,7 +2003,6 @@ function ProfilePage({
 
               <div className="field">
                 <span className="field-label" id="profile-username-label">Username</span>
-                {/* Klik: buka halaman ubah username */}
                 <button
                   type="button"
                   className="input input--button"
@@ -2114,7 +2016,6 @@ function ProfilePage({
                 </button>
               </div>
 
-              {/* Email tidak bisa diubah: readOnly (tetap bisa disorot & disalin) */}
               <Field id="profile-email" label="Email" showMessage={false}>
                 <TextInput
                   id="profile-email"
@@ -2134,12 +2035,6 @@ function ProfilePage({
   );
 }
 
-/**
- * Halaman ubah username. Kolom terisi username saat ini.
- * Validasi client-side dijalankan saat "Simpan" ditekan; error dari API (mis. username
- * sudah dipakai) tampil inline di bawah kolom. Data profil di induk baru diganti lewat
- * onSaved setelah API sukses, jadi kembali tanpa menyimpan tidak mengubah apa pun.
- */
 function EditUsernamePage({ accessToken, profile, notify, onSaved, onCancel }) {
   const [username, setUsername] = useState(profile?.username ?? "");
   const [error, setError] = useState("");
@@ -2149,7 +2044,6 @@ function EditUsernamePage({ accessToken, profile, notify, onSaved, onCancel }) {
     e.preventDefault();
     if (saving) return;
 
-    // Kosong, > 16 karakter, atau karakter selain huruf, angka, _ dan -.
     const message = validateUsername(username);
     if (message) {
       setError(message);
@@ -2158,7 +2052,7 @@ function EditUsernamePage({ accessToken, profile, notify, onSaved, onCancel }) {
 
     const trimmed = username.trim();
     if (trimmed === profile.username) {
-      onCancel(); // tidak ada perubahan, tidak perlu request
+      onCancel();
       return;
     }
 
@@ -2166,7 +2060,6 @@ function EditUsernamePage({ accessToken, profile, notify, onSaved, onCancel }) {
     setError("");
     try {
       const data = await updateProfile({ username: trimmed }, accessToken);
-      // Halaman ini langsung ditutup oleh onSaved, jadi saving tidak perlu di-reset.
       onSaved(normalizeProfile(data?.user ?? { ...profile, username: trimmed }));
       notify(MSG_USERNAME_SAVED, "success");
     } catch (err) {
@@ -2178,7 +2071,6 @@ function EditUsernamePage({ accessToken, profile, notify, onSaved, onCancel }) {
 
   return (
     <div className="edit-username-page">
-      {/* Sesuai desain: header hanya logo + nama aplikasi (tanpa avatar). Klik = kembali ke Profil. */}
       <header className="topbar">
         <button
           type="button"
@@ -2228,7 +2120,6 @@ export default function App() {
     error: profileError,
     reload: reloadProfile,
   } = useProfile(accessToken);
-  // Toast di tingkat root supaya tetap tampil walau halaman berpindah (mis. setelah simpan username).
   const { toasts, notify, dismiss } = useToasts();
 
   function handleLoginSuccess(token) {
@@ -2237,8 +2128,6 @@ export default function App() {
   }
 
   function handleLogout() {
-    // logout() mencabut refresh token di server (POST /user/logout) dan menghapusnya dari
-    // localStorage. Tidak di-await supaya user langsung keluar walau server lambat/offline.
     logout(accessToken);
     setAccessToken(null);
     setActiveNotebook(null);
@@ -2256,12 +2145,10 @@ export default function App() {
     setView("dashboard");
   }
 
-  // Edit Profil (dropdown akun) -> halaman profil.
   function handleEditProfile() {
     setView("profile");
   }
 
-  // Username baru diterapkan ke profil hanya setelah API sukses, lalu kembali ke halaman profil.
   function handleUsernameSaved(nextProfile) {
     setProfile(nextProfile);
     setView("profile");
