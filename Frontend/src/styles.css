@@ -1193,6 +1193,458 @@ body {
   cursor: not-allowed;
 }
 
+/* ======================================================================
+   Panel Catatan (kolom kanan)
+   ====================================================================== */
+
+/* Grid: kolom Catatan menyusut jadi 56px (sama seperti panel Sumber). Hanya desktop. */
+@media (min-width: 901px) {
+  .workspace--notes-collapsed {
+    grid-template-columns: minmax(240px, 1fr) minmax(0, 1.5fr) 56px;
+  }
+
+  .workspace--sources-collapsed.workspace--notes-collapsed {
+    grid-template-columns: 56px minmax(0, 1fr) 56px;
+  }
+}
+
+.panel-notes.is-collapsed {
+  align-items: center;
+  padding: 16px 0;
+}
+
+.panel-notes.is-collapsed .panel-head {
+  margin-bottom: 0;
+  justify-content: center;
+}
+
+.notes-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.notes-body[hidden] {
+  display: none;
+}
+
+/* Perpindahan State 1 <-> State 2 */
+.notes-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  animation: notes-view-in 0.22s ease-out;
+}
+
+@keyframes notes-view-in {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ----- State 1: daftar ----- */
+.note-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.note-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 4px;
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+
+.note-item:hover,
+.note-item:focus-within {
+  background: var(--surface);
+}
+
+.note-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 4px 9px 10px;
+  background: none;
+  border: 0;
+  border-radius: 10px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.note-open:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+}
+
+.note-open-icon {
+  flex-shrink: 0;
+  display: grid;
+  color: var(--text-muted);
+}
+
+.note-open-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.note-open-title,
+.note-open-snippet {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-open-title {
+  font-size: 0.75rem;
+}
+
+.note-open-snippet {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.notes-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.notes-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 12px;
+  text-align: center;
+}
+
+.notes-empty-title {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.notes-empty-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.notes-retry {
+  margin-top: 8px;
+  padding: 6px 14px;
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.notes-retry:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.notes-footer {
+  display: flex;
+  justify-content: center;
+  padding-top: 12px;
+}
+
+.notes-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: 0;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.notes-add-btn:hover:not(:disabled) {
+  background: #ffffff;
+}
+
+.notes-add-btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.notes-add-btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* ----- State 2: editor ----- */
+.note-editor {
+  gap: 10px;
+}
+
+.note-editor-head {
+  margin-bottom: 0;
+}
+
+.note-editor-head-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.note-trash {
+  display: grid;
+  place-items: center;
+  padding: 4px;
+}
+
+.save-slot {
+  min-width: 96px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.save-status--saved {
+  color: var(--success);
+}
+
+.save-status--error {
+  color: var(--error);
+}
+
+.spinner {
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--text);
+  border-radius: 50%;
+  animation: notes-spin 0.8s linear infinite;
+}
+
+@keyframes notes-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.note-title-input {
+  flex-shrink: 0;
+  padding: 0 12px;
+  font-weight: 500;
+}
+
+.note-title-error {
+  margin: -4px 0 0 4px;
+}
+
+.note-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--surface);
+  border-radius: 10px;
+}
+
+.tool-btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tool-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+}
+
+.tool-btn.is-active {
+  background: rgba(69, 157, 170, 0.2);
+  color: #7fd0dc;
+}
+
+.tool-btn:focus-visible,
+.note-heading-select:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 1px;
+}
+
+.tool-glyph {
+  font-size: 0.875rem;
+  line-height: 1;
+}
+
+.tool-glyph--bold {
+  font-weight: 700;
+}
+
+.tool-glyph--italic {
+  font-style: italic;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+}
+
+.tool-glyph--underline {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 500;
+}
+
+.tool-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.tool-spacer {
+  flex: 1;
+}
+
+.note-heading-select {
+  height: 30px;
+  padding: 0 6px;
+  background: transparent;
+  color: var(--text);
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.note-heading-select:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.note-heading-select option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.note-area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.note-content {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.note-content:focus-visible {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(226, 182, 182, 0.25);
+}
+
+.note-placeholder {
+  position: absolute;
+  top: 13px;
+  left: 15px;
+  z-index: 1;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.note-content > :first-child {
+  margin-top: 0;
+}
+
+.note-content p,
+.note-content div {
+  margin: 0 0 0.5em;
+}
+
+.note-content ul,
+.note-content ol {
+  margin: 0 0 0.5em;
+  padding-left: 1.5em;
+}
+
+/* Hierarki heading: H1 terbesar, mengecil bertahap sampai H5 */
+.note-content h1,
+.note-content h2,
+.note-content h3,
+.note-content h4,
+.note-content h5 {
+  margin: 0.9em 0 0.35em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.note-content h1 { font-size: 1.75rem; }
+.note-content h2 { font-size: 1.5rem; }
+.note-content h3 { font-size: 1.25rem; }
+.note-content h4 { font-size: 1.0625rem; }
+.note-content h5 { font-size: 0.9375rem; }
+
+.modal .msg-error {
+  margin: 10px 0 0;
+}
+
 /* Layar sempit: sementara hanya tampilkan panel Chat */
 @media (max-width: 900px) {
   .workspace {
@@ -1212,7 +1664,9 @@ body {
 
   .skeleton,
   .progress-bar--indeterminate,
-  .toast {
+  .toast,
+  .notes-view,
+  .spinner {
     animation: none;
   }
 }
