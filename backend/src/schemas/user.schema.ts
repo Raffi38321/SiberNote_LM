@@ -38,8 +38,8 @@ export const loginSchema = {
 export const updateUserProfilSchema = {
     body: z.object({
         username: z.string()
-            .min(1, "Nama Profil tidak boleh kosong")
-            .max(16, "Nama Profil maksimal 16 karakter")
+            .min(1, "Username tidak boleh kosong")
+            .max(16, "Username maksimal 16 karakter")
             .optional()
     })
 }
