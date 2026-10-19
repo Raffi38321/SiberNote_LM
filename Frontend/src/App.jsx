@@ -1246,19 +1246,192 @@ function useSources({ notebookId, accessToken, notify }) {
 // ----- Komponen panel Sumber -----
 
 /** Ikon dokumen: warna dan label mengikuti format file (pdf, pptx, docx, txt). */
-function FileIcon({ type }) {
-  const color = FILE_TYPE_COLORS[type] || "#9ca3af";
-  return (
-    <svg className="file-icon" viewBox="0 0 24 28" width="24" height="28" fill="none"
-         stroke={color} strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 1.5H15L21 7.5V25a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5V3A1.5 1.5 0 0 1 5 1.5Z" />
-      <path d="M15 1.5V7.5H21" />
-      <text x="12" y="20" textAnchor="middle" fontSize={type.length > 3 ? 5.2 : 6.5} fontWeight="600"
-            fill={color} stroke="none">
-        {type.toUpperCase()}
-      </text>
-    </svg>
-  );
+function FileIcon({ type = "" }) {
+  const fileType = String(type).toLowerCase();
+
+  switch (fileType) {
+    case "pdf":
+      return (
+        <svg
+          className="file-icon"
+          viewBox="0 0 100 100"
+          width="24"
+          height="24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          {/* Frame Sudut Kiri Bawah & Kanan Atas */}
+          <path
+            d="M10 30V90H70"
+            stroke="#E53935"
+            strokeWidth="8"
+            strokeLinecap="square"
+          />
+          <path
+            d="M30 10H90V70"
+            stroke="#E53935"
+            strokeWidth="8"
+            strokeLinecap="square"
+          />
+          {/* Teks PDF */}
+          <text
+            x="50"
+            y="57"
+            textAnchor="middle"
+            fill="#E53935"
+            fontSize="26"
+            fontWeight="800"
+            fontFamily="sans-serif"
+          >
+            PDF
+          </text>
+        </svg>
+      );
+
+    case "docx":
+      return (
+        <svg
+          className="file-icon"
+          viewBox="0 0 100 100"
+          width="24"
+          height="24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          {/* Dokumen dengan Lipatan Kanan Atas */}
+          <path
+            d="M15 10H68L85 27V90H15V10Z"
+            stroke="#2B579A"
+            strokeWidth="8"
+            strokeLinejoin="round"
+          />
+          {/* Teks DOCX */}
+          <text
+            x="50"
+            y="58"
+            textAnchor="middle"
+            fill="#2B579A"
+            fontSize="21"
+            fontWeight="800"
+            fontFamily="sans-serif"
+          >
+            DOCX
+          </text>
+        </svg>
+      );
+
+    case "pptx":
+      return (
+        <svg
+          className="file-icon"
+          viewBox="0 0 100 100"
+          width="24"
+          height="24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          {/* Layar Presentasi / Stand */}
+          <rect
+            x="12"
+            y="12"
+            width="76"
+            height="56"
+            stroke="#E06B43"
+            strokeWidth="8"
+            fill="none"
+          />
+          <path
+            d="M50 68V80M28 88H72"
+            stroke="#E06B43"
+            strokeWidth="8"
+            strokeLinecap="square"
+          />
+          {/* Teks PPTX */}
+          <text
+            x="50"
+            y="49"
+            textAnchor="middle"
+            fill="#E06B43"
+            fontSize="21"
+            fontWeight="800"
+            fontFamily="sans-serif"
+          >
+            PPTX
+          </text>
+        </svg>
+      );
+
+    case "txt":
+      return (
+        <svg
+          className="file-icon"
+          viewBox="0 0 100 100"
+          width="24"
+          height="24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          {/* Bingkai Kotak Hitam & Garis Atas-Bawah */}
+          <rect
+            x="12"
+            y="12"
+            width="76"
+            height="76"
+            stroke="currentColor"
+            strokeWidth="8"
+            fill="none"
+          />
+          <line
+            x1="20"
+            y1="26"
+            x2="80"
+            y2="26"
+            stroke="currentColor"
+            strokeWidth="6"
+          />
+          <line
+            x1="20"
+            y1="74"
+            x2="80"
+            y2="74"
+            stroke="currentColor"
+            strokeWidth="6"
+          />
+          {/* Teks TXT */}
+          <text
+            x="50"
+            y="57"
+            textAnchor="middle"
+            fill="currentColor"
+            fontSize="24"
+            fontWeight="800"
+            fontFamily="sans-serif"
+          >
+            TXT
+          </text>
+        </svg>
+      );
+
+    default:
+      return (
+        <svg
+          className="file-icon"
+          viewBox="0 0 100 100"
+          width="24"
+          height="24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="8"
+          aria-hidden="true"
+        >
+          <rect x="15" y="10" width="70" height="80" rx="4" />
+        </svg>
+      );
+  }
 }
 
 function ToggleSidebarIcon() {
@@ -1412,15 +1585,14 @@ function SourcesPanel({
                 role="menu"
                 style={{ top: menu.top, right: menu.right }}
               >
-                <button type="button" role="menuitem" onClick={() => pick(onPreview)}>
-                  <EyeIcon hidden={false} /> Pratinjau
-                </button>
-                <button type="button" role="menuitem" onClick={() => pick(onRename)}>
-                  <PencilIcon /> Ganti Nama
-                </button>
                 <button type="button" role="menuitem" className="danger" onClick={() => pick(onDelete)}>
                   <TrashIcon /> Hapus
                 </button>
+                
+                <button type="button" role="menuitem" onClick={() => pick(onRename)}>
+                  <PencilIcon /> Ganti Nama
+                </button>
+                
               </div>
             </>
           )}
@@ -1436,23 +1608,6 @@ function SourcesPanel({
  * (GET /documents hanya mengembalikan metadata). Sementara tampil pesan kosong.
  * Saat endpoint tersedia, isi doc.extractedText sebelum membuka popup ini.
  */
-function PreviewDialog({ doc, onClose }) {
-  return (
-    <Modal label={`Pratinjau ${doc.title}`} className="modal--preview" onClose={onClose}>
-      <div className="modal-form">
-        <h2 className="modal-heading">{doc.title}</h2>
-        <pre className="preview-text" tabIndex={0}>
-          {doc.extractedText || "Teks hasil ekstraksi belum tersedia."}
-        </pre>
-        <div className="modal-actions">
-          <button type="button" className="modal-save" onClick={onClose}>
-            Tutup
-          </button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
 
 /** Popup ganti nama sumber. onRename(id, nama) boleh async dan melempar error kalau gagal. */
 function RenameDocumentDialog({ doc, onClose, onRename }) {
