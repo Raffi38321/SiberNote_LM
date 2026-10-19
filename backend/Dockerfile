@@ -29,5 +29,16 @@ COPY --from=builder /app/dist ./dist
 COPY eng.traineddata ./
 COPY ind.traineddata ./
 
+# Buat folder uploads dan set permission
+# Mount volume Docker ke path ini agar file tetap ada saat container restart:
+#   docker run -v /var/www/sibernote/uploads:/app/uploads ...
+# atau di docker-compose.yml:
+#   volumes:
+#     - sibernote_uploads:/app/uploads
+RUN mkdir -p /app/uploads && chown -R node:node /app/uploads
+VOLUME ["/app/uploads"]
+
+USER node
+
 EXPOSE 8080
 CMD ["npm", "run", "start"]

@@ -1,12 +1,12 @@
+import fs from "fs"
+import path from "path"
 import { type Request, type Response } from "express"
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
-import { Readable } from "stream"
 import User from "../models/user.model.js"
 import RefreshToken from "../models/refreshToken.model.js"
 import envVariable from "../utils/ENV.js"
 import response from "../utils/response.js"
-import cloudinary from "../services/cloudinary.js"
 
 const REFRESH_TOKEN_EXPIRES_DAYS = 7
 
@@ -167,38 +167,11 @@ export const updateUsernameOravatarUser = async(req: Request, res: Response)=>{
         }
 
         if (avatarFile) {
-            const existingUser = await User.findById(userId).select("avatarUrl")
-            if (existingUser?.avatarUrl) {
-                const urlParts = existingUser.avatarUrl.split("/")
-                const uploadIndex = urlParts.indexOf("upload")
-                if (uploadIndex !== -1) {
-                    const publicIdWithExt = urlParts.slice(uploadIndex + 2).join("/")
-                    const publicId = publicIdWithExt.replace(/\.[^.]+$/, "")
-                    await cloudinary.uploader.destroy(publicId, { resource_type: "image" }).catch(() => {})
-                }
-            }
-
-            const avatarUrl = await new Promise<string>((resolve, reject) => {
-                const uploadStream = cloudinary.uploader.upload_stream(
-                    {
-                        folder: `sibernote/avatars/${userId}`,
-                        resource_type: "image",
-                        public_id: "avatar",
-                        overwrite: true,
-                        unique_filename: false,
-                    },
-                    (error, result) => {
-                        if (error || !result) {
-                            reject(error ?? new Error("cloudinary upload gagal"))
-                        } else {
-                            resolve(result.secure_url)
-                        }
-                    },
-                )
-                Readable.from(avatarFile.buffer).pipe(uploadStream)
-            })
-
-            updateData.avatarUrl = avatarUrl
+            // Avatar disimpan oleh multer diskStorage ke UPLOADS_DIR/avatars/{userId}/avatar.jpg
+            // (lihat upload.middleware.ts). Kita hanya perlu membangun URL publiknya.
+            // File lama otomatis tertimpa karena nama file tetap "avatar.jpg".
+            const base = envVariable.UPLOAD_BASE_URL.replace(/\/$/, "")
+            updateData.avatarUrl = `${base}/avatars/${userId}/avatar.jpg`
         }
 
         const user = await User.findByIdAndUpdate(userId, updateData, { returnDocument: "after" }).select("-password")

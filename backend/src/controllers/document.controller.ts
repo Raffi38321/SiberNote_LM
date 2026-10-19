@@ -1,12 +1,13 @@
+import fs from "fs"
+import path from "path"
 import type { Request, Response } from "express"
-import { Readable } from "stream"
 import mongoose from "mongoose"
-import cloudinary from "../services/cloudinary.js"
 import Document from "../models/document.model.js"
 import Notebook from "../models/notebook.model.js"
 import Chunk from "../models/chunk.model.js"
-import { chunkPDF, chunkPPTX, chunkTXT, chunkDOCX, NoTextError } from "../services/chunking.js"
+import { chunkPDF, chunkPPTX, chunkTXT, chunkDOCX } from "../services/chunking.js"
 import response from "../utils/response.js"
+import envVariable from "../utils/ENV.js"
 
 type FileType = "pdf" | "pptx" | "txt" | "docx"
 
@@ -17,35 +18,42 @@ const MIME_TO_FILETYPE: Record<string, FileType> = {
     "text/plain": "txt",
 }
 
-
-const uploadToCloudinary = (
-    buffer: Buffer,
-    filename: string,
-    folder: string,
-): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-            {
-                folder,
-                resource_type: "raw",  
-                public_id: filename,
-                use_filename: true,
-                unique_filename: false,
-                overwrite: false,
-            },
-            (error, result) => {
-                if (error || !result) {
-                    reject(error ?? new Error("cloudinary upload gagal"))
-                } else {
-                    resolve(result.secure_url)
-                }
-            },
-        )
-        Readable.from(buffer).pipe(uploadStream)
-    })
+const MIME_TO_EXT: Record<string, string> = {
+    "application/pdf": "pdf",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+    "text/plain": "txt",
 }
 
-//  upload document 
+/**
+ * Simpan buffer file ke disk dan kembalikan URL publiknya.
+ * Folder: {UPLOADS_DIR}/documents/{userId}/{notebookId}/
+ * URL:    {UPLOAD_BASE_URL}/documents/{userId}/{notebookId}/{filename}.{ext}
+ */
+const saveFileToDisk = (
+    buffer: Buffer,
+    baseName: string,
+    mimetype: string,
+    userId: string,
+    notebookId: string,
+): string => {
+    const ext = MIME_TO_EXT[mimetype] ?? "bin"
+    const filename = `${baseName}.${ext}`
+    const dir = path.join(envVariable.UPLOADS_DIR, "documents", userId, notebookId)
+
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true })
+    }
+
+    const filePath = path.join(dir, filename)
+    fs.writeFileSync(filePath, buffer)
+
+    // Normalise UPLOAD_BASE_URL (hapus trailing slash)
+    const base = envVariable.UPLOAD_BASE_URL.replace(/\/$/, "")
+    return `${base}/documents/${userId}/${notebookId}/${filename}`
+}
+
+// ── upload document ──────────────────────────────────────────────────────────
 
 export const uploadDocument = async (req: Request, res: Response) => {
     try {
@@ -77,13 +85,11 @@ export const uploadDocument = async (req: Request, res: Response) => {
         }
 
         const baseName = originalname.replace(/\.[^.]+$/, "").replace(/\s+/g, "_")
-        const folder = `sibernote/${userId}/${notebookId}`
-
-        const fileUrl = await uploadToCloudinary(buffer, baseName, folder)
+        const fileUrl = saveFileToDisk(buffer, baseName, mimetype, userId, notebookId)
 
         const notebookObjectId = new mongoose.Types.ObjectId(notebookId)
 
-        // simpan dokumen pake status "pending"
+        // simpan dokumen dengan status "pending"
         const doc = await Document.create({
             notebookId: notebookObjectId,
             title: baseName,
@@ -94,7 +100,7 @@ export const uploadDocument = async (req: Request, res: Response) => {
             parseStatus: "pending",
         })
 
-        // proses chunking jalan setelah response dikirim ke fe supaya tidak block user
+        // proses chunking setelah response dikirim ke FE supaya tidak block user
         setImmediate(async () => {
             try {
                 const { chunks, totalPages } = fileType === "pdf"
@@ -172,20 +178,31 @@ export const deleteDocument = async (req: Request, res: Response) => {
         const { documentId } = req.params
 
         const doc = await Document.findById(documentId)
-
         if (!doc) {
             return response.notFoundError(res, "dokumen tidak ditemukan")
         }
 
-        const urlParts = doc.fileUrl.split("/")
-        const uploadIndex = urlParts.indexOf("upload")
-        const publicIdWithExt = urlParts.slice(uploadIndex + 2).join("/")
-        const publicId = publicIdWithExt.replace(/\.[^.]+$/, "")
+        // Hapus file fisik dari disk
+        // fileUrl format: {UPLOAD_BASE_URL}/documents/{userId}/{notebookId}/{filename}
+        const base = envVariable.UPLOAD_BASE_URL.replace(/\/$/, "")
+        const relativePath = doc.fileUrl.replace(base, "")  // /documents/userId/notebookId/file.pdf
+        const filePath = path.join(envVariable.UPLOADS_DIR, relativePath)
 
-        await cloudinary.uploader.destroy(publicId, { resource_type: "raw" })
-        await Chunk.deleteMany({
-            documentId: doc._id,
-        })
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath)
+        }
+
+        // Coba hapus folder notebookId jika sudah kosong
+        try {
+            const parentDir = path.dirname(filePath)
+            if (fs.readdirSync(parentDir).length === 0) {
+                fs.rmdirSync(parentDir)
+            }
+        } catch {
+            // abaikan jika gagal; folder mungkin masih punya file lain
+        }
+
+        await Chunk.deleteMany({ documentId: doc._id })
         await doc.deleteOne()
 
         return response.requestSuccess(res, "berhasil hapus dokumen")
@@ -226,7 +243,6 @@ export const getDocumentStatus = async (req: Request, res: Response) => {
 
         const { documentId } = req.params
 
-        // ambil hanya field yang dibutuhkan FE untuk polling
         const doc = await Document.findById(documentId)
             .select("parseStatus parseError totalPages notebookId")
             .populate<{ notebookId: { userId: { toString(): string } } }>("notebookId", "userId")

@@ -1,10 +1,12 @@
+import fs from "fs"
+import path from "path"
 import type { Request, Response } from "express";
 import response from "../utils/response.js";
 import Notebook from "../models/notebook.model.js";
 import Document from "../models/document.model.js";
 import Chunk from "../models/chunk.model.js";
-import cloudinary from "../services/cloudinary.js";
 import Note from "../models/note.model.js";
+import envVariable from "../utils/ENV.js";
 
 export const createNotebook = async (req: Request, res: Response) => {
   try {
@@ -73,23 +75,15 @@ export const deleteNotebook = async (req: Request, res: Response) => {
 
         const documents = await Document.find({ notebookId: notebook._id })
 
+        // Hapus file fisik dari disk untuk setiap dokumen
+        const base = envVariable.UPLOAD_BASE_URL.replace(/\/$/, "")
         for (const document of documents) {
-            const urlParts = document.fileUrl.split("/")
-            const uploadIndex = urlParts.indexOf("upload")
-
-            if (uploadIndex !== -1) {
-                const publicIdWithExt = urlParts
-                    .slice(uploadIndex + 2)
-                    .join("/")
-
-                const publicId = publicIdWithExt.replace(
-                    /\.[^.]+$/,
-                    ""
-                )
-
-                await cloudinary.uploader.destroy(publicId, {
-                    resource_type: "raw",
-                })
+            if (document.fileUrl) {
+                const relativePath = document.fileUrl.replace(base, "")
+                const filePath = path.join(envVariable.UPLOADS_DIR, relativePath)
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath)
+                }
             }
         }
 
