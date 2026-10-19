@@ -64,8 +64,11 @@ async function request(path, { method = "GET", body, accessToken, isRetry = fals
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
+  // FormData (mis. update profil): jangan set Content-Type, browser menambahkan boundary sendiri.
+  const isForm = typeof FormData !== "undefined" && body instanceof FormData;
+
   const headers = { Accept: "application/json" };
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
   let res;
@@ -73,7 +76,7 @@ async function request(path, { method = "GET", body, accessToken, isRetry = fals
     res = await fetch(`${BASE_URL}${path}`, {
       method,
       headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
       signal: controller.signal,
     });
   } catch (err) {
@@ -137,8 +140,17 @@ export function logout(accessToken) {
 
 // ---------- User ----------
 
+/** GET /user/me -> data profil user yang sedang login ({ user: { username, email, avatarUrl, ... } }) */
 export function getCurrentUser(accessToken) {
   return request("/user/me", { accessToken });
+}
+
+/** PUT /user -> ubah username dan/atau avatar (multipart/form-data). Minimal salah satu harus diisi. */
+export function updateProfile({ username, avatar }, accessToken) {
+  const form = new FormData();
+  if (username !== undefined) form.append("username", username);
+  if (avatar) form.append("avatar", avatar);
+  return request("/user", { method: "PUT", body: form, accessToken });
 }
 
 // ---------- Notebooks ----------

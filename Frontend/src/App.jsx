@@ -15,6 +15,8 @@ import {
   deleteDocument,
   getDocumentStatus,
   saveRefreshToken,
+  getCurrentUser,
+  updateProfile,
 } from "./api";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -356,14 +358,38 @@ function RegisterPage({ goLogin, onRegistered }) {
 
 /* ---------- Dashboard ---------- */
 
-function PersonIcon() {
+function PersonIcon({ size = 18 }) {
   return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor"
          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="8" r="4" />
       <path d="M4 20c0-4 4-6 8-6s8 2 8 6" />
     </svg>
   );
+}
+
+/** Foto profil bulat. Kalau tidak ada foto (atau gagal dimuat), tampil ikon orang. */
+function Avatar({ src, size = 32 }) {
+  const [failed, setFailed] = useState(false);
+
+  // Foto baru: coba tampilkan lagi.
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  if (src && !failed) {
+    return (
+      <img
+        className="avatar-img"
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return <PersonIcon size={Math.round(size * 0.56)} />;
 }
 
 function SearchIcon() {
@@ -462,8 +488,10 @@ const SORT_OPTIONS = [
  * Header untuk halaman setelah login.
  * - onBrandClick (opsional): kalau diisi, logo + nama aplikasi jadi tombol kembali.
  * - actions (opsional): elemen tambahan di sisi kanan, sebelum avatar.
+ * - profile (opsional): { username, email, avatarUrl } untuk foto dan info akun di dropdown.
+ * - onEditProfile: membuka halaman profil.
  */
-function AppHeader({ onLogout, onBrandClick, actions }) {
+function AppHeader({ onLogout, onBrandClick, onEditProfile, profile, actions }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const brand = (
@@ -501,14 +529,23 @@ function AppHeader({ onLogout, onBrandClick, actions }) {
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((v) => !v)}
           >
-            <PersonIcon />
+            <Avatar src={profile?.avatarUrl} size={32} />
           </button>
           {menuOpen && (
             <>
               <div className="menu-backdrop" onClick={() => setMenuOpen(false)} />
               <div className="dropdown-menu dropdown-menu--right" role="menu">
-                {/* Edit Profil: UI saja, belum ada endpoint di backend */}
-                <button type="button" role="menuitem" onClick={() => setMenuOpen(false)}>
+                {profile && (
+                  <div className="dropdown-account">
+                    <span className="dropdown-account-name">{profile.username}</span>
+                    <span className="dropdown-account-email">{profile.email}</span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => { setMenuOpen(false); onEditProfile(); }}
+                >
                   Edit Profil
                 </button>
                 <button
@@ -722,7 +759,7 @@ function ConfirmDeleteDialog({ message, onCancel, onConfirm }) {
   );
 }
 
-function NotebooksPage({ accessToken, onLogout, onOpenNotebook }) {
+function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNotebook }) {
   const [notebooks, setNotebooks] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState("");
@@ -836,7 +873,7 @@ function NotebooksPage({ accessToken, onLogout, onOpenNotebook }) {
 
   return (
     <>
-      <AppHeader onLogout={onLogout} />
+      <AppHeader onLogout={onLogout} onEditProfile={onEditProfile} profile={profile} />
       <main className="dashboard">
         <div className="toolbar">
           <button type="button" className="btn-pill" onClick={() => setCreateOpen(true)}>
@@ -1088,9 +1125,10 @@ function useToasts() {
     setToasts((list) => list.filter((t) => t.id !== id));
   }, []);
 
-  const notify = useCallback((message) => {
+  // type: "error" (default, merah) atau "success" (hijau).
+  const notify = useCallback((message, type = "error") => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    setToasts((list) => [...list, { id, message }]);
+    setToasts((list) => [...list, { id, message, type }]);
   }, []);
 
   return { toasts, notify, dismiss };
@@ -1103,8 +1141,13 @@ function Toast({ toast, onDismiss }) {
     return () => clearTimeout(timer);
   }, [toast.id, onDismiss]);
 
+  const isSuccess = toast.type === "success";
+
   return (
-    <div className="toast" role="alert">
+    <div
+      className={`toast${isSuccess ? " toast--success" : ""}`}
+      role={isSuccess ? "status" : "alert"}
+    >
       {toast.message}
     </div>
   );
@@ -1720,7 +1763,7 @@ function ChatMessage({ message }) {
   );
 }
 
-function WorkspacePage({ notebook, accessToken, onBack, onLogout }) {
+function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEditProfile }) {
   const { toasts, notify, dismiss } = useToasts();
   const { documents, uploads, uploadError, addFile, renameDocument, removeDocument } =
     useSources({ notebookId: notebook._id, accessToken, notify });
@@ -1783,6 +1826,8 @@ function WorkspacePage({ notebook, accessToken, onBack, onLogout }) {
       <AppHeader
         onLogout={onLogout}
         onBrandClick={onBack}
+        onEditProfile={onEditProfile}
+        profile={profile}
         actions={<button type="button" className="btn-pill">Catatan Baru +</button>}
       />
 
@@ -1888,6 +1933,287 @@ function WorkspacePage({ notebook, accessToken, onBack, onLogout }) {
   );
 }
 
+/* ---------- Profil ---------- */
+
+const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5 MB
+const MSG_AVATAR_FORMAT = "Format foto harus JPG";
+const MSG_AVATAR_TOO_LARGE = "Ukuran foto melebihi batas maksimal 5 MB";
+const MSG_USERNAME_SAVED = "Username berhasil diperbarui";
+const MSG_AVATAR_SAVED = "Foto profil berhasil diperbarui";
+
+/** Mengubah user dari backend ke bentuk yang dipakai tampilan. */
+function normalizeProfile(user) {
+  return {
+    username: user?.username || "",
+    email: user?.email || "",
+    avatarUrl: user?.avatarUrl || "",
+  };
+}
+
+/** Mengembalikan pesan error kalau foto tidak boleh dipakai, atau "" kalau lolos. */
+function validateAvatarFile(file) {
+  const ext = getFileExtension(file.name);
+  if (file.type !== "image/jpeg" || !["jpg", "jpeg"].includes(ext)) return MSG_AVATAR_FORMAT;
+  if (file.size > MAX_AVATAR_SIZE) return MSG_AVATAR_TOO_LARGE;
+  return "";
+}
+
+// GET /user/me dimuat sekali setelah login, supaya avatar header dan halaman profil memakai data yang sama.
+function useProfile(accessToken) {
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (!accessToken) {
+      setProfile(null);
+      setError("");
+      return undefined;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    getCurrentUser(accessToken)
+      .then((data) => {
+        if (!cancelled) setProfile(normalizeProfile(data?.user));
+      })
+      .catch((err) => {
+        if (!cancelled) setError(errorToMessage(err));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, reloadKey]);
+
+  const reload = useCallback(() => setReloadKey((k) => k + 1), []);
+
+  return { profile, setProfile, loading, error, reload };
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+/**
+ * Halaman Profil.
+ * Username hanya ditampilkan (tombol menuju halaman ubah username); nilainya berubah
+ * hanya setelah halaman ubah username berhasil menyimpan lewat API.
+ * Foto langsung diunggah begitu dipilih.
+ */
+function ProfilePage({
+  accessToken,
+  profile,
+  loading,
+  error,
+  notify,
+  onReload,
+  onProfileUpdated,
+  onEditUsername,
+  onBack,
+  onLogout,
+  onEditProfile,
+}) {
+  const fileInputRef = useRef(null);
+  const [avatarPreview, setAvatarPreview] = useState("");
+  const [avatarError, setAvatarError] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  async function handleAvatarChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // supaya file yang sama bisa dipilih lagi
+    if (!file || uploading) return;
+
+    const message = validateAvatarFile(file);
+    setAvatarError(message);
+    if (message) return;
+
+    const previewUrl = URL.createObjectURL(file);
+    setAvatarPreview(previewUrl);
+    setUploading(true);
+    try {
+      const data = await updateProfile({ avatar: file }, accessToken);
+      onProfileUpdated(normalizeProfile(data?.user ?? profile));
+      notify(MSG_AVATAR_SAVED, "success");
+    } catch (err) {
+      setAvatarError(errorToMessage(err));
+    } finally {
+      URL.revokeObjectURL(previewUrl);
+      setAvatarPreview("");
+      setUploading(false);
+    }
+  }
+
+  return (
+    <>
+      <AppHeader
+        onLogout={onLogout}
+        onBrandClick={onBack}
+        onEditProfile={onEditProfile}
+        profile={profile}
+      />
+      <main className="auth">
+        <h1>Profil</h1>
+
+        {loading ? (
+          <p className="empty-state">Memuat profil...</p>
+        ) : error ? (
+          <>
+            <ErrorSummary messages={[error]} />
+            <button type="button" className="link" onClick={onReload}>Coba lagi</button>
+          </>
+        ) : (
+          profile && (
+            <>
+              <div className="profile-avatar">
+                <div className="profile-avatar-img">
+                  <Avatar src={avatarPreview || profile.avatarUrl} size={120} />
+                </div>
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? "Mengunggah..." : "Ganti foto"}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".jpg,.jpeg,image/jpeg"
+                  hidden
+                  onChange={handleAvatarChange}
+                />
+                {avatarError && (
+                  <p className="msg-error" role="alert">{avatarError}</p>
+                )}
+              </div>
+
+              <div className="field">
+                <span className="field-label" id="profile-username-label">Username</span>
+                {/* Klik: buka halaman ubah username */}
+                <button
+                  type="button"
+                  className="input input--button"
+                  aria-labelledby="profile-username-label profile-username-value"
+                  onClick={onEditUsername}
+                >
+                  <span id="profile-username-value" className="input-button-value">
+                    {profile.username}
+                  </span>
+                  <ChevronRightIcon />
+                </button>
+              </div>
+
+              {/* Email tidak bisa diubah: readOnly (tetap bisa disorot & disalin) */}
+              <Field id="profile-email" label="Email" showMessage={false}>
+                <TextInput
+                  id="profile-email"
+                  name="email"
+                  type="email"
+                  className="input input--readonly"
+                  value={profile.email}
+                  readOnly
+                  aria-readonly="true"
+                />
+              </Field>
+            </>
+          )
+        )}
+      </main>
+    </>
+  );
+}
+
+/**
+ * Halaman ubah username. Kolom terisi username saat ini.
+ * Validasi client-side dijalankan saat "Simpan" ditekan; error dari API (mis. username
+ * sudah dipakai) tampil inline di bawah kolom. Data profil di induk baru diganti lewat
+ * onSaved setelah API sukses, jadi kembali tanpa menyimpan tidak mengubah apa pun.
+ */
+function EditUsernamePage({ accessToken, profile, notify, onSaved, onCancel }) {
+  const [username, setUsername] = useState(profile?.username ?? "");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (saving) return;
+
+    // Kosong, > 16 karakter, atau karakter selain huruf, angka, _ dan -.
+    const message = validateUsername(username);
+    if (message) {
+      setError(message);
+      return;
+    }
+
+    const trimmed = username.trim();
+    if (trimmed === profile.username) {
+      onCancel(); // tidak ada perubahan, tidak perlu request
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    try {
+      const data = await updateProfile({ username: trimmed }, accessToken);
+      // Halaman ini langsung ditutup oleh onSaved, jadi saving tidak perlu di-reset.
+      onSaved(normalizeProfile(data?.user ?? { ...profile, username: trimmed }));
+      notify(MSG_USERNAME_SAVED, "success");
+    } catch (err) {
+      const messages = Object.values(mapFieldErrors(err));
+      setError(messages.length ? messages.join(" ") : errorToMessage(err));
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="edit-username-page">
+      {/* Sesuai desain: header hanya logo + nama aplikasi (tanpa avatar). Klik = kembali ke Profil. */}
+      <header className="topbar">
+        <button
+          type="button"
+          className="brand-link"
+          onClick={onCancel}
+          disabled={saving}
+          aria-label="Kembali ke profil"
+        >
+          <LogoIcon size={32} />
+          <span className="brand">SiberNoteLM</span>
+        </button>
+      </header>
+
+      <form className="edit-username-form" onSubmit={handleSubmit} noValidate>
+        <Field id="edit-username" label="Username" error={error}>
+          <TextInput
+            id="edit-username"
+            name="username"
+            autoComplete="username"
+            placeholder="Masukkan username"
+            value={username}
+            onChange={(e) => { setUsername(e.target.value); setError(""); }}
+            error={error}
+            autoFocus
+          />
+        </Field>
+
+        <button className="btn edit-username-save" type="submit" disabled={saving}>
+          {saving ? "Memproses..." : "Simpan"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 /* ---------- Root ---------- */
 
 export default function App() {
@@ -1895,6 +2221,15 @@ export default function App() {
   const [notice, setNotice] = useState("");
   const [accessToken, setAccessToken] = useState(null);
   const [activeNotebook, setActiveNotebook] = useState(null);
+  const {
+    profile,
+    setProfile,
+    loading: profileLoading,
+    error: profileError,
+    reload: reloadProfile,
+  } = useProfile(accessToken);
+  // Toast di tingkat root supaya tetap tampil walau halaman berpindah (mis. setelah simpan username).
+  const { toasts, notify, dismiss } = useToasts();
 
   function handleLoginSuccess(token) {
     setAccessToken(token);
@@ -1921,45 +2256,99 @@ export default function App() {
     setView("dashboard");
   }
 
-  if (view === "workspace" && accessToken && activeNotebook) {
-    return (
-      <WorkspacePage
-        notebook={activeNotebook}
-        accessToken={accessToken}
-        onBack={handleBackToDashboard}
-        onLogout={handleLogout}
-      />
-    );
+  // Edit Profil (dropdown akun) -> halaman profil.
+  function handleEditProfile() {
+    setView("profile");
   }
 
-  if (view === "dashboard" && accessToken) {
+  // Username baru diterapkan ke profil hanya setelah API sukses, lalu kembali ke halaman profil.
+  function handleUsernameSaved(nextProfile) {
+    setProfile(nextProfile);
+    setView("profile");
+  }
+
+  function renderView() {
+    if (view === "edit-username" && accessToken && profile) {
+      return (
+        <EditUsernamePage
+          accessToken={accessToken}
+          profile={profile}
+          notify={notify}
+          onSaved={handleUsernameSaved}
+          onCancel={() => setView("profile")}
+        />
+      );
+    }
+
+    if ((view === "profile" || view === "edit-username") && accessToken) {
+      return (
+        <ProfilePage
+          accessToken={accessToken}
+          profile={profile}
+          loading={profileLoading}
+          error={profileError}
+          notify={notify}
+          onReload={reloadProfile}
+          onProfileUpdated={setProfile}
+          onEditUsername={() => setView("edit-username")}
+          onBack={handleBackToDashboard}
+          onLogout={handleLogout}
+          onEditProfile={handleEditProfile}
+        />
+      );
+    }
+
+    if (view === "workspace" && accessToken && activeNotebook) {
+      return (
+        <WorkspacePage
+          notebook={activeNotebook}
+          accessToken={accessToken}
+          profile={profile}
+          onBack={handleBackToDashboard}
+          onLogout={handleLogout}
+          onEditProfile={handleEditProfile}
+        />
+      );
+    }
+
+    if (view === "dashboard" && accessToken) {
+      return (
+        <NotebooksPage
+          accessToken={accessToken}
+          profile={profile}
+          onLogout={handleLogout}
+          onEditProfile={handleEditProfile}
+          onOpenNotebook={handleOpenNotebook}
+        />
+      );
+    }
+
     return (
-      <NotebooksPage
-        accessToken={accessToken}
-        onLogout={handleLogout}
-        onOpenNotebook={handleOpenNotebook}
-      />
+      <>
+        <Header />
+        {view === "register" ? (
+          <RegisterPage
+            goLogin={() => setView("login")}
+            onRegistered={() => {
+              setNotice("Akun berhasil dibuat. Silakan login.");
+              setView("login");
+            }}
+          />
+        ) : (
+          <LoginPage
+            notice={notice}
+            goRegister={() => { setNotice(""); setView("register"); }}
+            onLoginSuccess={handleLoginSuccess}
+          />
+        )}
+      </>
     );
   }
 
   return (
     <>
-      <Header />
-      {view === "register" ? (
-        <RegisterPage
-          goLogin={() => setView("login")}
-          onRegistered={() => {
-            setNotice("Akun berhasil dibuat. Silakan login.");
-            setView("login");
-          }}
-        />
-      ) : (
-        <LoginPage
-          notice={notice}
-          goRegister={() => { setNotice(""); setView("register"); }}
-          onLoginSuccess={handleLoginSuccess}
-        />
-      )}
+      {renderView()}
+      <ToastStack toasts={toasts} onDismiss={dismiss} />
     </>
   );
 }

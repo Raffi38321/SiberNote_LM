@@ -1049,6 +1049,12 @@ body {
   animation: toast-in 0.2s ease-out;
 }
 
+/* Toast sukses (hijau) */
+.toast--success {
+  background: #4ade80;
+  color: #0b3d1e;
+}
+
 @keyframes toast-in {
   from {
     opacity: 0;
@@ -1058,6 +1064,133 @@ body {
     opacity: 1;
     transform: none;
   }
+}
+
+/* ----- Profil ----- */
+/* Foto di tombol avatar header */
+.avatar {
+  overflow: hidden;
+  padding: 0;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Info akun di bagian atas dropdown */
+.dropdown-account {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 220px;
+  margin-bottom: 4px;
+  padding: 8px 10px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dropdown-account-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropdown-account-email {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Foto besar di halaman profil */
+.profile-avatar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  font-size: 0.75rem;
+}
+
+.profile-avatar-img {
+  width: 120px;
+  height: 120px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--text-muted);
+}
+
+.profile-avatar-img svg {
+  width: 56%;
+  height: 56%;
+}
+
+/* Label kolom yang bukan <label> (kolom Username berupa tombol) */
+.field-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+/* Kolom Username di halaman profil: tampak seperti input, berfungsi sebagai tombol */
+.input--button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-right: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.input--button:hover {
+  border-color: var(--border-focus);
+}
+
+.input-button-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Halaman ubah username: kolom di atas, tombol Simpan menempel di bagian bawah layar */
+.edit-username-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.edit-username-form {
+  flex: 1;
+  width: 100%;
+  max-width: 320px;
+  margin: 0 auto;
+  padding: 72px 20px 40px;
+  display: flex;
+  flex-direction: column;
+}
+
+.edit-username-save {
+  margin-top: auto;
+}
+
+/* Email: tidak bisa diubah */
+.input--readonly {
+  background: transparent;
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Layar sempit: sementara hanya tampilkan panel Chat */
