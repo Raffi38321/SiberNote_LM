@@ -525,7 +525,7 @@ body {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1fr);
+  grid-template-columns: minmax(240px, 1fr) minmax(0, 1.5fr) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   gap: 12px;
   padding: 0 20px 20px;
@@ -746,14 +746,10 @@ body {
 }
 
 .modal .error-summary {
-  margin: 10px auto 0;
-  padding: 4px 8px;
-  max-width: 260px;
+  margin: 10px 0 0;
 }
 
-
 .modal .error-summary p {
-  text-align: center;
   white-space: normal;
 }
 
@@ -806,6 +802,264 @@ body {
   cursor: not-allowed;
 }
 
+/* ----- Popup konfirmasi hapus ----- */
+.modal--confirm {
+  width: min(420px, calc(100vw - 32px));
+}
+
+.modal--confirm .modal-form {
+  min-height: 0;
+}
+
+.modal-message {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.modal-delete {
+  padding: 4px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--error);
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.modal-delete:hover:not(:disabled) {
+  background: #ff5c5c;
+}
+
+.modal-delete:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.modal-delete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ----- Popup pratinjau teks ----- */
+.modal--preview {
+  width: min(640px, calc(100vw - 32px));
+}
+
+.modal--preview .modal-form {
+  min-height: 0;
+}
+
+.modal-heading {
+  margin: 0 0 12px 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.preview-text {
+  margin: 0;
+  padding: 12px;
+  max-height: 50vh;
+  overflow-y: auto;
+  background: var(--bg);
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.75rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ----- Panel Sumber ----- */
+.workspace--sources-collapsed {
+  grid-template-columns: 56px minmax(0, 1.5fr) minmax(0, 1fr);
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.panel-head .panel-title {
+  margin: 0;
+}
+
+.panel-toggle {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.panel-toggle:hover {
+  color: var(--text);
+}
+
+.panel-toggle:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* Panel menyusut: hanya tersisa ikon toggle */
+.panel-sources.is-collapsed {
+  align-items: center;
+  padding: 16px 0;
+}
+
+.panel-sources.is-collapsed .panel-head {
+  margin-bottom: 0;
+  justify-content: center;
+}
+
+.upload-btn {
+  width: 100%;
+  height: 40px;
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.upload-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.upload-btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.panel-sources .msg-error {
+  margin: 6px 4px 0;
+}
+
+.source-list {
+  flex: 1;
+  min-height: 0;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.source-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  transition: background 0.15s;
+}
+
+/* Saat disorot kursor, latar daftar menjadi lebih gelap */
+.source-item:hover,
+.source-item:focus-within {
+  background: var(--surface);
+}
+
+.file-icon {
+  flex-shrink: 0;
+}
+
+.source-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* File yang sedang diunggah / diekstrak */
+.source-processing {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progress {
+  height: 4px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--link);
+  border-radius: inherit;
+  transition: width 0.25s ease;
+}
+
+/* Tahap ekstraksi (OCR): lebar penuh dengan kilau yang bergerak */
+.progress-bar--indeterminate {
+  width: 100%;
+  background: linear-gradient(90deg, rgba(69, 157, 170, 0.25) 25%, #459daa 50%, rgba(69, 157, 170, 0.25) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+/* Menu titik tiga di daftar sumber: posisi fixed agar tidak terpotong daftar */
+.dropdown-menu--fixed {
+  position: fixed;
+  margin-top: 0;
+}
+
+/* ----- Toast (pojok kanan atas) ----- */
+.toast-stack {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(360px, calc(100vw - 32px));
+}
+
+.toast {
+  padding: 10px 14px;
+  background: #ff8080;
+  color: #7a0000;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  animation: toast-in 0.2s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Layar sempit: sementara hanya tampilkan panel Chat */
 @media (max-width: 900px) {
   .workspace {
@@ -823,7 +1077,9 @@ body {
     transition: none !important;
   }
 
-  .skeleton {
+  .skeleton,
+  .progress-bar--indeterminate,
+  .toast {
     animation: none;
   }
 }
