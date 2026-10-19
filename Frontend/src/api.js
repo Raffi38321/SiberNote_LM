@@ -48,6 +48,18 @@ export async function refreshToken() {
   return payload?.data?.accessToken;
 }
 
+// Banyak request paralel yang kena 401 (mis. dashboard memuat jumlah sumber tiap notebook)
+// berbagi satu proses refresh, bukan memanggil /user/refresh berkali-kali.
+let refreshInFlight = null;
+function refreshOnce() {
+  if (!refreshInFlight) {
+    refreshInFlight = refreshToken().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
 async function request(path, { method = "GET", body, accessToken, isRetry = false } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -87,7 +99,7 @@ async function request(path, { method = "GET", body, accessToken, isRetry = fals
   // Interceptor: Auto Refresh Token jika 401 Unauthorized
   if (res.status === 401 && !isRetry && accessToken) {
     try {
-      const newAccessToken = await refreshToken();
+      const newAccessToken = await refreshOnce();
       return await request(path, { method, body, accessToken: newAccessToken, isRetry: true });
     } catch (refreshErr) {
       throw refreshErr;

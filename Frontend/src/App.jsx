@@ -6,13 +6,15 @@ import {
   createNotebook,
   getNotebooks,
   deleteNotebook,
+  updateNotebook,
+  togglePinNotebook,
+  logout,
   getDocuments,
   uploadDocument,
   updateDocumentTitle,
   deleteDocument,
   getDocumentStatus,
   saveRefreshToken,
-  clearRefreshToken,
 } from "./api";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -48,10 +50,38 @@ function mapFieldErrors(err) {
 
 /* ---------- Komponen kecil ---------- */
 
+function LogoIcon({ size = 32 }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 63 63"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="logo"
+      aria-hidden="true"
+    >
+      <circle cx="31.5" cy="31.5" r="31.5" fill="#CECECE" />
+      <path
+        d="M55.4032 25.0931C55.0683 24.6941 53.8076 23.1779 53.8076 23.1779L41.0449 7.97604C41.0449 7.97604 40.8084 7.68677 40.6902 7.55709C40.5768 7.4327 40.4342 7.2778 40.3357 7.198C40.2669 7.14227 40.1829 7.10649 40.0993 7.07831C40.0107 7.04836 39.9039 7.0269 39.8039 7.01845C39.6857 7.00846 39.5235 6.98247 39.3903 7.01845C39.0948 7.09824 38.0312 7.49726 38.0312 7.49726L35.4905 8.45486L33.0087 9.35259L30.5861 10.2503L27.8681 11.2678L10.7326 17.552L9.49176 18.0308C9.49176 18.0308 8.80281 18.2901 8.60545 18.3899C8.49264 18.447 8.38879 18.5495 8.31001 18.6293C8.24036 18.6998 8.17679 18.7795 8.13273 18.8687C8.08349 18.9685 8.03427 19.1081 8.01456 19.2278C7.99515 19.3458 7.99515 19.4688 8.01456 19.5869C8.03427 19.7066 8.08349 19.8363 8.13273 19.946C8.18027 20.0519 8.24604 20.1486 8.31001 20.2452C8.89104 21.123 11.6189 25.2128 11.6189 25.2128L20.6003 38.5593L20.8957 38.9782C20.8957 38.9782 21.142 39.3373 21.2503 39.457C21.3355 39.5512 21.4367 39.632 21.5457 39.6964C21.6639 39.7662 21.8214 39.846 21.9593 39.876C22.0941 39.9052 22.2449 39.8959 22.3729 39.876C22.496 39.8568 22.7275 39.7563 22.7275 39.7563L33.5996 35.6266L52.8624 28.2651L54.2803 27.7265C54.2803 27.7265 54.6152 27.5968 54.7531 27.5469C54.8703 27.5045 55.0439 27.4494 55.1075 27.4272C55.1171 27.4239 55.1349 27.414 55.1349 27.414C55.1349 27.414 55.2868 27.3398 55.3441 27.3075C55.4327 27.2576 55.5606 27.1978 55.6394 27.128C55.7136 27.0623 55.769 26.9758 55.8168 26.8886C55.866 26.7988 55.9053 26.6891 55.9348 26.5893C55.9636 26.4919 55.9939 26.3918 55.9939 26.2901C55.9939 26.2749 55.9935 26.2588 55.9925 26.2419C55.9864 26.1258 55.9605 25.9757 55.9348 25.8711C55.9091 25.7669 55.8772 25.6602 55.8168 25.5719C55.7282 25.4422 55.5388 25.2546 55.4032 25.0931Z"
+        fill="#007FAD"
+      />
+      <path
+        d="M53.3943 31.1976C53.3943 31.1976 53.0693 30.7986 52.9807 30.7188C52.9513 30.6923 52.8998 30.7053 52.8628 30.7188C52.3408 30.9083 49.8492 31.8559 49.8492 31.8559L46.8356 32.9931L43.1133 34.4295L40.5724 35.3871L37.4407 36.5841L34.0727 37.8409L30.4684 39.2175L26.864 40.5939L23.9096 41.7313C23.9096 41.7313 23.2203 42.0106 23.0233 42.0903C22.9249 42.1302 22.8302 42.1816 22.7279 42.2098C22.6195 42.2397 22.5037 42.272 22.3855 42.292C22.2674 42.312 22.137 42.3396 22.0188 42.3296C21.9006 42.3196 21.753 42.272 21.6545 42.2321C21.5727 42.199 21.4902 42.1534 21.4279 42.0903C21.3294 41.9906 21.0734 41.6115 21.0734 41.6115L20.7189 41.0728L19.7735 39.6962L14.6919 32.0953L11.0875 26.7687L10.6148 26.1104C10.6148 26.1104 10.4962 26.149 10.4376 26.1702C10.2997 26.2201 9.78761 26.4096 9.78761 26.4096L9.13765 26.649C9.13765 26.649 8.80281 26.7488 8.66493 26.8286C8.53138 26.9059 8.40887 27.0181 8.31041 27.1278C8.21487 27.2343 8.11641 27.3496 8.07407 27.4869C8.02482 27.6465 7.99525 27.9058 8.01496 28.0854C8.03356 28.2548 8.12328 28.4245 8.19224 28.5642C8.25574 28.6929 8.42858 28.9233 8.42858 28.9233L11.6193 33.7113L20.0098 46.1601L20.9552 47.5963C20.9552 47.5963 21.1719 47.8659 21.2507 47.9557C21.3062 48.0189 21.3584 48.0881 21.4279 48.135C21.5165 48.1948 21.6643 48.2748 21.7825 48.3147C21.8961 48.3531 22.0188 48.3746 22.137 48.3746C22.2551 48.3746 22.3763 48.3481 22.4915 48.3147C22.6294 48.2748 22.9642 48.135 22.9642 48.135L25.2095 47.2971L33.0682 44.3046L37.4998 42.6288L39.0361 42.0304L42.3449 40.7736L44.7675 39.8758L47.4266 38.8584L49.79 37.9606L52.1538 37.0629L53.69 36.4644L54.3398 36.225C54.3398 36.225 54.8127 36.0554 54.99 35.9856C55.1298 35.9305 55.2854 35.8758 55.4036 35.806C55.5125 35.7417 55.6191 35.6655 55.699 35.5666C55.7876 35.4569 55.8904 35.302 55.9352 35.1477C55.9844 34.9781 56.014 34.7287 55.9943 34.5492C55.9758 34.3798 55.9038 34.2165 55.8172 34.0704C55.7286 33.9208 55.4624 33.6514 55.4624 33.6514L54.9309 32.9931L54.2216 32.1552L53.3943 31.1976Z"
+        fill="#005FAD"
+      />
+      <path
+        d="M53.3943 39.8231C53.3943 39.8231 53.0693 39.4241 52.9807 39.3443C52.9513 39.3178 52.8998 39.3308 52.8628 39.3443C52.3408 39.5338 49.8492 40.4814 49.8492 40.4814L46.8356 41.6186L43.1133 43.055L40.5724 44.0126L37.4407 45.2095L34.0727 46.4664L30.4684 47.8429L26.864 49.2194L23.9096 50.3568C23.9096 50.3568 23.2203 50.6361 23.0233 50.7158C22.9249 50.7557 22.8302 50.8071 22.7279 50.8353C22.6195 50.8652 22.5037 50.8975 22.3855 50.9175C22.2674 50.9375 22.137 50.9651 22.0188 50.9551C21.9006 50.9451 21.753 50.8975 21.6545 50.8576C21.5727 50.8245 21.4902 50.7789 21.4279 50.7158C21.3294 50.6161 21.0734 50.237 21.0734 50.237L20.7189 49.6982L19.7735 48.3217L14.6919 40.7208L11.0875 35.3942L10.6148 34.7358C10.6148 34.7358 10.4962 34.7745 10.4376 34.7957C10.2997 34.8456 9.78761 35.0351 9.78761 35.0351L9.13765 35.2745C9.13765 35.2745 8.80281 35.3742 8.66493 35.454C8.53138 35.5313 8.40887 35.6436 8.31041 35.7533C8.21487 35.8598 8.11641 35.9751 8.07407 36.1124C8.02482 36.272 7.99525 36.5313 8.01496 36.7109C8.03356 36.8803 8.12328 37.05 8.19224 37.1897C8.25574 37.3184 8.42858 37.5488 8.42858 37.5488L11.6193 42.3368L20.0098 54.7855L20.9552 56.2218C20.9552 56.2218 21.1719 56.4914 21.2507 56.5811C21.3062 56.6444 21.3584 56.7136 21.4279 56.7605C21.5165 56.8203 21.6643 56.9003 21.7825 56.9402C21.8961 56.9786 22.0188 57.0001 22.137 57.0001C22.2551 57.0001 22.3763 56.9736 22.4915 56.9402C22.6294 56.9003 22.9642 56.7605 22.9642 56.7605L25.2095 55.9226L33.0682 52.9301L37.4998 51.2542L39.0361 50.6559L42.3449 49.3991L44.7675 48.5013L47.4266 47.4839L49.79 46.5861L52.1538 45.6884L53.69 45.0898L54.3398 44.8505C54.3398 44.8505 54.8127 44.6809 54.99 44.6111C55.1298 44.556 55.2854 44.5013 55.4036 44.4315C55.5125 44.3671 55.6191 44.291 55.699 44.1921C55.7876 44.0824 55.8904 43.9275 55.9352 43.7732C55.9844 43.6036 56.014 43.3542 55.9943 43.1747C55.9758 43.0053 55.9038 42.842 55.8172 42.6959C55.7286 42.5463 55.4624 42.2769 55.4624 42.2769L54.9309 41.6186L54.2216 40.7807L53.3943 39.8231Z"
+        fill="#003FAD"
+      />
+    </svg>
+  );
+}
+
 function Header() {
   return (
     <header className="topbar">
-      <div className="logo" aria-hidden="true">Logo</div>
+      <LogoIcon size={32} />
       <span className="brand">SiberNoteLM</span>
     </header>
   );
@@ -357,31 +387,35 @@ function ChevronDownIcon() {
 
 function PencilIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
-         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
+   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<mask id="stroke0_565_1005" maskUnits="userSpaceOnUse" x="3" y="5" width="16" height="16" fill="black">
+<rect fill="white" x="3" y="5" width="16" height="16"/>
+<path d="M13.5858 7.41421L6.39171 14.6083C6.19706 14.8029 6.09974 14.9003 6.03276 15.0186C5.96579 15.1368 5.93241 15.2704 5.86564 15.5374L5.20211 18.1915C5.11186 18.5526 5.06673 18.7331 5.16682 18.8332C5.2669 18.9333 5.44742 18.8881 5.80844 18.7979L5.80845 18.7979L8.46257 18.1344C8.72963 18.0676 8.86316 18.0342 8.98145 17.9672C9.09974 17.9003 9.19706 17.8029 9.39171 17.6083L16.5858 10.4142L16.5858 10.4142C17.2525 9.74755 17.5858 9.41421 17.5858 9C17.5858 8.58579 17.2525 8.25245 16.5858 7.58579L16.4142 7.41421C15.7475 6.74755 15.4142 6.41421 15 6.41421C14.5858 6.41421 14.2525 6.74755 13.5858 7.41421Z"/>
+</mask>
+<path d="M6.39171 14.6083L13.5858 7.41421C14.2525 6.74755 14.5858 6.41421 15 6.41421C15.4142 6.41421 15.7475 6.74755 16.4142 7.41421L16.5858 7.58579C17.2525 8.25245 17.5858 8.58579 17.5858 9C17.5858 9.41421 17.2525 9.74755 16.5858 10.4142L16.5858 10.4142L9.39171 17.6083C9.19706 17.8029 9.09974 17.9003 8.98145 17.9672C8.86316 18.0342 8.72963 18.0676 8.46257 18.1344L5.80845 18.7979L5.80844 18.7979C5.44742 18.8881 5.2669 18.9333 5.16682 18.8332C5.06673 18.7331 5.11186 18.5526 5.20211 18.1915L5.86564 15.5374C5.93241 15.2704 5.96579 15.1368 6.03276 15.0186C6.09974 14.9003 6.19706 14.8029 6.39171 14.6083Z" stroke-width="2.4" stroke="#CECECE" mask="url(#stroke0_565_1005)"/>
+<path d="M12.5 7.5L16.5 11.5" stroke="#CECECE"/>
+</svg>
+
   );
 }
 
 function PinIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
-         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 2v6" />
-      <path d="M7 10h10l-1 4H8l-1-4Z" />
-      <path d="M12 14v8" />
-    </svg>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M14.7455 18.1315C14.7322 18.1223 14.7255 18.1177 14.7189 18.1131C11.2692 15.7225 8.27754 12.7308 5.88691 9.28108C5.88233 9.27448 5.87772 9.26782 5.86851 9.25451C5.86655 9.25169 5.86558 9.25028 5.86486 9.24924C5.45815 8.65858 5.78704 7.84444 6.4899 7.70202C6.49113 7.70177 6.49282 7.70144 6.49618 7.70076L7.45114 7.50977C8.44433 7.31113 8.94092 7.21182 9.4175 7.05236C9.77083 6.93415 10.1155 6.79139 10.4489 6.62514C10.8987 6.40089 11.32 6.11998 12.1628 5.55815L14.6358 3.90949C15.2888 3.47412 15.6153 3.25643 15.9711 3.29166C16.3269 3.32689 16.6044 3.60439 17.1594 4.15938L19.8406 6.84062C20.3956 7.39561 20.6731 7.67311 20.7083 8.02888C20.7436 8.38465 20.5259 8.71118 20.0905 9.36424L18.4419 11.8372C17.88 12.68 17.5991 13.1013 17.3749 13.5511C17.2086 13.8845 17.0659 14.2292 16.9476 14.5825C16.7882 15.0591 16.6889 15.5557 16.4902 16.5489L16.2992 17.5038C16.2986 17.5072 16.2982 17.5089 16.298 17.5101C16.1556 18.213 15.3414 18.5419 14.7508 18.1351C14.7497 18.1344 14.7483 18.1334 14.7455 18.1315Z" stroke="#CECECE"/>
+<path d="M5 19L9.5 14.5" stroke-linecap="round" stroke="#CECECE"/>
+</svg>
+
   );
 }
 
 function TrashIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
-         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-8 0 1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13" />
-    </svg>
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M2.5 4.99984H4.16667M4.16667 4.99984H17.5M4.16667 4.99984V16.6665C4.16667 17.1085 4.34226 17.5325 4.65482 17.845C4.96738 18.1576 5.39131 18.3332 5.83333 18.3332H14.1667C14.6087 18.3332 15.0326 18.1576 15.3452 17.845C15.6577 17.5325 15.8333 17.1085 15.8333 16.6665V4.99984M6.66667 4.99984V3.33317C6.66667 2.89114 6.84226 2.46722 7.15482 2.15466C7.46738 1.8421 7.89131 1.6665 8.33333 1.6665H11.6667C12.1087 1.6665 12.5326 1.8421 12.8452 2.15466C13.1577 2.46722 13.3333 2.89114 13.3333 3.33317V4.99984M8.33333 9.1665V14.1665M11.6667 9.1665V14.1665" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke="#FF0000"/>
+</svg>
+
+
   );
 }
 
@@ -412,6 +446,13 @@ function formatDate(value) {
   });
 }
 
+/** Tampilan kolom Sumber: undefined = masih dimuat, null = gagal dimuat, angka = jumlah sumber. */
+function formatSourceCount(count) {
+  if (count === undefined) return "…";
+  if (count === null) return "—";
+  return count;
+}
+
 const SORT_OPTIONS = [
   { value: "newest", label: "Terbaru" },
   { value: "az", label: "A-Z" },
@@ -427,7 +468,7 @@ function AppHeader({ onLogout, onBrandClick, actions }) {
 
   const brand = (
     <>
-      <span className="logo" aria-hidden="true">Logo</span>
+      <LogoIcon size={32} />
       <span className="brand">SiberNoteLM</span>
     </>
   );
@@ -475,7 +516,7 @@ function AppHeader({ onLogout, onBrandClick, actions }) {
                   role="menuitem"
                   onClick={() => { setMenuOpen(false); onLogout(); }}
                 >
-                  Keluar
+                  Logout
                 </button>
               </div>
             </>
@@ -584,6 +625,73 @@ function CreateNotebookDialog({ onClose, onCreate }) {
 }
 
 /**
+ * Popup ganti nama catatan.
+ * onRename(notebook, judul) boleh async; kalau gagal (throw), pesan errornya tampil di popup.
+ */
+function RenameNotebookDialog({ notebook, onClose, onRename }) {
+  const [title, setTitle] = useState(notebook.title);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (saving) return;
+
+    const trimmed = title.trim();
+    if (!trimmed) {
+      setError("Judul tidak boleh kosong.");
+      return;
+    }
+    if (trimmed === notebook.title) {
+      onClose(); // tidak ada perubahan, tidak perlu request
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    try {
+      await onRename(notebook, trimmed);
+      onClose();
+    } catch (err) {
+      const messages = Object.values(mapFieldErrors(err));
+      setError(messages.length ? messages.join(" ") : err.message);
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal label="Ganti nama catatan" canClose={!saving} onClose={onClose}>
+      <form className="modal-form" onSubmit={handleSubmit} noValidate>
+        <label htmlFor="rename-notebook-title" className="modal-label">Judul Catatan</label>
+        <input
+          id="rename-notebook-title"
+          className="input modal-input"
+          value={title}
+          maxLength={100}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            setError("");
+          }}
+          onFocus={(e) => e.target.select()}
+          placeholder="Judul Catatan"
+          aria-invalid={error ? "true" : undefined}
+          autoComplete="off"
+        />
+        <ErrorSummary messages={error ? [error] : []} />
+        <div className="modal-actions">
+          <button type="button" className="modal-cancel" onClick={onClose} disabled={saving}>
+            Batal
+          </button>
+          <button type="submit" className="modal-save" disabled={saving}>
+            Simpan
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/**
  * Popup konfirmasi hapus (menggantikan dialog konfirmasi bawaan browser).
  * Dipakai untuk hapus catatan dan hapus sumber; isi pertanyaan lewat prop message.
  * onConfirm boleh async dan harus menutup popup sendiri setelah selesai.
@@ -606,7 +714,7 @@ function ConfirmDeleteDialog({ message, onCancel, onConfirm }) {
             Batal
           </button>
           <button type="button" className="modal-delete" onClick={handleConfirm} disabled={deleting}>
-            Hapus
+            Yakin
           </button>
         </div>
       </div>
@@ -625,13 +733,32 @@ function NotebooksPage({ accessToken, onLogout, onOpenNotebook }) {
   const [deletingId, setDeletingId] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [renameTarget, setRenameTarget] = useState(null);
+  const [pinningId, setPinningId] = useState(null);
+  // Jumlah sumber per notebook: undefined = masih dimuat, null = gagal dimuat, angka = jumlah dokumen.
+  const [sourceCounts, setSourceCounts] = useState({});
+
+  // GET /notebooks belum mengembalikan jumlah sumber, jadi dihitung dari
+  // GET /documents/:notebookId untuk tiap notebook (paralel). Satu notebook gagal
+  // tidak memengaruhi yang lain (tampil "—").
+  async function loadSourceCounts(list) {
+    const results = await Promise.allSettled(list.map((nb) => getDocuments(nb._id, accessToken)));
+    const counts = {};
+    list.forEach((nb, i) => {
+      const r = results[i];
+      counts[nb._id] = r.status === "fulfilled" ? (r.value?.documents?.length ?? 0) : null;
+    });
+    setSourceCounts((prev) => ({ ...prev, ...counts }));
+  }
 
   async function loadNotebooks() {
     setLoadingList(true);
     setListError("");
     try {
       const data = await getNotebooks(accessToken);
-      setNotebooks(data?.notebooks || []);
+      const list = data?.notebooks || [];
+      setNotebooks(list);
+      loadSourceCounts(list); // tanpa await: tabel tampil dulu, kolom Sumber menyusul
     } catch (err) {
       setListError(err.message);
     } finally {
@@ -664,19 +791,46 @@ function NotebooksPage({ accessToken, onLogout, onOpenNotebook }) {
     // TODO: konfirmasi ke tim backend/designer (jadikan description opsional, atau tambah kolomnya).
     const data = await createNotebook({ title, description: title }, accessToken);
     if (data?.notebook) {
-      setNotebooks((list) => [data.notebook, ...list]);
+      // Setelah dibuat, langsung buka workspace-nya. Daftar dimuat ulang saat kembali ke dashboard.
+      onOpenNotebook(data.notebook);
     } else {
       await loadNotebooks();
     }
   }
 
+  // PATCH /notebooks/:id/pin. Respons backend tidak memuat semua field, jadi digabung ke data lama.
+  async function handleTogglePin(notebook) {
+    const pinned = !notebook.isPinned;
+    setPinningId(notebook._id);
+    setListError("");
+    try {
+      const data = await togglePinNotebook(notebook._id, pinned, accessToken);
+      const updated = data?.notebook ?? { isPinned: pinned };
+      setNotebooks((list) => list.map((nb) => (nb._id === notebook._id ? { ...nb, ...updated } : nb)));
+    } catch (err) {
+      setListError(err.message);
+    } finally {
+      setPinningId(null);
+    }
+  }
+
+  // PUT /notebooks/:id (hanya title). Melempar error supaya popup ganti nama bisa menampilkannya.
+  async function handleRename(notebook, title) {
+    const data = await updateNotebook(notebook._id, { title }, accessToken);
+    const updated = data?.notebook ?? { title };
+    setNotebooks((list) => list.map((nb) => (nb._id === notebook._id ? { ...nb, ...updated } : nb)));
+  }
+
   const visible = notebooks
     .filter((nb) => nb.title.toLowerCase().includes(search.trim().toLowerCase()))
-    .sort((a, b) =>
-      sortBy === "az"
+    .sort((a, b) => {
+      // Catatan yang di-pin selalu di atas, sisanya mengikuti pilihan urutan.
+      const pinDiff = Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned));
+      if (pinDiff) return pinDiff;
+      return sortBy === "az"
         ? a.title.localeCompare(b.title, "id")
-        : new Date(b.createdAt) - new Date(a.createdAt)
-    );
+        : new Date(b.createdAt) - new Date(a.createdAt);
+    });
 
   const sortLabel = SORT_OPTIONS.find((o) => o.value === sortBy).label;
 
@@ -769,10 +923,21 @@ function NotebooksPage({ accessToken, onLogout, onOpenNotebook }) {
                   >
                     <td>
                       {/* Tombol sungguhan supaya bisa dipilih & ditekan lewat keyboard */}
-                      <button type="button" className="row-title">{nb.title}</button>
+                      <button type="button" className="row-title">
+                        {nb.isPinned && (
+                          <span
+                            role="img"
+                            aria-label="Disematkan"
+                            title="Disematkan"
+                            style={{ display: "inline-flex", marginRight: 6, verticalAlign: "middle" }}
+                          >
+                            <PinIcon />
+                          </span>
+                        )}
+                        {nb.title}
+                      </button>
                     </td>
-                    {/* TODO: jumlah sumber belum tersedia dari backend */}
-                    <td>—</td>
+                    <td>{formatSourceCount(sourceCounts[nb._id])}</td>
                     <td>{formatDate(nb.createdAt)}</td>
                     {/* stopPropagation: klik menu titik tiga tidak ikut membuka workspace */}
                     <td className="notebooks-table-actions" onClick={(e) => e.stopPropagation()}>
@@ -783,7 +948,7 @@ function NotebooksPage({ accessToken, onLogout, onOpenNotebook }) {
                           aria-label={`Opsi untuk ${nb.title}`}
                           aria-haspopup="menu"
                           aria-expanded={openMenuId === nb._id}
-                          disabled={deletingId === nb._id}
+                          disabled={deletingId === nb._id || pinningId === nb._id}
                           onClick={() => setOpenMenuId((id) => (id === nb._id ? null : nb._id))}
                         >
                           ⋮
@@ -792,12 +957,19 @@ function NotebooksPage({ accessToken, onLogout, onOpenNotebook }) {
                           <>
                             <div className="menu-backdrop" onClick={() => setOpenMenuId(null)} />
                             <div className="dropdown-menu dropdown-menu--right" role="menu">
-                              {/* Rename & Pin: UI saja, backend belum punya endpoint */}
-                              <button type="button" role="menuitem" onClick={() => setOpenMenuId(null)}>
-                                <PencilIcon /> Rename
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => { setOpenMenuId(null); setRenameTarget(nb); }}
+                              >
+                                <PencilIcon /> Ganti Judul
                               </button>
-                              <button type="button" role="menuitem" onClick={() => setOpenMenuId(null)}>
-                                <PinIcon /> Pin
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => { setOpenMenuId(null); handleTogglePin(nb); }}
+                              >
+                                <PinIcon /> {nb.isPinned ? "Batal sematkan" : "Sematkan"}
                               </button>
                               <button
                                 type="button"
@@ -824,6 +996,14 @@ function NotebooksPage({ accessToken, onLogout, onOpenNotebook }) {
         <CreateNotebookDialog
           onClose={() => setCreateOpen(false)}
           onCreate={handleCreate}
+        />
+      )}
+
+      {renameTarget && (
+        <RenameNotebookDialog
+          notebook={renameTarget}
+          onClose={() => setRenameTarget(null)}
+          onRename={handleRename}
         />
       )}
 
@@ -1567,7 +1747,9 @@ export default function App() {
   }
 
   function handleLogout() {
-    clearRefreshToken();
+    // logout() mencabut refresh token di server (POST /user/logout) dan menghapusnya dari
+    // localStorage. Tidak di-await supaya user langsung keluar walau server lambat/offline.
+    logout(accessToken);
     setAccessToken(null);
     setActiveNotebook(null);
     setNotice("");
