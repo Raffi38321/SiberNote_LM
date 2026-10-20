@@ -840,7 +840,7 @@ function NotesList({ notes, onToggle, icons, onRename, onDelete }) {
           <div className="menu-backdrop" onClick={() => setMenu(null)} />
           <div className="dropdown-menu dropdown-menu--fixed" role="menu" style={{ top: menu.top, right: menu.right }}>
             <button type="button" role="menuitem" onClick={() => pick(onRename)}>
-              {icons.rename} Ganti Nama
+              {icons.rename} Ganti Judul
             </button>
             <button type="button" role="menuitem" className="danger" onClick={() => pick(onDelete)}>
               {icons.trash} Hapus

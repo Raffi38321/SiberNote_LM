@@ -1645,6 +1645,44 @@ body {
   margin: 10px 0 0;
 }
 
+/* Dashboard: ikon pin di kiri ikon titik tiga */
+.notebooks-table-actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.row-pin {
+  display: inline-flex;
+  align-items: center;
+}
+
+.row-pin svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Sumber yang gagal diproses */
+.source-item--error .source-title {
+  color: var(--text-muted);
+}
+
+.source-badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border: 1px solid var(--error);
+  border-radius: 999px;
+  color: var(--error);
+  font-size: 0.625rem;
+  line-height: 1.4;
+}
+
 /* Layar sempit: sementara hanya tampilkan panel Chat */
 @media (max-width: 900px) {
   .workspace {

@@ -911,22 +911,18 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
                   >
                     <td>
                       <button type="button" className="row-title">
-                        {nb.isPinned && (
-                          <span
-                            role="img"
-                            aria-label="Disematkan"
-                            title="Disematkan"
-                            style={{ display: "inline-flex", marginRight: 6, verticalAlign: "middle" }}
-                          >
-                            <PinIcon />
-                          </span>
-                        )}
                         {nb.title}
                       </button>
                     </td>
                     <td>{formatSourceCount(sourceCounts[nb._id])}</td>
                     <td>{formatDate(nb.createdAt)}</td>
                     <td className="notebooks-table-actions" onClick={(e) => e.stopPropagation()}>
+                      <div className="row-actions">
+                      {nb.isPinned && (
+                        <span className="row-pin" role="img" aria-label="Disematkan" title="Disematkan">
+                          <PinIcon />
+                        </span>
+                      )}
                       <div className="menu-wrap">
                         <button
                           type="button"
@@ -968,6 +964,7 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
                             </div>
                           </>
                         )}
+                      </div>
                       </div>
                     </td>
                   </tr>
@@ -1020,6 +1017,16 @@ const MSG_UPLOAD_FAILED = "Upload gagal, silakan coba lagi";
 const MSG_FORBIDDEN = "Anda tidak memiliki akses ke notebook ini";
 const MSG_OCR_FAILED = "Gagal membaca dokumen, kualitas gambar terlalu rendah";
 const MSG_GENERIC_ERROR = "Terjadi kesalahan, silakan coba lagi.";
+const MSG_PARSE_FAILED = "Dokumen gagal diproses di server";
+
+// Pesan toast disesuaikan dengan penyebab sebenarnya dari server (parseError),
+// bukan selalu "kualitas gambar terlalu rendah".
+function parseErrorToMessage(parseError) {
+  const text = String(parseError || "").trim();
+  if (!text) return MSG_PARSE_FAILED;
+  if (/tidak ada konten/i.test(text)) return MSG_OCR_FAILED;
+  return `${MSG_PARSE_FAILED}: ${text}`;
+}
 
 function getFileExtension(name) {
   const index = name.lastIndexOf(".");
@@ -1150,7 +1157,8 @@ function useSources({ notebookId, accessToken, notify }) {
                 d.id === id ? { ...d, parseStatus: "error", parseError: status.parseError || "" } : d
               )
             );
-            notify(MSG_OCR_FAILED);
+            console.error("[parse dokumen gagal]", id, status.parseError);
+            notify(parseErrorToMessage(status.parseError));
           }
         } catch (err) {
           if (cancelled) return;
@@ -1516,9 +1524,14 @@ function SourcesPanel({
                   </div>
                 </li>
               ) : (
-                <li key={doc.id} className="source-item">
+                <li key={doc.id} className={`source-item${doc.parseStatus === "error" ? " source-item--error" : ""}`}>
                   <FileIcon type={doc.type} />
                   <span className="source-title" title={doc.title}>{doc.title}</span>
+                  {doc.parseStatus === "error" && (
+                    <span className="source-badge" title={doc.parseError || MSG_PARSE_FAILED}>
+                      Gagal diproses
+                    </span>
+                  )}
                   <button
                     type="button"
                     className="icon-btn"

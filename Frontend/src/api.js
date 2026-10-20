@@ -183,7 +183,19 @@ export function getDocuments(notebookId, accessToken) {
   return request(`/documents/${notebookId}`, { accessToken });
 }
 
+// Upload memakai XHR (untuk progress), jadi tidak lewat request(). Agar tidak gagal saat
+// accessToken kedaluwarsa, 401 ditangani di sini: refresh token sekali lalu kirim ulang.
 export function uploadDocument(notebookId, file, accessToken, { onProgress } = {}) {
+  return sendUpload(notebookId, file, accessToken, onProgress).catch(async (err) => {
+    if (err instanceof ApiError && err.status === 401 && accessToken) {
+      const fresh = await refreshOnce();
+      return sendUpload(notebookId, file, fresh, onProgress);
+    }
+    throw err;
+  });
+}
+
+function sendUpload(notebookId, file, accessToken, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${BASE_URL}/documents/${notebookId}`);
