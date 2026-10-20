@@ -1165,6 +1165,184 @@ upload selesai → parseStatus: "pending"
 
 ---
 
+## Chat AI
+
+Semua endpoint chat membutuhkan `accessToken` yang valid di header:
+
+```
+Authorization: Bearer <accessToken>
+```
+
+Chat berjalan langsung di level notebook — tidak ada manajemen sesi. Setiap notebook punya satu riwayat percakapan.
+
+---
+
+### Get Riwayat Pesan
+
+Mengambil seluruh riwayat percakapan pada notebook, diurutkan dari yang paling lama.
+
+```
+GET /chat/:notebookId
+```
+
+**URL Params**
+
+| Param        | Keterangan          |
+|--------------|---------------------|
+| `notebookId` | ID notebook MongoDB |
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "berhasil dapet riwayat pesan",
+  "data": {
+    "messages": [
+      {
+        "_id": "665f1a2b3c4d5e6f7a8b9c20",
+        "notebookId": "665f1a2b3c4d5e6f7a8b9c0e",
+        "role": "user",
+        "content": "Apa itu virtual memory?",
+        "citations": [],
+        "sourceType": null,
+        "createdAt": "2026-10-08T10:01:00.000Z"
+      },
+      {
+        "_id": "665f1a2b3c4d5e6f7a8b9c21",
+        "notebookId": "665f1a2b3c4d5e6f7a8b9c0e",
+        "role": "assistant",
+        "content": "Virtual memory adalah mekanisme yang memungkinkan sistem operasi menggunakan storage sebagai perpanjangan RAM [1]. Teknik yang umum digunakan adalah paging [2].",
+        "citations": [
+          {
+            "citationIndex": 1,
+            "documentId": "665f1a2b3c4d5e6f7a8b9c0f",
+            "documentTitle": "Sistem_Operasi",
+            "pageStart": 31,
+            "pageEnd": 33,
+            "chunkContent": "Virtual memory adalah mekanisme yang memungkinkan..."
+          },
+          {
+            "citationIndex": 2,
+            "documentId": "665f1a2b3c4d5e6f7a8b9c0f",
+            "documentTitle": "Sistem_Operasi",
+            "pageStart": 45,
+            "pageEnd": 47,
+            "chunkContent": "Paging adalah teknik manajemen memori yang..."
+          }
+        ],
+        "sourceType": "document",
+        "createdAt": "2026-10-08T10:01:05.000Z"
+      }
+    ]
+  }
+}
+```
+
+**Error Responses**
+
+| Status | Kondisi                                        |
+|--------|------------------------------------------------|
+| `401`  | Tidak terautentikasi                           |
+| `404`  | Notebook tidak ditemukan atau bukan milik user |
+| `500`  | Kesalahan server                               |
+
+---
+
+### Kirim Pesan
+
+Endpoint utama RAG — menerima pertanyaan user, menjalankan pipeline RAG, dan mengembalikan jawaban Gemini beserta citations.
+
+```
+POST /chat/:notebookId
+```
+
+**URL Params**
+
+| Param        | Keterangan          |
+|--------------|---------------------|
+| `notebookId` | ID notebook MongoDB |
+
+**Request Body**
+
+| Field     | Aturan                    |
+|-----------|---------------------------|
+| `message` | Wajib, tidak boleh kosong |
+
+```json
+{
+  "message": "Apa itu virtual memory?"
+}
+```
+
+**Response `200 OK`**
+
+Kedua pesan (user dan assistant) disimpan ke database. Response mengembalikan keduanya.
+
+```json
+{
+  "status": "success",
+  "message": "berhasil kirim pesan",
+  "data": {
+    "userMessage": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c20",
+      "notebookId": "665f1a2b3c4d5e6f7a8b9c0e",
+      "role": "user",
+      "content": "Apa itu virtual memory?",
+      "citations": [],
+      "sourceType": null,
+      "createdAt": "2026-10-08T10:01:00.000Z"
+    },
+    "assistantMessage": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c21",
+      "notebookId": "665f1a2b3c4d5e6f7a8b9c0e",
+      "role": "assistant",
+      "content": "Virtual memory adalah mekanisme yang memungkinkan sistem operasi menggunakan storage sebagai perpanjangan RAM [1]. Teknik yang umum digunakan adalah paging [2].",
+      "citations": [
+        {
+          "citationIndex": 1,
+          "documentId": "665f1a2b3c4d5e6f7a8b9c0f",
+          "documentTitle": "Sistem_Operasi",
+          "pageStart": 31,
+          "pageEnd": 33,
+          "chunkContent": "Virtual memory adalah mekanisme yang memungkinkan..."
+        },
+        {
+          "citationIndex": 2,
+          "documentId": "665f1a2b3c4d5e6f7a8b9c0f",
+          "documentTitle": "Sistem_Operasi",
+          "pageStart": 45,
+          "pageEnd": 47,
+          "chunkContent": "Paging adalah teknik manajemen memori yang..."
+        }
+      ],
+      "sourceType": "document",
+      "createdAt": "2026-10-08T10:01:05.000Z"
+    }
+  }
+}
+```
+
+**Nilai `sourceType`**
+
+| Nilai        | Kondisi                                                        |
+|--------------|----------------------------------------------------------------|
+| `"document"` | Semua jawaban bersumber dari chunks dokumen                    |
+| `"web"`      | Tidak ada chunk relevan, Gemini menjawab dari pengetahuan umum |
+| `"mixed"`    | Sebagian dari dokumen, sebagian dari pengetahuan umum          |
+| `null`       | Pesan role `"user"` — tidak relevan                           |
+
+**Error Responses**
+
+| Status | Kondisi                                                                              |
+|--------|--------------------------------------------------------------------------------------|
+| `400`  | Validasi gagal (`message` kosong)                                                    |
+| `401`  | Tidak terautentikasi                                                                 |
+| `404`  | Notebook tidak ditemukan atau bukan milik user                                       |
+| `422`  | Tidak ada dokumen di notebook yang `parseStatus: "done"` — chat belum bisa berjalan |
+| `500`  | Kesalahan server / Gemini API gagal                                                  |
+
+---
+
 ## Alur Penggunaan Token
 
 ```
@@ -1177,7 +1355,7 @@ Register / Login
       Kirim accessToken di setiap request → Authorization: Bearer <accessToken>
              │
              ▼
-      accessToken expired (15 menit)?
+      accessToken expired (1 jam)?
              │
              └── POST /user/refresh + refreshToken → accessToken baru
              │
