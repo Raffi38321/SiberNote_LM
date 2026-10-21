@@ -1274,7 +1274,7 @@ POST /chat/:notebookId
 }
 ```
 
-**Response `200 OK`**
+**Response `201 OK`**
 
 Kedua pesan (user dan assistant) disimpan ke database. Response mengembalikan keduanya.
 
@@ -1338,7 +1338,6 @@ Kedua pesan (user dan assistant) disimpan ke database. Response mengembalikan ke
 | `400`  | Validasi gagal (`message` kosong)                                                    |
 | `401`  | Tidak terautentikasi                                                                 |
 | `404`  | Notebook tidak ditemukan atau bukan milik user                                       |
-| `422`  | Tidak ada dokumen di notebook yang `parseStatus: "done"` — chat belum bisa berjalan |
 | `500`  | Kesalahan server / Gemini API gagal                                                  |
 
 ---

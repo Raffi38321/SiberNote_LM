@@ -8,6 +8,7 @@ import notebookRouter from "./routes/notebook.route.js"
 import documentRouter from "./routes/document.route.js"
 import cors from "cors"
 import noteRouter from "./routes/note.route.js"
+import chatRouter from "./routes/chat.route.js"
 
 const app = express()
 const PORT = envVariable.PORT
@@ -36,6 +37,7 @@ app.use("/user", userRouter)
 app.use("/notebooks",notebookRouter)
 app.use("/documents", documentRouter)
 app.use("/notes",noteRouter)
+app.use("/chats",chatRouter)
 
 app.listen(PORT, () => {
     console.log("server jalan di port", PORT);
