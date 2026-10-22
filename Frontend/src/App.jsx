@@ -252,19 +252,33 @@ function validateField(name, value, form) {
 
 function RegisterPage({ goLogin, onRegistered }) {
   const [form, setForm] = useState({ username: "", email: "", password: "", confirm: "" });
-  const [errors, setErrors] = useState({});
-  const [touched, setTouched] = useState({});
+  const [errors, setErrors] = useState({}); // error tiap kolom
+  const [touched, setTouched] = useState({}); // kolom yang pernah ditinggalkan
+  const [shown, setShown] = useState(null); // kolom yang pesannya sedang ditampilkan
   const [apiError, setApiError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Pesan error bergantian: yang tampil selalu milik kolom yang terakhir diketik/ditinggalkan,
+  // dan langsung menggantikan pesan sebelumnya (tidak menumpuk).
+  const message = apiError || (shown ? errors[shown] : "") || "";
+  const errorMessages = message ? [message] : [];
+
+  // Hanya kolom yang pesannya sedang tampil yang berwarna merah.
+  const fieldError = (name) => (shown === name && !apiError ? errors[name] : "");
+
+  // Kolom diperiksa langsung kalau sudah pernah ditinggalkan, atau isinya dikosongkan
+  // (mis. username diketik lalu dihapus sampai 0 karakter). Field "confirm" ikut
+  // diperiksa ulang saat "password" diedit.
   function update(e) {
     const { name, value } = e.target;
     const nextForm = { ...form, [name]: value };
     setForm(nextForm);
+    setApiError("");
+    setShown(name);
 
     setErrors((prevErrors) => {
       const nextErrors = { ...prevErrors };
-      if (touched[name]) nextErrors[name] = validateField(name, value, nextForm);
+      if (touched[name] || value === "") nextErrors[name] = validateField(name, value, nextForm);
       if (name === "password" && touched.confirm) {
         nextErrors.confirm = validateField("confirm", nextForm.confirm, nextForm);
       }
@@ -272,10 +286,13 @@ function RegisterPage({ goLogin, onRegistered }) {
     });
   }
 
+  // Pindah ke kolom lain: kolom yang ditinggalkan diperiksa, dan pesannya menggantikan pesan sebelumnya.
   function handleBlur(e) {
     const { name, value } = e.target;
     setTouched((t) => ({ ...t, [name]: true }));
     setErrors((prev) => ({ ...prev, [name]: validateField(name, value, form) }));
+    setShown(name);
+    setApiError("");
   }
 
   async function handleSubmit(e) {
@@ -291,6 +308,7 @@ function RegisterPage({ goLogin, onRegistered }) {
     else if (form.confirm !== form.password) next.confirm = "Konfirmasi password tidak sama.";
     setErrors(next);
     setTouched({ username: true, email: true, password: true, confirm: true });
+    setShown(Object.keys(next)[0] ?? null); // saat Register ditekan: tampilkan yang paling atas
     setApiError("");
     if (Object.keys(next).length) return;
 
@@ -304,42 +322,44 @@ function RegisterPage({ goLogin, onRegistered }) {
       onRegistered();
     } catch (err) {
       const fieldErrors = mapFieldErrors(err);
-      if (Object.keys(fieldErrors).length) setErrors(fieldErrors);
-      else setApiError(err.message);
+      if (Object.keys(fieldErrors).length) {
+        setErrors(fieldErrors);
+        setShown(Object.keys(fieldErrors)[0]);
+      } else {
+        setApiError(err.message);
+      }
     } finally {
       setLoading(false);
     }
   }
-
-  const errorMessages = [errors.username, errors.email, errors.password, errors.confirm, apiError].filter(Boolean);
 
   return (
     <main className="auth">
       <h1>Register</h1>
       <ErrorSummary messages={errorMessages} />
       <form onSubmit={handleSubmit} noValidate>
-        <Field id="username" label="Username" error={errors.username} showMessage={false}>
+        <Field id="username" label="Username" error={fieldError("username")} showMessage={false}>
           <TextInput id="username" name="username" autoComplete="username"
             placeholder="Masukkan username" value={form.username} onChange={update} onBlur={handleBlur}
-            error={errors.username} />
+            error={fieldError("username")} />
         </Field>
 
-        <Field id="reg-email" label="Email" error={errors.email} showMessage={false}>
+        <Field id="reg-email" label="Email" error={fieldError("email")} showMessage={false}>
           <TextInput id="reg-email" name="email" type="email" autoComplete="email"
             placeholder="Masukkan email" value={form.email} onChange={update} onBlur={handleBlur}
-            error={errors.email} />
+            error={fieldError("email")} />
         </Field>
 
-        <Field id="reg-password" label="Password" error={errors.password} showMessage={false}>
+        <Field id="reg-password" label="Password" error={fieldError("password")} showMessage={false}>
           <PasswordInput id="reg-password" name="password" autoComplete="new-password"
             placeholder="Masukkan password" value={form.password} onChange={update} onBlur={handleBlur}
-            error={errors.password} />
+            error={fieldError("password")} />
         </Field>
 
-        <Field id="confirm" label="Konfirmasi password" error={errors.confirm} showMessage={false}>
+        <Field id="confirm" label="Konfirmasi password" error={fieldError("confirm")} showMessage={false}>
           <PasswordInput id="confirm" name="confirm" autoComplete="new-password"
             placeholder="Konfirmasi password" value={form.confirm} onChange={update} onBlur={handleBlur}
-            error={errors.confirm} />
+            error={fieldError("confirm")} />
         </Field>
 
         <button className="btn" type="submit" disabled={loading}>
