@@ -37,7 +37,7 @@ app.use("/user", userRouter)
 app.use("/notebooks",notebookRouter)
 app.use("/documents", documentRouter)
 app.use("/notes",noteRouter)
-app.use("/chats",chatRouter)
+app.use("/chats", chatRouter)
 
 app.listen(PORT, () => {
     console.log("server jalan di port", PORT);

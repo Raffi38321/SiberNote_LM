@@ -14,7 +14,7 @@ interface IMessage {
     role: "user" | "assistant"
     content: string
     citations: ICitation[]
-    sourceType: "document" | "web" | "mixed" | null
+    sourceType: "document" | "ai" | "mixed" | null
 }
 
 const citationSchema = new Schema<ICitation>(
@@ -51,7 +51,7 @@ const messageSchema = new Schema<IMessage>(
         },
         sourceType: {
             type: String,
-            enum: ["document", "web", "mixed", null],
+            enum: ["document", "ai", "mixed", null],
             default: null,
         },
     },

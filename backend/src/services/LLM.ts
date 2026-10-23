@@ -27,11 +27,11 @@ export interface ParsedCitation {
 export interface LLMResult {
     content: string
     citations: ParsedCitation[]
-    sourceType: "document" | "web" | "mixed"
+    sourceType: "document" | "ai" | "mixed"
 }
 
 const genAI = new GoogleGenerativeAI(envVariable.GEMINI_MODEL)
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" })
+const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" })
 
 const buildSourceBlock = (chunks: RetrievedChunk[]): string => {
     if (chunks.length === 0) return ""
@@ -116,20 +116,20 @@ const parseCitations = (
 
 /**
  * Tentukan sourceType dari jawaban dan citations.
- * - "document" → ada citation dari dokumen, tidak ada [WEB]
- * - "web"      → tidak ada citation dokumen sama sekali
- * - "mixed"    → ada citation dokumen DAN ada [WEB]
+ * - "document" → ada citation dari dokumen, tidak ada [AI]
+ * - "ai"       → tidak ada citation dokumen sama sekali, jawaban dari pengetahuan AI
+ * - "mixed"    → ada citation dokumen DAN ada [AI]
  */
 const determineSourceType = (
     responseText: string,
     citations: ParsedCitation[],
-): "document" | "web" | "mixed" => {
+): "document" | "ai" | "mixed" => {
     const hasDocumentSource = citations.length > 0
-    const hasWebSource = /\[WEB\]/i.test(responseText)
+    const hasAiSource = /\[WEB\]/i.test(responseText)
 
-    if (hasDocumentSource && hasWebSource) return "mixed"
+    if (hasDocumentSource && hasAiSource) return "mixed"
     if (hasDocumentSource) return "document"
-    return "web"
+    return "ai"
 }
 
 // ─── main export ──────────────────────────────────────────────────────────────
