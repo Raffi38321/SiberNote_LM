@@ -15,6 +15,8 @@ import {
   deleteDocument,
   getDocumentStatus,
   saveRefreshToken,
+  getRefreshToken,
+  refreshToken,
   getCurrentUser,
   updateProfile,
 } from "./api";
@@ -2139,6 +2141,48 @@ function EditUsernamePage({ accessToken, profile, notify, onSaved, onCancel }) {
   );
 }
 
+/* ---------- Pemulihan sesi saat halaman di-refresh ---------- */
+
+// accessToken hanya hidup di memori, jadi hilang saat halaman di-refresh. Yang bertahan adalah
+// refresh token (localStorage). Saat aplikasi dibuka, refresh token ditukar dengan accessToken
+// baru (POST /user/refresh), lalu pengguna dikembalikan ke halaman terakhirnya.
+const LAST_VIEW_KEY = "sibernotelm_last_view";
+
+function saveLastView(view, notebook) {
+  try {
+    sessionStorage.setItem(LAST_VIEW_KEY, JSON.stringify({ view, notebook: notebook || null }));
+  } catch {
+    /* penyimpanan tidak tersedia: abaikan, pengguna cukup kembali ke dashboard */
+  }
+}
+
+function loadLastView() {
+  try {
+    return JSON.parse(sessionStorage.getItem(LAST_VIEW_KEY)) || null;
+  } catch {
+    return null;
+  }
+}
+
+function clearLastView() {
+  try {
+    sessionStorage.removeItem(LAST_VIEW_KEY);
+  } catch {
+    /* abaikan */
+  }
+}
+
+// Satu permintaan refresh dipakai bersama, supaya mode dev (StrictMode) tidak memanggilnya dua kali.
+let restoreRequest = null;
+function restoreSession() {
+  if (!restoreRequest) {
+    restoreRequest = refreshToken().finally(() => {
+      restoreRequest = null;
+    });
+  }
+  return restoreRequest;
+}
+
 /* ---------- Root ---------- */
 
 export default function App() {
@@ -2153,7 +2197,53 @@ export default function App() {
     error: profileError,
     reload: reloadProfile,
   } = useProfile(accessToken);
+  // Toast di tingkat root supaya tetap tampil walau halaman berpindah (mis. setelah simpan username).
   const { toasts, notify, dismiss } = useToasts();
+
+  // true selama aplikasi menukar refresh token dengan accessToken baru (hanya kalau ada refresh token).
+  const [booting, setBooting] = useState(() => Boolean(getRefreshToken()));
+
+  // Saat aplikasi dibuka/di-refresh: kalau ada refresh token, pulihkan sesi dan halaman terakhir.
+  useEffect(() => {
+    if (!getRefreshToken()) return undefined;
+    let cancelled = false;
+    restoreSession()
+      .then((token) => {
+        if (cancelled || !token) return;
+        const saved = loadLastView();
+        setAccessToken(token);
+        if (saved?.view === "workspace" && saved.notebook?._id) {
+          setActiveNotebook(saved.notebook);
+          setView("workspace");
+        } else if (saved?.view === "profile") {
+          setView("profile");
+        } else {
+          setView("dashboard");
+        }
+      })
+      .catch(() => {
+        // Refresh token tidak berlaku lagi (kedaluwarsa/dicabut): tetap di halaman login.
+        clearLastView();
+      })
+      .finally(() => {
+        if (!cancelled) setBooting(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Ingat halaman terakhir (per tab) supaya refresh tidak melempar pengguna ke dashboard/login.
+  useEffect(() => {
+    if (!accessToken) return;
+    if (view === "workspace" && activeNotebook) {
+      saveLastView("workspace", { _id: activeNotebook._id, title: activeNotebook.title });
+    } else if (view === "profile" || view === "edit-username") {
+      saveLastView("profile");
+    } else if (view === "dashboard") {
+      saveLastView("dashboard");
+    }
+  }, [view, activeNotebook, accessToken]);
 
   function handleLoginSuccess(token) {
     setAccessToken(token);
@@ -2161,7 +2251,10 @@ export default function App() {
   }
 
   function handleLogout() {
+    // logout() mencabut refresh token di server (POST /user/logout) dan menghapusnya dari
+    // localStorage. Tidak di-await supaya user langsung keluar walau server lambat/offline.
     logout(accessToken);
+    clearLastView();
     setAccessToken(null);
     setActiveNotebook(null);
     setNotice("");
@@ -2178,10 +2271,12 @@ export default function App() {
     setView("dashboard");
   }
 
+  // Edit Profil (dropdown akun) -> halaman profil.
   function handleEditProfile() {
     setView("profile");
   }
 
+  // Username baru diterapkan ke profil hanya setelah API sukses, lalu kembali ke halaman profil.
   function handleUsernameSaved(nextProfile) {
     setProfile(nextProfile);
     setView("profile");
@@ -2261,6 +2356,18 @@ export default function App() {
             onLoginSuccess={handleLoginSuccess}
           />
         )}
+      </>
+    );
+  }
+
+  // Selama sesi dipulihkan, tampilkan layar tunggu (supaya halaman login tidak sempat berkedip).
+  if (booting) {
+    return (
+      <>
+        <Header />
+        <main className="auth">
+          <p className="empty-state" role="status">Memuat...</p>
+        </main>
       </>
     );
   }
