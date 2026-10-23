@@ -1182,7 +1182,7 @@ Chat berjalan langsung di level notebook — tidak ada manajemen sesi. Setiap no
 Mengambil seluruh riwayat percakapan pada notebook, diurutkan dari yang paling lama.
 
 ```
-GET /chat/:notebookId
+GET /chats/:notebookId
 ```
 
 **URL Params**
@@ -1253,7 +1253,7 @@ GET /chat/:notebookId
 Endpoint utama RAG — menerima pertanyaan user, menjalankan pipeline RAG, dan mengembalikan jawaban Gemini beserta citations.
 
 ```
-POST /chat/:notebookId
+POST /chats/:notebookId
 ```
 
 **URL Params**
@@ -1327,8 +1327,8 @@ Kedua pesan (user dan assistant) disimpan ke database. Response mengembalikan ke
 | Nilai        | Kondisi                                                        |
 |--------------|----------------------------------------------------------------|
 | `"document"` | Semua jawaban bersumber dari chunks dokumen                    |
-| `"web"`      | Tidak ada chunk relevan, Gemini menjawab dari pengetahuan umum |
-| `"mixed"`    | Sebagian dari dokumen, sebagian dari pengetahuan umum          |
+| `"ai"`       | Tidak ada chunk relevan, Gemini menjawab dari pengetahuan AI   |
+| `"mixed"`    | Sebagian dari dokumen, sebagian dari pengetahuan AI            |
 | `null`       | Pesan role `"user"` — tidak relevan                           |
 
 **Error Responses**
