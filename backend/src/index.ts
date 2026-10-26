@@ -17,7 +17,6 @@ app.use(express.json())
 app.use(cors())
 await connectDB()
 
-// Pastikan folder uploads ada saat server pertama kali jalan
 if (!fs.existsSync(envVariable.UPLOADS_DIR)) {
     fs.mkdirSync(envVariable.UPLOADS_DIR, { recursive: true })
 }

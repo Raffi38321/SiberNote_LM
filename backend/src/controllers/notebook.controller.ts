@@ -30,13 +30,28 @@ export const createNotebook = async (req: Request, res: Response) => {
   }
 };
 
-export const getAllNotebookUser = async (req: Request, res: Response) => {
+export const getAllNotebookUser = async (
+  req: Request,
+  res: Response,
+) => {
   try {
     const userId = req.userId;
 
     if (!userId) {
       return response.userError(res, "tidak terautentikasi");
     }
+
+    const limit = 10;
+
+    const pageQuery = Number(req.query.page);
+    const page =
+      Number.isInteger(pageQuery) && pageQuery > 0
+        ? pageQuery
+        : 1;
+
+    const skip = (page - 1) * limit;
+
+    const count = await Notebook.countDocuments({ userId });
 
     const notebooks = await Notebook.find({ userId })
       .sort({
@@ -47,16 +62,31 @@ export const getAllNotebookUser = async (req: Request, res: Response) => {
         path: "jumlah_sumber",
         select: "-fileUrl",
       })
-      .lean({ virtuals: true });
+      .lean({ virtuals: true })
+      .skip(skip)
+      .limit(limit);
+
+    const totalPages = Math.ceil(count / limit);
 
     return response.requestSuccessWithData(
       res,
       "berhasil mendapatkan semua notebook user",
-      { notebooks },
+      {
+        notebooks,
+        pagination: {
+          page,
+          limit,
+          totalItems: count,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
+      },
       200,
     );
   } catch (error) {
     console.error(error);
+
     return response.serverError(
       res,
       "gagal mendapatkan semua notebook user",

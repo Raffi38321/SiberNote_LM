@@ -23,3 +23,9 @@ export const updateNotebookSchema = {
         description: z.string().optional()
     })
 }
+
+export const getAllNotebookSchema = {
+    query: z.object({
+        page: z.string().optional(),
+    })
+}
