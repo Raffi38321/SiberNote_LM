@@ -53,7 +53,7 @@ const buildPrompt = (question: string, chunks: RetrievedChunk[]): string => {
     if (chunks.length === 0) {
         return [
             "Tidak ada dokumen yang relevan ditemukan untuk pertanyaan ini.",
-            "Jawab dari pengetahuan umum kamu dan tandai setiap klaim dengan [WEB].",
+            "Jawab dari pengetahuan umum kamu dan tandai setiap klaim dengan [AI].",
             "",
             `Pertanyaan: ${question}`,
         ].join("\n")
@@ -67,7 +67,7 @@ const buildPrompt = (question: string, chunks: RetrievedChunk[]): string => {
         "---",
         "Jawab pertanyaan di bawah HANYA berdasarkan SOURCE di atas.",
         "Sertakan citation dengan format [1], [2], dst. di setiap klaim.",
-        "Jika ada informasi yang tidak ada di SOURCE, tambahkan dari pengetahuan umum dan tandai dengan [WEB].",
+        "Jika ada informasi yang tidak ada di SOURCE, tambahkan dari pengetahuan umum dan tandai dengan [AI].",
         "Jangan membuat citation yang tidak tersedia dalam SOURCE.",
         "Gunakan Bahasa Indonesia.",
         "",
@@ -125,7 +125,7 @@ const determineSourceType = (
     citations: ParsedCitation[],
 ): "document" | "ai" | "mixed" => {
     const hasDocumentSource = citations.length > 0
-    const hasAiSource = /\[WEB\]/i.test(responseText)
+    const hasAiSource = /\[AI\]/i.test(responseText)
 
     if (hasDocumentSource && hasAiSource) return "mixed"
     if (hasDocumentSource) return "document"
