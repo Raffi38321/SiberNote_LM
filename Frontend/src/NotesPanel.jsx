@@ -1,198 +1,133 @@
-// Panel Catatan (kolom kanan) SiberNote LM.
-//
-//  - useNotes()   : state + logika (daftar, sesi editor, validasi, auto-save, hapus/ganti nama)
-//  - NotesPanel   : UI. State 1 = daftar catatan, State 2 = Text Editor.
-//
-// Editor memakai contentEditable + document.execCommand (tanpa dependensi tambahan).
-// Isi catatan disimpan sebagai HTML di field `content` dan disanitasi saat dimuat/disimpan.
+// Fitur Catatan (panel kanan workspace): daftar catatan, editor teks, dan auto-save.
+// Modul mandiri: hanya bergantung pada ./api. Gayanya ada di bagian "Panel Catatan" di style.css.
+// Ikon diberikan lewat prop `icons` supaya sama dengan ikon di App.jsx.
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ApiError, getNotes, createNote, updateNote, deleteNote } from "./api";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ApiError, createNote, deleteNote, getNotes, updateNote } from "./api";
+const MSG_NOTE_NOT_FOUND = "Catatan tidak ditemukan atau sudah dihapus.";
+const MSG_NOTE_TITLE_INVALID = "Judul catatan wajib diisi (1–100 karakter)";
+const MSG_FORBIDDEN = "Anda tidak memiliki akses ke notebook ini";
+const MSG_GENERIC_ERROR = "Terjadi kesalahan, silakan coba lagi.";
 
-/* ======================================================================
-   Konstanta & pesan
-   ====================================================================== */
+function errorToMessage(err) {
+  if (err instanceof ApiError && err.status === 403) return MSG_FORBIDDEN;
+  return err?.message || MSG_GENERIC_ERROR;
+}
 
-const AUTOSAVE_DELAY_MS = 800;
-const TITLE_MAX = 100;
-const EMPTY_HTML = "<p><br></p>"; // API mewajibkan `content`, jadi catatan kosong tetap dikirim sebagai HTML kosong
+function formatDate(value) {
+  return new Date(value).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+}
 
-const MSG_TITLE_REQUIRED = "Judul catatan wajib diisi (1–100 karakter)";
-const MSG_NOTE_GONE = "Catatan tidak ditemukan atau sudah dihapus.";
-const MSG_SAVE_FAILED = "Gagal menyimpan catatan. Coba lagi.";
-const MSG_DELETE_FAILED = "Gagal menghapus catatan. Coba lagi.";
-const MSG_LOAD_FAILED = "Gagal memuat catatan.";
+// ----- Catatan (tersambung ke endpoint Notes) -----
 
-const HEADINGS = [
-  { value: "p", label: "Paragraf" },
-  { value: "h1", label: "Heading 1" },
-  { value: "h2", label: "Heading 2" },
-  { value: "h3", label: "Heading 3" },
-  { value: "h4", label: "Heading 4" },
-  { value: "h5", label: "Heading 5" },
+const AUTOSAVE_DELAY_MS = 800; // jeda setelah berhenti mengetik sebelum disimpan otomatis
+const NOTE_TITLE_MAX = 100;
+const DEFAULT_NOTE_TITLE = "Catatan Tanpa Judul";
+const EMPTY_NOTE_HTML = "<p><br></p>"; // backend mewajibkan content, jadi tidak boleh string kosong
+const NOTE_ALLOWED_TAGS = new Set(["P", "DIV", "BR", "B", "STRONG", "I", "EM", "U", "H1", "H2", "H3", "H4", "H5", "UL", "OL", "LI"]);
+const NOTE_ALIGNS = ["left", "center", "right", "justify"];
+
+const NOTE_ALIGN_TOOLS = [
+  ["justifyLeft", "Rata kiri", AlignLeftIcon],
+  ["justifyCenter", "Rata tengah", AlignCenterIcon],
+  ["justifyRight", "Rata kanan", AlignRightIcon],
+  ["justifyFull", "Rata kiri-kanan", AlignJustifyIcon],
+];
+// Pilihan gaya paragraf di dropdown "Normal".
+const NOTE_BLOCK_TOOLS = [
+  ["p", "Normal"],
+  ["h1", "Heading 1"],
+  ["h2", "Heading 2"],
+  ["h3", "Heading 3"],
+  ["h4", "Heading 4"],
+  ["h5", "Heading 5"],
+];
+const NOTE_STATE_COMMANDS = [
+  "bold", "italic", "underline", "insertUnorderedList", "insertOrderedList",
+  "justifyLeft", "justifyCenter", "justifyRight", "justifyFull",
 ];
 
-const INITIAL_FORMAT = {
-  bold: false,
-  italic: false,
-  underline: false,
-  ul: false,
-  ol: false,
-  heading: "p",
-  align: "left",
-};
-
-/* ======================================================================
-   Helper: validasi, sanitasi HTML, teks
-   ====================================================================== */
-
-function isValidTitle(title) {
-  const t = String(title ?? "").trim();
-  return t.length >= 1 && t.length <= TITLE_MAX;
+/** Mengembalikan pesan error kalau judul tidak valid, atau "" kalau valid. */
+function validateNoteTitle(title) {
+  const length = title.trim().length;
+  return length >= 1 && length <= NOTE_TITLE_MAX ? "" : MSG_NOTE_TITLE_INVALID;
 }
 
-function normalizeNote(n) {
-  return {
-    id: n._id || n.id,
-    title: n.title || "",
-    content: typeof n.content === "string" ? n.content : "",
-    updatedAt: n.updatedAt || n.createdAt || "",
+/** 404 -> catatan tidak ditemukan; selain itu pakai pesan error umum. */
+function noteErrorToMessage(err) {
+  if (err instanceof ApiError && err.status === 404) return MSG_NOTE_NOT_FOUND;
+  return errorToMessage(err);
+}
+
+/**
+ * Membersihkan HTML catatan: hanya tag format yang diizinkan, semua atribut dibuang
+ * kecuali text-align. Mencegah script/handler (XSS) ikut tersimpan atau tampil di editor.
+ */
+function sanitizeNoteHtml(html) {
+  const doc = new DOMParser().parseFromString(`<body>${html || ""}</body>`, "text/html");
+  const clean = (parent) => {
+    [...parent.childNodes].forEach((node) => {
+      if (node.nodeType === Node.TEXT_NODE) return;
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        node.remove();
+        return;
+      }
+      if (["SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED"].includes(node.tagName)) {
+        node.remove();
+        return;
+      }
+      if (!NOTE_ALLOWED_TAGS.has(node.tagName)) {
+        // Tag tidak dikenal: buang tag-nya, pertahankan isinya.
+        clean(node);
+        node.replaceWith(...node.childNodes);
+        return;
+      }
+      const align = node.style?.textAlign || node.getAttribute("align");
+      [...node.attributes].forEach((attr) => node.removeAttribute(attr.name));
+      if (NOTE_ALIGNS.includes(align)) node.style.textAlign = align;
+      clean(node);
+    });
   };
-}
-
-function sortNotes(list) {
-  const time = (v) => Date.parse(v) || 0;
-  return [...list].sort((a, b) => time(b.updatedAt) - time(a.updatedAt));
-}
-
-function escapeHtml(text) {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-// Catatan lama yang berisi teks polos (bukan HTML) diubah jadi paragraf.
-function plainToHtml(text) {
-  return text
-    .split(/\n{2,}/)
-    .map((block) => `<p>${escapeHtml(block).replace(/\n/g, "<br>")}</p>`)
-    .join("");
-}
-
-const ALLOWED_TAGS = new Set([
-  "P", "BR", "DIV", "H1", "H2", "H3", "H4", "H5",
-  "STRONG", "B", "EM", "I", "U", "UL", "OL", "LI", "SPAN",
-]);
-const DROP_TAGS = new Set([
-  "SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED", "TEMPLATE", "NOSCRIPT",
-  "SVG", "MATH", "LINK", "META", "TITLE", "FORM", "INPUT", "BUTTON", "TEXTAREA", "SELECT",
-]);
-const ALIGN_RE = /text-align:\s*(left|center|right|justify)/i;
-
-// Whitelist: hanya tag format dasar dan atribut text-align yang dipertahankan.
-function cleanNode(parent) {
-  for (const child of Array.from(parent.childNodes)) {
-    if (child.nodeType === 3) continue; // teks
-    if (child.nodeType !== 1) {
-      child.remove();
-      continue;
-    }
-    const tag = child.tagName.toUpperCase();
-    if (DROP_TAGS.has(tag)) {
-      child.remove();
-      continue;
-    }
-    cleanNode(child);
-    if (!ALLOWED_TAGS.has(tag)) {
-      child.replaceWith(...Array.from(child.childNodes));
-      continue;
-    }
-    const align = ALIGN_RE.exec(child.getAttribute("style") || "")?.[1]?.toLowerCase();
-    for (const attr of Array.from(child.attributes)) child.removeAttribute(attr.name);
-    if (align) child.setAttribute("style", `text-align: ${align}`);
-  }
-}
-
-function sanitizeHtml(html) {
-  // DOMParser menghasilkan dokumen "mati": skrip tidak jalan dan gambar tidak dimuat.
-  const doc = new DOMParser().parseFromString(String(html ?? ""), "text/html");
-  cleanNode(doc.body);
+  clean(doc.body);
   return doc.body.innerHTML;
 }
 
-function toEditableHtml(content) {
-  const raw = typeof content === "string" ? content : "";
-  if (!raw.trim()) return EMPTY_HTML;
-  const html = /<\/?[a-z][\s\S]*>/i.test(raw) ? raw : plainToHtml(raw);
-  const clean = sanitizeHtml(html);
-  return clean.trim() ? clean : EMPTY_HTML;
+/** Isi dari backend -> HTML untuk editor. Teks biasa (tanpa tag) dibungkus per baris. */
+function toEditorHtml(content) {
+  const text = content ?? "";
+  if (!/<\/?[a-z][\s\S]*>/i.test(text)) {
+    const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return escaped.split("\n").map((line) => `<p>${line || "<br>"}</p>`).join("");
+  }
+  return sanitizeNoteHtml(text);
 }
 
-function isBlankHtml(html) {
-  const doc = new DOMParser().parseFromString(String(html ?? ""), "text/html");
-  return !doc.body.textContent.trim();
+/** HTML editor -> isi yang dikirim ke backend (tidak pernah kosong). */
+function serializeNoteHtml(html) {
+  const clean = sanitizeNoteHtml(html);
+  return clean.trim() ? clean : EMPTY_NOTE_HTML;
 }
-
-function serializeContent(html) {
-  const clean = sanitizeHtml(html);
-  return isBlankHtml(clean) ? EMPTY_HTML : clean;
-}
-
-function htmlToText(html) {
-  const spaced = String(html ?? "").replace(/<\/(p|div|li|h[1-6])>|<br\s*\/?>/gi, " ");
-  const doc = new DOMParser().parseFromString(spaced, "text/html");
-  return doc.body.textContent.replace(/\s+/g, " ").trim();
-}
-
-function shallowEqual(a, b) {
-  const keys = Object.keys(a);
-  return keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k]);
-}
-
-/* ======================================================================
-   Hook: useNotes
-   ====================================================================== */
 
 export function useNotes({ notebookId, accessToken, notify }) {
+  const notifyRef = useRef(notify); // notify dipanggil lewat ref, jadi tidak perlu stabil
+  notifyRef.current = notify;
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [reloadKey, setReloadKey] = useState(0);
-
-  // session === null -> State 1 (daftar). session berisi objek -> State 2 (editor).
-  const [session, setSession] = useState(null);
-  const [titleError, setTitleError] = useState("");
-  const [saveStatus, setSaveStatus] = useState("idle"); // idle | saving | saved | error
   const [creating, setCreating] = useState(false);
-  const [focusTick, setFocusTick] = useState(0);
+  const [activeId, setActiveId] = useState(null); // null = daftar catatan, id = mode editor
+  const [newNoteId, setNewNoteId] = useState(null); // catatan yang baru dibuat (fokus ke judul)
+  const queue = useRef(Promise.resolve()); // simpan berurutan supaya versi lama tidak menimpa yang baru
+  const deleted = useRef(new Set()); // catatan yang sudah dihapus: simpanan tertunda diabaikan
 
-  // Nilai terbaru disimpan di ref agar fungsi di bawah tetap stabil.
-  const tokenRef = useRef(accessToken);
-  const notifyRef = useRef(notify);
-  const notebookRef = useRef(notebookId);
-  tokenRef.current = accessToken;
-  notifyRef.current = notify;
-  notebookRef.current = notebookId;
-
-  const sessionRef = useRef(null);
-  const sessionKeyRef = useRef(0);
-  const idRef = useRef(null); // id catatan di server (null = draft yang belum tersimpan)
-  const titleRef = useRef("");
-  const contentRef = useRef(EMPTY_HTML);
-  const dirtyRef = useRef(false);
-  const timerRef = useRef(null);
-  const saveRef = useRef(null); // promise penyimpanan yang sedang berjalan
-
-  /* ----- Memuat daftar ----- */
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setLoadError("");
-    getNotes(notebookId, tokenRef.current)
+    getNotes(notebookId, accessToken)
       .then((data) => {
-        if (cancelled) return;
-        setNotes(sortNotes((data?.notes || []).map(normalizeNote)));
+        if (!cancelled) setNotes(data?.notes || []);
       })
       .catch((err) => {
-        if (!cancelled) setLoadError(err?.message || MSG_LOAD_FAILED);
+        if (!cancelled) notifyRef.current(noteErrorToMessage(err));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -200,417 +135,605 @@ export function useNotes({ notebookId, accessToken, notify }) {
     return () => {
       cancelled = true;
     };
-  }, [notebookId, reloadKey]);
+  }, [notebookId, accessToken]);
 
-  const reload = useCallback(() => setReloadKey((k) => k + 1), []);
-
-  const upsertNote = useCallback((saved) => {
-    setNotes((list) => {
-      const exists = list.some((n) => n.id === saved.id);
-      const next = exists ? list.map((n) => (n.id === saved.id ? { ...n, ...saved } : n)) : [saved, ...list];
-      return sortNotes(next);
-    });
+  const removeLocal = useCallback((id) => {
+    setNotes((list) => list.filter((n) => n._id !== id));
+    setActiveId((current) => (current === id ? null : current));
   }, []);
 
-  const endSession = useCallback(() => {
-    clearTimeout(timerRef.current);
-    dirtyRef.current = false;
-    idRef.current = null;
-    sessionRef.current = null;
-    setSession(null);
-    setTitleError("");
-    setSaveStatus("idle");
-  }, []);
-
-  const beginSession = useCallback(({ id, title, content }) => {
-    idRef.current = id;
-    titleRef.current = title;
-    contentRef.current = content;
-    dirtyRef.current = false;
-    sessionKeyRef.current += 1;
-    const next = { key: sessionKeyRef.current, id, title, content };
-    sessionRef.current = next;
-    setTitleError("");
-    setSaveStatus("idle");
-    setSession(next);
-  }, []);
-
-  // Server menjawab 404: catatan sudah tidak ada. Tampilkan toast, bersihkan daftar, kembali ke State 1.
-  const handleGone = useCallback(
-    (id) => {
-      setNotes((list) => list.filter((n) => n.id !== id));
-      if (idRef.current === id) endSession();
-      notifyRef.current?.(MSG_NOTE_GONE);
-    },
-    [endSession]
-  );
-
-  /* ----- Auto-save ----- */
-
-  // Satu kali penyimpanan. Hasil: "ok" | "invalid" | "gone" | "error"
-  const saveOnce = useCallback(async () => {
-    const title = titleRef.current.trim();
-    if (!isValidTitle(title)) return "invalid"; // dirty tetap true, tersimpan begitu judul valid
-
-    const content = serializeContent(contentRef.current);
-    const wasNew = !idRef.current;
-    dirtyRef.current = false; // edit yang masuk selama request akan menyetel ulang flag ini
-
+  // Catatan dibuat dulu di backend dengan judul bawaan, lalu editor membuka dan menyimpan otomatis.
+  // Mengembalikan true kalau catatan berhasil dibuat (dipakai untuk membuka panel setelahnya).
+  async function addNote() {
+    if (creating) return false;
+    setCreating(true);
     try {
-      if (wasNew) {
-        setCreating(true);
-        const data = await createNote(notebookRef.current, { title, content }, tokenRef.current);
-        if (!data?.note?._id) throw new ApiError(MSG_SAVE_FAILED);
-        const saved = normalizeNote(data.note);
-        idRef.current = saved.id;
-        if (sessionRef.current) {
-          sessionRef.current = { ...sessionRef.current, id: saved.id };
-          setSession(sessionRef.current);
-        }
-        upsertNote(saved);
-      } else {
-        const id = idRef.current;
-        const data = await updateNote(notebookRef.current, id, { title, content }, tokenRef.current);
-        upsertNote(
-          data?.note
-            ? normalizeNote(data.note)
-            : { id, title, content, updatedAt: new Date().toISOString() }
-        );
+      const data = await createNote(
+        notebookId,
+        { title: DEFAULT_NOTE_TITLE, content: EMPTY_NOTE_HTML },
+        accessToken
+      );
+      if (data?.note) {
+        setNotes((list) => [data.note, ...list]);
+        setNewNoteId(data.note._id);
+        setActiveId(data.note._id);
+        return true;
       }
-      return "ok";
+      return false;
     } catch (err) {
-      dirtyRef.current = true;
-      if (err instanceof ApiError && err.status === 404 && !wasNew) {
-        handleGone(idRef.current);
-        return "gone";
-      }
-      if (err instanceof ApiError && err.status === 400 && err.fieldErrors?.some?.((e) => e.field === "title")) {
-        setTitleError(MSG_TITLE_REQUIRED);
-        return "invalid";
-      }
-      setSaveStatus("error");
-      notifyRef.current?.(err?.message || MSG_SAVE_FAILED);
-      return "error";
+      notifyRef.current(noteErrorToMessage(err));
+      return false;
     } finally {
-      if (wasNew) setCreating(false);
+      setCreating(false);
     }
-  }, [handleGone, upsertNote]);
+  }
 
-  // Menyimpan secara berurutan (tidak pernah dua request sekaligus untuk satu catatan).
-  const runSave = useCallback(() => {
-    if (saveRef.current) return saveRef.current;
-    const p = (async () => {
-      let result = "ok";
-      try {
-        while (dirtyRef.current) {
-          result = await saveOnce();
-          if (result !== "ok") break;
+  // Dipakai auto-save. Mengembalikan true (berhasil), false (gagal), atau "gone" (catatan sudah tidak ada).
+  const saveNote = useCallback(
+    (id, patch) => {
+      if (deleted.current.has(id)) return Promise.resolve("gone");
+      // Perbarui tampilan lebih dulu supaya membuka ulang editor tidak menampilkan versi lama.
+      setNotes((list) => list.map((n) => (n._id === id ? { ...n, ...patch } : n)));
+      const run = queue.current.then(async () => {
+        if (deleted.current.has(id)) return "gone";
+        try {
+          const data = await updateNote(notebookId, id, patch, accessToken);
+          const updatedAt = data?.note?.updatedAt;
+          if (updatedAt) setNotes((list) => list.map((n) => (n._id === id ? { ...n, updatedAt } : n)));
+          return true;
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 404) {
+            const alreadyGone = deleted.current.has(id);
+            deleted.current.add(id);
+            if (!alreadyGone) notifyRef.current(MSG_NOTE_NOT_FOUND);
+            removeLocal(id);
+            return "gone";
+          }
+          return false; // status "Gagal menyimpan" tampil di header editor
         }
-      } catch {
-        result = "error";
-      }
-      if (result === "ok") setSaveStatus(dirtyRef.current ? "saving" : "saved");
-      else if (result === "invalid") setSaveStatus("idle");
-      return result;
-    })();
-    saveRef.current = p;
-    p.finally(() => {
-      if (saveRef.current === p) saveRef.current = null;
-    });
-    return p;
-  }, [saveOnce]);
-
-  const scheduleSave = useCallback(() => {
-    dirtyRef.current = true;
-    setSaveStatus("saving");
-    clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      runSave();
-    }, AUTOSAVE_DELAY_MS);
-  }, [runSave]);
-
-  const changeTitle = useCallback(
-    (value) => {
-      titleRef.current = value;
-      dirtyRef.current = true;
-      if (isValidTitle(value)) {
-        setTitleError("");
-        scheduleSave();
-      } else {
-        clearTimeout(timerRef.current);
-        setTitleError(MSG_TITLE_REQUIRED);
-        setSaveStatus("idle");
-      }
+      });
+      queue.current = run;
+      return run;
     },
-    [scheduleSave]
+    [notebookId, accessToken, removeLocal]
   );
 
-  const changeContent = useCallback(
-    (html) => {
-      contentRef.current = html;
-      dirtyRef.current = true;
-      if (isValidTitle(titleRef.current)) {
-        setTitleError("");
-        scheduleSave();
+  // Melempar error kalau gagal; popup ganti nama menampilkan pesannya.
+  async function renameNote(note, title) {
+    try {
+      const data = await updateNote(notebookId, note._id, { title }, accessToken);
+      const updatedAt = data?.note?.updatedAt;
+      setNotes((list) =>
+        list.map((n) => (n._id === note._id ? { ...n, title, updatedAt: updatedAt ?? n.updatedAt } : n))
+      );
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        notifyRef.current(MSG_NOTE_NOT_FOUND);
+        removeLocal(note._id);
         return;
       }
-      clearTimeout(timerRef.current);
-      setSaveStatus("idle");
-      // Draft yang benar-benar kosong belum perlu menegur; begitu ada isi, judul wajib.
-      const untouchedDraft = !idRef.current && !titleRef.current.trim() && isBlankHtml(html);
-      setTitleError(untouchedDraft ? "" : MSG_TITLE_REQUIRED);
-    },
-    [scheduleSave]
-  );
+      throw err;
+    }
+  }
 
-  /* ----- Pindah state ----- */
-
-  // Menutup editor (kembali ke daftar). Menyimpan dulu; return false jika harus tetap di editor.
-  const closeEditor = useCallback(async () => {
-    if (!sessionRef.current) return true;
-    clearTimeout(timerRef.current);
-
-    if (dirtyRef.current || saveRef.current) {
-      const title = titleRef.current.trim();
-      if (!isValidTitle(title)) {
-        const emptyDraft = !idRef.current && !title && isBlankHtml(contentRef.current);
-        if (!emptyDraft) {
-          setTitleError(MSG_TITLE_REQUIRED);
-          setFocusTick((t) => t + 1);
-          return false;
-        }
+  // Tidak melempar error: kalau gagal, tampil sebagai toast.
+  async function removeNote(id) {
+    deleted.current.add(id);
+    try {
+      await deleteNote(notebookId, id, accessToken);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        notifyRef.current(MSG_NOTE_NOT_FOUND);
       } else {
-        const result = await runSave();
-        if (result === "gone") return true; // sesi sudah ditutup oleh handleGone
-        if (result !== "ok" || dirtyRef.current) return false;
+        deleted.current.delete(id);
+        notifyRef.current(noteErrorToMessage(err));
+        return;
       }
     }
-    endSession();
-    return true;
-  }, [endSession, runSave]);
+    removeLocal(id);
+  }
 
-  const addNote = useCallback(async () => {
-    const draftIsBlank =
-      sessionRef.current && !idRef.current && !titleRef.current.trim() && isBlankHtml(contentRef.current);
-    if (draftIsBlank) {
-      setFocusTick((t) => t + 1); // sudah ada draft kosong, cukup fokuskan
-      return;
-    }
-    if (!(await closeEditor())) return;
-    beginSession({ id: null, title: "", content: EMPTY_HTML });
-  }, [beginSession, closeEditor]);
-
-  const openNote = useCallback(
-    async (note) => {
-      if (sessionRef.current && idRef.current === note.id) return;
-      if (!(await closeEditor())) return;
-      beginSession({ id: note.id, title: note.title, content: note.content });
-    },
-    [beginSession, closeEditor]
-  );
-
-  /* ----- Hapus & ganti nama ----- */
-
-  const removeNote = useCallback(
-    async (id) => {
-      try {
-        await deleteNote(notebookRef.current, id, tokenRef.current);
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 404) {
-          handleGone(id);
-        } else {
-          notifyRef.current?.(err?.message || MSG_DELETE_FAILED);
-        }
-        return false;
-      }
-      setNotes((list) => list.filter((n) => n.id !== id));
-      if (idRef.current === id) endSession();
-      return true;
-    },
-    [endSession, handleGone]
-  );
-
-  // Hapus catatan yang sedang dibuka di editor (atau buang draft yang belum tersimpan).
-  const deleteActive = useCallback(async () => {
-    clearTimeout(timerRef.current);
-    dirtyRef.current = false;
-    if (saveRef.current) await saveRef.current; // tunggu penyimpanan yang sedang jalan agar id-nya diketahui
-    dirtyRef.current = false;
-    const id = idRef.current;
-    if (!id) {
-      endSession();
-      return true;
-    }
-    return removeNote(id);
-  }, [endSession, removeNote]);
-
-  // Melempar error (selain 404) agar dialog bisa menampilkannya.
-  const renameNote = useCallback(
-    async (note, title) => {
-      try {
-        const data = await updateNote(notebookRef.current, note.id, { title }, tokenRef.current);
-        upsertNote({ ...note, ...(data?.note ? normalizeNote(data.note) : { title }) });
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 404) {
-          handleGone(note.id);
-          return;
-        }
-        throw err;
-      }
-    },
-    [handleGone, upsertNote]
-  );
-
-  /* ----- Pengaman: simpan sisa perubahan saat meninggalkan halaman ----- */
-  useEffect(() => {
-    function flushIfNeeded() {
-      if (dirtyRef.current && isValidTitle(titleRef.current)) {
-        clearTimeout(timerRef.current);
-        runSave();
-      }
-    }
-    function onVisibility() {
-      if (document.visibilityState === "hidden") flushIfNeeded();
-    }
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibility);
-      flushIfNeeded(); // unmount (mis. kembali ke dashboard)
-    };
-  }, [runSave]);
-
-  useEffect(() => {
-    if (saveStatus !== "saving" && saveStatus !== "error") return undefined;
-    function onBeforeUnload(e) {
-      e.preventDefault();
-      e.returnValue = "";
-    }
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [saveStatus]);
-
-  return {
-    notes,
-    loading,
-    loadError,
-    reload,
-    session,
-    titleError,
-    saveStatus,
-    creating,
-    focusTick,
-    addNote,
-    openNote,
-    closeEditor,
-    changeTitle,
-    changeContent,
-    removeNote,
-    deleteActive,
-    renameNote,
-  };
+  return { notes, loading, creating, activeId, setActiveId, newNoteId, addNote, saveNote, renameNote, removeNote };
 }
 
-/* ======================================================================
-   Ikon
-   ====================================================================== */
-
-function Svg({ size = 18, children, strokeWidth = 1.8 }) {
+function CheckIcon() {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+         strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  );
+}
+
+/** Pembungkus ikon toolbar (garis tipis, mengikuti warna teks). */
+function ToolSvg({ children, size = 18 }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor"
+         strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {children}
     </svg>
   );
 }
 
-const NoteIcon = ({ size }) => (
-  <Svg size={size}>
-    <rect x="4" y="3.5" width="16" height="17" rx="3" />
-    <path d="M8 9h8M8 13h8M8 17h5" />
-  </Svg>
-);
-const BackIcon = () => (
-  <Svg>
-    <path d="M19 12H5" />
-    <path d="m11 6-6 6 6 6" />
-  </Svg>
-);
-const UndoIcon = () => (
-  <Svg>
-    <path d="M9 14 4 9l5-5" />
-    <path d="M4 9h10a6 6 0 0 1 0 12h-3" />
-  </Svg>
-);
-const RedoIcon = () => (
-  <Svg>
-    <path d="m15 14 5-5-5-5" />
-    <path d="M20 9H10a6 6 0 0 0 0 12h3" />
-  </Svg>
-);
-const MoreIcon = () => (
-  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
-    <circle cx="12" cy="5" r="1.8" />
-    <circle cx="12" cy="12" r="1.8" />
-    <circle cx="12" cy="19" r="1.8" />
-  </svg>
-);
-const BulletListIcon = () => (
-  <Svg>
-    <path d="M9 6h11M9 12h11M9 18h11" />
-    <circle cx="4.5" cy="6" r="1" fill="currentColor" />
-    <circle cx="4.5" cy="12" r="1" fill="currentColor" />
-    <circle cx="4.5" cy="18" r="1" fill="currentColor" />
-  </Svg>
-);
-const NumberListIcon = () => (
-  <Svg>
-    <path d="M10 6h10M10 12h10M10 18h10" />
-    <path d="M4 5.2 5.2 4.5V8" />
-    <path d="M3.8 13.6c.3-.9 2.4-1.1 2.4.1 0 .9-1.2 1.4-2.4 2.5h2.5" />
-  </Svg>
-);
-const AlignIcon = ({ kind }) => {
-  const lines = {
-    left: ["M4 6h16", "M4 10h10", "M4 14h16", "M4 18h10"],
-    center: ["M4 6h16", "M7 10h10", "M4 14h16", "M7 18h10"],
-    right: ["M4 6h16", "M10 10h10", "M4 14h16", "M10 18h10"],
-    justify: ["M4 6h16", "M4 10h16", "M4 14h16", "M4 18h16"],
-  }[kind];
+function UndoIcon() {
   return (
-    <Svg>
-      {lines.map((d) => (
-        <path key={d} d={d} />
-      ))}
-    </Svg>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M7 19V17H14.1C15.15 17 16.0625 16.6667 16.8375 16C17.6125 15.3333 18 14.5 18 13.5C18 12.5 17.6125 11.6667 16.8375 11C16.0625 10.3333 15.15 10 14.1 10H7.8L10.4 12.6L9 14L4 9L9 4L10.4 5.4L7.8 8H14.1C15.7167 8 17.1042 8.525 18.2625 9.575C19.4208 10.625 20 11.9333 20 13.5C20 15.0667 19.4208 16.375 18.2625 17.425C17.1042 18.475 15.7167 19 14.1 19H7Z" fill="#CECECE"/>
+    </svg>
+
+
   );
-};
-const CheckIcon = () => (
-  <Svg size={14} strokeWidth={2.4}>
-    <path d="m5 12.5 4.5 4.5L19 7.5" />
-  </Svg>
-);
+}
 
-/* ======================================================================
-   Dialog (pola sama dengan Modal di App.jsx)
-   ====================================================================== */
+function RedoIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M9.9 19C8.28333 19 6.89583 18.475 5.7375 17.425C4.57917 16.375 4 15.0667 4 13.5C4 11.9333 4.57917 10.625 5.7375 9.575C6.89583 8.525 8.28333 8 9.9 8H16.2L13.6 5.4L15 4L20 9L15 14L13.6 12.6L16.2 10H9.9C8.85 10 7.9375 10.3333 7.1625 11C6.3875 11.6667 6 12.5 6 13.5C6 14.5 6.3875 15.3333 7.1625 16C7.9375 16.6667 8.85 17 9.9 17H17V19H9.9Z" fill="#CECECE"/>
+    </svg>
+  );
+}
 
-function Dialog({ label, className = "", canClose = true, onClose, children }) {
+function DotsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+      <circle cx="5" cy="12" r="1.9" />
+      <circle cx="12" cy="12" r="1.9" />
+      <circle cx="19" cy="12" r="1.9" />
+    </svg>
+  );
+}
+
+function TriangleDownIcon() {
+  return (
+    <svg width="13" height="12" viewBox="0 0 13 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6.49512 11.25L-7.34329e-05 0L12.9903 0L6.49512 11.25Z" fill="#CECECE"/>
+    </svg>
+  );
+}
+
+function UnderLineIcon() {
+  return (
+    <svg width="23" height="23" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5.74967 2.875V9.58333C5.74967 11.1083 6.35548 12.5709 7.43381 13.6492C8.51214 14.7275 9.97468 15.3333 11.4997 15.3333C13.0247 15.3333 14.4872 14.7275 15.5655 13.6492C16.6439 12.5709 17.2497 11.1083 17.2497 9.58333V2.875M3.83301 20.125H19.1663" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke="#CECECE"/>
+    </svg>
+  );
+}
+
+
+function BulletListIcon() {
+  return (
+    <svg width="30" height="21" viewBox="0 0 30 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="1.5" cy="1.5" r="1.5" fill="#D9D9D9"/>
+      <circle cx="1.5" cy="7.5" r="1.5" fill="#D9D9D9"/>
+      <circle cx="1.5" cy="13.5" r="1.5" fill="#D9D9D9"/>
+      <circle cx="1.5" cy="19.5" r="1.5" fill="#D9D9D9"/>
+      <rect x="4" width="26" height="3" fill="#D9D9D9"/>
+      <rect x="4" y="6" width="26" height="3" fill="#D9D9D9"/>
+      <rect x="4" y="12" width="26" height="3" fill="#D9D9D9"/>
+      <rect x="4" y="18" width="26" height="3" fill="#D9D9D9"/>
+    </svg>
+
+  );
+}
+
+function NumberListIcon() {
+  return (
+    <svg width="30" height="26" viewBox="0 0 30 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="4" y="3" width="26" height="3" fill="#D9D9D9"/>
+        <rect x="4" y="9" width="26" height="3" fill="#D9D9D9"/>
+        <rect x="4" y="15" width="26" height="3" fill="#D9D9D9"/>
+        <rect x="4" y="21" width="26" height="3" fill="#D9D9D9"/>
+        <path d="M1.135 3.145V2.35H2.52V6H1.63V3.145H1.135Z" fill="#CECECE"/>
+        <path d="M0.195 11.315C0.308333 11.225 0.36 11.1833 0.35 11.19C0.676667 10.92 0.933333 10.6983 1.12 10.525C1.31 10.3517 1.47 10.17 1.6 9.98C1.73 9.79 1.795 9.605 1.795 9.425C1.795 9.28833 1.76333 9.18167 1.7 9.105C1.63667 9.02833 1.54167 8.99 1.415 8.99C1.28833 8.99 1.18833 9.03833 1.115 9.135C1.045 9.22833 1.01 9.36167 1.01 9.535H0.185C0.191667 9.25167 0.251667 9.015 0.365 8.825C0.481667 8.635 0.633333 8.495 0.82 8.405C1.01 8.315 1.22 8.27 1.45 8.27C1.84667 8.27 2.145 8.37167 2.345 8.575C2.54833 8.77833 2.65 9.04333 2.65 9.37C2.65 9.72667 2.52833 10.0583 2.285 10.365C2.04167 10.6683 1.73167 10.965 1.355 11.255H2.705V11.95H0.195V11.315Z" fill="#CECECE"/>
+        <path d="M0.255 15.38C0.268333 15.0233 0.385 14.7483 0.605 14.555C0.825 14.3617 1.12333 14.265 1.5 14.265C1.75 14.265 1.96333 14.3083 2.14 14.395C2.32 14.4817 2.455 14.6 2.545 14.75C2.63833 14.9 2.685 15.0683 2.685 15.255C2.685 15.475 2.63 15.655 2.52 15.795C2.41 15.9317 2.28167 16.025 2.135 16.075V16.095C2.325 16.1583 2.475 16.2633 2.585 16.41C2.695 16.5567 2.75 16.745 2.75 16.975C2.75 17.1817 2.70167 17.365 2.605 17.525C2.51167 17.6817 2.37333 17.805 2.19 17.895C2.01 17.985 1.795 18.03 1.545 18.03C1.145 18.03 0.825 17.9317 0.585 17.735C0.348333 17.5383 0.223333 17.2417 0.21 16.845H1.04C1.04333 16.9917 1.085 17.1083 1.165 17.195C1.245 17.2783 1.36167 17.32 1.515 17.32C1.645 17.32 1.745 17.2833 1.815 17.21C1.88833 17.1333 1.925 17.0333 1.925 16.91C1.925 16.75 1.87333 16.635 1.77 16.565C1.67 16.4917 1.50833 16.455 1.285 16.455H1.125V15.76H1.285C1.455 15.76 1.59167 15.7317 1.695 15.675C1.80167 15.615 1.855 15.51 1.855 15.36C1.855 15.24 1.82167 15.1467 1.755 15.08C1.68833 15.0133 1.59667 14.98 1.48 14.98C1.35333 14.98 1.25833 15.0183 1.195 15.095C1.135 15.1717 1.1 15.2667 1.09 15.38H0.255Z" fill="#CECECE"/>
+        <path d="M0.245 23.35V22.66L1.825 20.4H2.78V22.61H3.19V23.35H2.78V24H1.925V23.35H0.245ZM1.985 21.34L1.145 22.61H1.985V21.34Z" fill="#CECECE"/>
+    </svg>
+
+  );
+}
+
+function AlignLeftIcon() {
+  return ( 
+    <svg width="30" height="21" viewBox="0 0 30 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="30" height="3" fill="#D9D9D9"/>
+      <rect y="12" width="30" height="3" fill="#D9D9D9"/>
+      <rect y="6" width="24" height="3" fill="#D9D9D9"/>
+      <rect y="18" width="24" height="3" fill="#D9D9D9"/>
+    </svg>
+  );
+}
+function AlignCenterIcon() {
+  return (
+    <svg width="30" height="21" viewBox="0 0 30 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="30" height="3" fill="#D9D9D9"/>
+        <rect y="12" width="30" height="3" fill="#D9D9D9"/>
+        <rect x="3" y="6" width="24" height="3" fill="#D9D9D9"/>
+        <rect x="3" y="18" width="24" height="3" fill="#D9D9D9"/>
+    </svg>
+  );
+}
+function AlignRightIcon() {
+  return (
+    <svg width="30" height="21" viewBox="0 0 30 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="30" height="3" fill="#D9D9D9"/>
+      <rect y="12" width="30" height="3" fill="#D9D9D9"/>
+      <rect x="6" y="6" width="24" height="3" fill="#D9D9D9"/>
+      <rect x="6" y="18" width="24" height="3" fill="#D9D9D9"/>
+    </svg>
+  );
+}
+function AlignJustifyIcon() {
+  return (
+    <svg width="30" height="21" viewBox="0 0 30 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="30" height="3" fill="#D9D9D9"/>
+      <rect y="12" width="30" height="3" fill="#D9D9D9"/>
+      <rect y="6" width="30" height="3" fill="#D9D9D9"/>
+      <rect y="18" width="30" height="3" fill="#D9D9D9"/>
+    </svg>
+  );
+}
+
+/** Ikon "tutup editor / kembali ke daftar" di header (panah masuk dari sudut). */
+function CollapseNoteIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="6.81836" y="8.18188" width="6.81818" height="1.36364" transform="rotate(90 6.81836 8.18188)" fill="#CECECE"/>
+      <rect y="8.18188" width="6.81818" height="1.36364" fill="#CECECE"/>
+      <rect x="8.18164" y="6.81812" width="6.81818" height="1.36364" transform="rotate(-90 8.18164 6.81812)" fill="#CECECE"/>
+      <rect x="15" y="6.81812" width="6.81818" height="1.36364" transform="rotate(-180 15 6.81812)" fill="#CECECE"/>
+    </svg>
+
+  );
+}
+
+/** Ikon tempat sampah warna terang untuk header editor (ikon merah dari App dipakai di menu daftar). */
+function NoteTrashIcon() {
+  return (
+    <ToolSvg size={24}>
+      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
+    </ToolSvg>
+  );
+}
+
+/** Menutup popup (dropdown/bilah alat) saat klik di luar atau menekan Esc. */
+function useDismiss(ref, open, onClose) {
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [ref, open, onClose]);
+}
+
+/** Tombol toolbar. onMouseDown dicegah supaya seleksi teks di editor tidak hilang saat diklik. */
+function ToolBtn({ label, active, onClick, children, ...rest }) {
+  return (
+    <button
+      type="button"
+      className={`note-tool${active ? " is-active" : ""}`}
+      aria-label={label}
+      title={label}
+      aria-pressed={active === undefined ? undefined : Boolean(active)}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * Mode editor (State 2). Isi editor tidak dikontrol React (contentEditable) supaya riwayat
+ * undo/redo bawaan browser (Ctrl+Z / Ctrl+Y) tetap utuh. Komponen ini di-remount per catatan (key).
+ * onSave(id, patch) mengembalikan true | false | "gone".
+ */
+function NoteEditor({ note, focusTitle, onBack, onSave, onDelete }) {
+  const editorRef = useRef(null);
+  const titleRef = useRef(null);
+  const [title, setTitle] = useState(note.title);
+  const [titleError, setTitleError] = useState("");
+  const [status, setStatus] = useState("saved"); // "saved" | "saving" | "error"
+  const [toolsOpen, setToolsOpen] = useState(false); // bilah alat lanjutan (•••)
+  const [blockOpen, setBlockOpen] = useState(false); // dropdown gaya paragraf (Normal ▾)
+  const blockRef = useRef(null);
+  const moreRef = useRef(null);
+  const [active, setActive] = useState({});
+
+  const latest = useRef({ title: note.title, html: note.content }); // nilai terbaru, dibaca saat menyimpan
+  const dirty = useRef({ title: false, content: false });
+  const pending = useRef(0); // jumlah simpanan yang sedang berjalan
+  const timer = useRef(null);
+  const onSaveRef = useRef(onSave);
+  const runSaveRef = useRef(null);
+  onSaveRef.current = onSave;
+
+  useLayoutEffect(() => {
+    editorRef.current.innerHTML = toEditorHtml(note.content);
+    document.execCommand("defaultParagraphSeparator", false, "p"); // Enter membuat <p>, bukan <div>
+    if (focusTitle) {
+      titleRef.current.focus();
+      titleRef.current.select();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Tombol toolbar menyala sesuai format di posisi kursor.
+  useEffect(() => {
+    function update() {
+      const el = editorRef.current;
+      const anchor = document.getSelection()?.anchorNode;
+      if (!el || !anchor || !el.contains(anchor)) return;
+      try {
+        const next = Object.fromEntries(NOTE_STATE_COMMANDS.map((c) => [c, document.queryCommandState(c)]));
+        next.block = String(document.queryCommandValue("formatBlock")).toLowerCase().replace(/[<>]/g, "");
+        setActive((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+      } catch {
+        /* browser tidak mendukung query ini: abaikan */
+      }
+    }
+    document.addEventListener("selectionchange", update);
+    return () => document.removeEventListener("selectionchange", update);
+  }, []);
+
+  useDismiss(blockRef, blockOpen, () => setBlockOpen(false));
+  useDismiss(moreRef, toolsOpen, () => setToolsOpen(false));
+
+  const blockLabel = (NOTE_BLOCK_TOOLS.find(([tag]) => tag === active.block) || NOTE_BLOCK_TOOLS[0])[1];
+
+  function titleIsValid() {
+    return !validateNoteTitle(latest.current.title);
+  }
+
+  async function runSave() {
+    const sendTitle = dirty.current.title && titleIsValid(); // judul tidak valid tidak dikirim
+    const sendContent = dirty.current.content;
+    if (!sendTitle && !sendContent) return;
+
+    const patch = {};
+    if (sendTitle) patch.title = latest.current.title.trim();
+    if (sendContent) patch.content = serializeNoteHtml(latest.current.html);
+    if (sendTitle) dirty.current.title = false;
+    if (sendContent) dirty.current.content = false;
+
+    pending.current += 1;
+    setStatus("saving");
+    const result = await onSaveRef.current(note._id, patch);
+    pending.current -= 1;
+
+    if (result === false) {
+      if (sendTitle) dirty.current.title = true;
+      if (sendContent) dirty.current.content = true;
+      setStatus("error");
+    } else if (result === true && pending.current === 0) {
+      const stillDirty = dirty.current.content || (dirty.current.title && titleIsValid());
+      if (!stillDirty) setStatus("saved");
+    }
+  }
+  runSaveRef.current = runSave;
+
+  function markDirty(kind) {
+    dirty.current[kind] = true;
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => runSaveRef.current(), AUTOSAVE_DELAY_MS);
+    if (kind === "content" || titleIsValid()) setStatus("saving");
+  }
+
+  // Keluar dari editor (kembali ke daftar, panel diciutkan, pindah halaman): simpan sisa perubahan.
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current);
+      runSaveRef.current();
+    },
+    []
+  );
+
+  function syncContent() {
+    if (editorRef.current) latest.current.html = editorRef.current.innerHTML;
+    markDirty("content");
+  }
+
+  function exec(command, value) {
+    editorRef.current?.focus();
+    document.execCommand(command, false, value);
+    syncContent();
+  }
+
+  function handleTitleChange(e) {
+    const value = e.target.value;
+    setTitle(value);
+    latest.current.title = value;
+    setTitleError(validateNoteTitle(value));
+    markDirty("title");
+  }
+
+  function handlePaste(e) {
+    // Tempel sebagai teks biasa supaya format dari website/Word tidak ikut masuk.
+    e.preventDefault();
+    document.execCommand("insertText", false, e.clipboardData.getData("text/plain"));
+  }
+
+  function handleKeyDown(e) {
+    // Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z, Ctrl/Cmd+B/I/U sudah bawaan browser; Ctrl/Cmd+Y dibuat seragam.
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "y") {
+      e.preventDefault();
+      exec("redo");
+    }
+  }
+
+  async function handleBack() {
+    clearTimeout(timer.current);
+    await runSave();
+    onBack();
+  }
+
+  return (
+    <div className="note-editor-wrap">
+      {/* Header: judul panel, status simpan, dan tombol kembali ke daftar catatan */}
+      <div className="note-head">
+        <h2 className="panel-title">Catatan</h2>
+        <div className="note-head-actions">
+          <span className={`note-status note-status--${status}`} role="status" aria-live="polite">
+            {status === "saving" && "Menyimpan..."}
+            {status === "saved" && (
+              <>
+                <CheckIcon /> Tersimpan
+              </>
+            )}
+            {status === "error" && "Gagal menyimpan"}
+          </span>
+          <button
+            type="button"
+            className="panel-toggle"
+            onClick={handleBack}
+            aria-label="Kembali ke daftar catatan"
+            title="Kembali ke daftar catatan"
+          >
+            <CollapseNoteIcon />
+          </button>
+        </div>
+      </div>
+
+      {/* Judul besar tanpa kotak + tombol hapus */}
+      <div className={`note-title-row${titleError ? " has-error" : ""}`}>
+        <div className="note-title-field">
+          <input
+            ref={titleRef}
+            className="note-title-input"
+            value={title}
+            onChange={handleTitleChange}
+            onBlur={() => setTitleError(validateNoteTitle(title))}
+            placeholder="Judul Catatan"
+            aria-label="Judul Catatan"
+            aria-invalid={titleError ? "true" : undefined}
+            aria-describedby={titleError ? "note-title-error" : undefined}
+            autoComplete="off"
+          />
+          {titleError && (
+            <p className="msg-error" id="note-title-error" role="alert">
+              {titleError}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          className="note-trash"
+          onClick={() => onDelete(note)}
+          aria-label="Hapus catatan"
+          title="Hapus catatan"
+        >
+          <NoteTrashIcon />
+        </button>
+      </div>
+
+      {/* Toolbar: Undo, Redo | Normal ▾ | B, I | ••• */}
+      <div className="note-toolbar" role="toolbar" aria-label="Format teks">
+        <ToolBtn label="Urungkan (Ctrl+Z)" onClick={() => exec("undo")}><UndoIcon /></ToolBtn>
+        <ToolBtn label="Ulangi (Ctrl+Y)" onClick={() => exec("redo")}><RedoIcon /></ToolBtn>
+
+        <span className="note-sep" aria-hidden="true" />
+
+        <div className="menu-wrap" ref={blockRef}>
+          <button
+            type="button"
+            className="note-style-btn"
+            aria-label="Gaya paragraf"
+            aria-haspopup="menu"
+            aria-expanded={blockOpen}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              setToolsOpen(false);
+              setBlockOpen((v) => !v);
+            }}
+          >
+            {blockLabel} <TriangleDownIcon />
+          </button>
+          {blockOpen && (
+            <div className="dropdown-menu" role="menu">
+              {NOTE_BLOCK_TOOLS.map(([tag, label]) => (
+                <button
+                  key={tag}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={blockLabel === label}
+                  className={blockLabel === label ? "is-active" : ""}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    exec("formatBlock", `<${tag}>`);
+                    setBlockOpen(false);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <span className="note-sep" aria-hidden="true" />
+
+        <ToolBtn label="Tebal (Ctrl+B)" active={active.bold} onClick={() => exec("bold")}><b>B</b></ToolBtn>
+        <ToolBtn label="Miring (Ctrl+I)" active={active.italic} onClick={() => exec("italic")}><i>I</i></ToolBtn>
+
+        <span className="note-sep" aria-hidden="true" />
+
+        <div className="note-more" ref={moreRef}>
+          <ToolBtn
+            label="Alat lainnya"
+            active={toolsOpen}
+            aria-expanded={toolsOpen}
+            onClick={() => {
+              setBlockOpen(false);
+              setToolsOpen((v) => !v);
+            }}
+          >
+            <DotsIcon />
+          </ToolBtn>
+          {toolsOpen && (
+            <div className="note-popup" role="group" aria-label="Alat format lainnya">
+              <ToolBtn label="Garis bawah (Ctrl+U)" active={active.underline} onClick={() => exec("underline")}><UnderLineIcon /></ToolBtn>
+              <ToolBtn label="Daftar berpoin" active={active.insertUnorderedList} onClick={() => exec("insertUnorderedList")}><BulletListIcon /></ToolBtn>
+              <ToolBtn label="Daftar bernomor" active={active.insertOrderedList} onClick={() => exec("insertOrderedList")}><NumberListIcon /></ToolBtn>
+              {NOTE_ALIGN_TOOLS.map(([command, label, Icon]) => (
+                <ToolBtn key={command} label={label} active={active[command]} onClick={() => exec(command)}><Icon /></ToolBtn>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div
+        ref={editorRef}
+        className="note-editor"
+        contentEditable
+        suppressContentEditableWarning
+        role="textbox"
+        aria-multiline="true"
+        aria-label="Isi catatan"
+        onInput={syncContent}
+        onPaste={handlePaste}
+        onKeyDown={handleKeyDown}
+      />
+    </div>
+  );
+}
+
+/** Popup bawaan <dialog> yang memakai kelas .modal dari style utama (sama seperti Modal di App.jsx). */
+function NoteDialog({ label, className = "", canClose = true, onClose, children }) {
   const ref = useRef(null);
-
   useEffect(() => {
     const dialog = ref.current;
     if (dialog && !dialog.open) dialog.showModal();
   }, []);
-
   return (
     <dialog
       ref={ref}
@@ -639,8 +762,9 @@ function RenameNoteDialog({ note, onClose, onRename }) {
     e.preventDefault();
     if (saving) return;
     const trimmed = title.trim();
-    if (!isValidTitle(trimmed)) {
-      setError(MSG_TITLE_REQUIRED);
+    const invalid = validateNoteTitle(trimmed);
+    if (invalid) {
+      setError(invalid);
       return;
     }
     if (trimmed === note.title) {
@@ -653,20 +777,19 @@ function RenameNoteDialog({ note, onClose, onRename }) {
       await onRename(note, trimmed);
       onClose();
     } catch (err) {
-      setError(err?.message || MSG_SAVE_FAILED);
+      setError(err?.message || MSG_GENERIC_ERROR);
       setSaving(false);
     }
   }
 
   return (
-    <Dialog label="Ganti nama catatan" canClose={!saving} onClose={onClose}>
+    <NoteDialog label="Ganti nama catatan" canClose={!saving} onClose={onClose}>
       <form className="modal-form" onSubmit={handleSubmit} noValidate>
         <label htmlFor="rename-note-title" className="modal-label">Judul Catatan</label>
         <input
           id="rename-note-title"
           className="input modal-input"
           value={title}
-          maxLength={TITLE_MAX}
           onChange={(e) => {
             setTitle(e.target.value);
             setError("");
@@ -674,105 +797,79 @@ function RenameNoteDialog({ note, onClose, onRename }) {
           onFocus={(e) => e.target.select()}
           placeholder="Judul Catatan"
           aria-invalid={error ? "true" : undefined}
-          aria-describedby={error ? "rename-note-error" : undefined}
           autoComplete="off"
         />
         {error && (
-          <p id="rename-note-error" className="msg-error" role="alert">
-            {error}
-          </p>
+          <div className="error-summary" role="alert">
+            <p>{error}</p>
+          </div>
         )}
         <div className="modal-actions">
-          <button type="button" className="modal-cancel" onClick={onClose} disabled={saving}>
-            Batal
-          </button>
-          <button type="submit" className="modal-save" disabled={saving}>
-            Simpan
-          </button>
+          <button type="button" className="modal-cancel" onClick={onClose} disabled={saving}>Batal</button>
+          <button type="submit" className="modal-save" disabled={saving}>Simpan</button>
         </div>
       </form>
-    </Dialog>
+    </NoteDialog>
   );
 }
 
 function ConfirmDeleteNoteDialog({ onCancel, onConfirm }) {
   const [deleting, setDeleting] = useState(false);
-
-  async function handleConfirm() {
-    if (deleting) return;
+  async function handleDelete() {
     setDeleting(true);
     await onConfirm();
   }
-
   return (
-    <Dialog label="Konfirmasi hapus" className="modal--confirm" canClose={!deleting} onClose={onCancel}>
+    <NoteDialog label="Konfirmasi hapus catatan" className="modal--confirm" canClose={!deleting} onClose={onCancel}>
       <div className="modal-form">
         <p className="modal-message">Apakah Anda yakin ingin menghapus catatan ini?</p>
         <div className="modal-actions">
-          <button type="button" className="modal-cancel" onClick={onCancel} disabled={deleting}>
-            Batal
-          </button>
-          <button type="button" className="modal-delete" onClick={handleConfirm} disabled={deleting}>
-            Yakin
-          </button>
+          <button type="button" className="modal-cancel" onClick={onCancel} disabled={deleting}>Batal</button>
+          <button type="button" className="modal-delete" onClick={handleDelete} disabled={deleting}>Yakin</button>
         </div>
       </div>
-    </Dialog>
+    </NoteDialog>
   );
 }
 
-/* ======================================================================
-   State 1: daftar catatan
-   ====================================================================== */
-
-const SKELETON_WIDTHS = ["100%", "88%", "94%"];
-
-function NoteRow({ note, menuOpen, onOpen, onMenu }) {
-  const snippet = useMemo(() => htmlToText(note.content), [note.content]);
+/** Ikon catatan: kotak bulat dengan dua garis teks (dipakai di daftar, tombol tambah, dan panel menyusut). */
+function NoteIcon() {
   return (
-    <li className="note-item">
-      <button type="button" className="note-open" onClick={() => onOpen(note)}>
-        <span className="note-open-icon">
-          <NoteIcon size={18} />
-        </span>
-        <span className="note-open-text">
-          <span className="note-open-title">{note.title}</span>
-          {snippet && <span className="note-open-snippet">{snippet}</span>}
-        </span>
-      </button>
-      <button
-        type="button"
-        className="icon-btn"
-        aria-label={`Opsi untuk ${note.title}`}
-        aria-haspopup="menu"
-        aria-expanded={menuOpen}
-        onClick={(e) => onMenu(e, note.id)}
-      >
-        ⋮
-      </button>
-    </li>
+    <svg className="note-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+         strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4" y="4" width="16" height="16" rx="3.5" />
+      <path d="M8.5 10h7M8.5 14h4" />
+    </svg>
   );
 }
 
-function NotesList({ notes, onToggle, icons, onRename, onDelete }) {
-  const [menu, setMenu] = useState(null);
-  const menuNote = menu ? notes.notes.find((n) => n.id === menu.id) : null;
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+         strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
 
-  useEffect(() => {
-    if (!menu) return undefined;
-    const close = () => setMenu(null);
-    const onKey = (e) => e.key === "Escape" && close();
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("resize", close);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("resize", close);
-    };
-  }, [menu]);
+/**
+ * Panel kanan: daftar catatan (State 1) atau editor (State 2), bisa diciutkan.
+ * Props: notes = hasil useNotes(), collapsed, onToggle, icons = { toggle, rename, trash } (elemen ikon dari App.jsx).
+ */
+export function NotesPanel({ notes: api, collapsed, onToggle, icons }) {
+  const { notes, loading, creating, activeId, setActiveId, newNoteId, addNote, saveNote, renameNote, removeNote } = api;
+  const [menu, setMenu] = useState(null); // { id, top, right }
+  const [renameTarget, setRenameTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
+  const activeNote = notes.find((n) => n._id === activeId) || null;
+  const sorted = [...notes].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  const menuNote = menu ? notes.find((n) => n._id === menu.id) : null;
+
+  // Menu memakai posisi "fixed" supaya tidak terpotong daftar yang bisa di-scroll.
   function toggleMenu(e, id) {
     const rect = e.currentTarget.getBoundingClientRect();
-    setMenu((cur) => (cur?.id === id ? null : { id, top: rect.bottom + 4, right: window.innerWidth - rect.right }));
+    setMenu((m) => (m?.id === id ? null : { id, top: rect.bottom + 4, right: window.innerWidth - rect.right }));
   }
 
   function pick(action) {
@@ -782,502 +879,133 @@ function NotesList({ notes, onToggle, icons, onRename, onDelete }) {
   }
 
   return (
-    <div className="notes-view">
-      <div className="panel-head">
-        <h2 className="panel-title">Catatan</h2>
-        <button
-          type="button"
-          className="panel-toggle"
-          onClick={onToggle}
-          aria-label="Ciutkan panel Catatan"
-          aria-expanded="true"
-        >
-          {icons.toggle}
-        </button>
-      </div>
-
-      {notes.loading ? (
-        <div className="notes-skeleton" role="status" aria-busy="true" aria-label="Memuat catatan">
-          {SKELETON_WIDTHS.map((w, i) => (
-            <div key={i} className="skeleton skeleton-line" style={{ width: w }} />
-          ))}
-        </div>
-      ) : notes.loadError ? (
-        <div className="notes-empty">
-          <p className="msg-error" role="alert">{notes.loadError}</p>
-          <button type="button" className="notes-retry" onClick={notes.reload}>
-            Coba lagi
-          </button>
-        </div>
-      ) : notes.notes.length === 0 ? (
-        <div className="notes-empty">
-          <p className="notes-empty-title">Belum ada catatan</p>
-          <p className="notes-empty-hint">Catatan yang Anda buat akan muncul di sini.</p>
-        </div>
-      ) : (
-        <ul className="note-list">
-          {notes.notes.map((note) => (
-            <NoteRow
-              key={note.id}
-              note={note}
-              menuOpen={menu?.id === note.id}
-              onOpen={notes.openNote}
-              onMenu={toggleMenu}
-            />
-          ))}
-        </ul>
-      )}
-
-      <div className="notes-footer">
-        <button type="button" className="notes-add-btn" onClick={notes.addNote} disabled={notes.creating}>
-          <NoteIcon size={16} />
-          Tambahkan Catatan
-        </button>
-      </div>
-
-      {menu && menuNote && (
-        <>
-          <div className="menu-backdrop" onClick={() => setMenu(null)} />
-          <div className="dropdown-menu dropdown-menu--fixed" role="menu" style={{ top: menu.top, right: menu.right }}>
-            <button type="button" role="menuitem" onClick={() => pick(onRename)}>
-              {icons.rename} Ganti Judul
-            </button>
-            <button type="button" role="menuitem" className="danger" onClick={() => pick(onDelete)}>
-              {icons.trash} Hapus
+    <>
+      <section className={`panel panel-notes${collapsed ? " is-collapsed" : ""}`} aria-label="Catatan">
+        {/* Saat editor tampil, header-nya ada di dalam editor (sesuai desain). */}
+        {!(activeNote && !collapsed) && (
+          <div className="panel-head">
+            {!collapsed && <h2 className="panel-title">Catatan</h2>}
+            <button
+              type="button"
+              className="panel-toggle"
+              onClick={onToggle}
+              aria-label={collapsed ? "Perluas panel Catatan" : "Ciutkan panel Catatan"}
+              aria-expanded={!collapsed}
+            >
+              {icons.toggle}
             </button>
           </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-/* ======================================================================
-   State 2: Text Editor
-   ====================================================================== */
-
-function readFormat() {
-  const q = (cmd) => {
-    try {
-      return document.queryCommandState(cmd);
-    } catch {
-      return false;
-    }
-  };
-  let block = "";
-  try {
-    block = String(document.queryCommandValue("formatBlock") || "");
-  } catch {
-    /* abaikan */
-  }
-  block = block.replace(/[<>]/g, "").toLowerCase();
-  return {
-    bold: q("bold"),
-    italic: q("italic"),
-    underline: q("underline"),
-    ul: q("insertUnorderedList"),
-    ol: q("insertOrderedList"),
-    heading: /^h[1-5]$/.test(block) ? block : "p",
-    align: q("justifyCenter") ? "center" : q("justifyRight") ? "right" : q("justifyFull") ? "justify" : "left",
-  };
-}
-
-function isEditorEmpty(el) {
-  return !el.textContent && !el.querySelector("ul, ol");
-}
-
-function placeCaret(el, atEnd) {
-  const sel = document.getSelection();
-  if (!sel) return;
-  const range = document.createRange();
-  range.selectNodeContents(el);
-  range.collapse(!atEnd);
-  sel.removeAllRanges();
-  sel.addRange(range);
-}
-
-function ToolButton({ label, shortcut, active, onClick, controls, expanded, children }) {
-  return (
-    <button
-      type="button"
-      className={`tool-btn${active ? " is-active" : ""}`}
-      aria-label={label}
-      title={shortcut ? `${label} (${shortcut})` : label}
-      aria-pressed={active === undefined ? undefined : active}
-      aria-controls={controls}
-      aria-expanded={expanded}
-      onMouseDown={(e) => e.preventDefault()} // jaga agar seleksi di editor tidak hilang
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  );
-}
-
-function SaveIndicator({ status }) {
-  return (
-    <span className="save-slot" aria-live="polite">
-      {status === "saving" && (
-        <span className="save-status">
-          <span className="spinner" aria-hidden="true" />
-          Menyimpan...
-        </span>
-      )}
-      {status === "saved" && (
-        <span className="save-status save-status--saved">
-          <CheckIcon />
-          Tersimpan
-        </span>
-      )}
-      {status === "error" && <span className="save-status save-status--error">Gagal menyimpan</span>}
-    </span>
-  );
-}
-
-function NoteEditor({ notes, onToggle, icons, onRequestDelete }) {
-  const { session, titleError, saveStatus, focusTick, changeTitle, changeContent, closeEditor } = notes;
-
-  const [title, setTitle] = useState(session.title);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [format, setFormat] = useState(INITIAL_FORMAT);
-  const [empty, setEmpty] = useState(true);
-  const [closing, setClosing] = useState(false);
-
-  const editorRef = useRef(null);
-  const titleInputRef = useRef(null);
-  const savedRange = useRef(null);
-
-  // Muat isi catatan sekali saat editor dibuka (editor tetap ter-mount saat panel menyusut).
-  useLayoutEffect(() => {
-    const el = editorRef.current;
-    el.innerHTML = toEditableHtml(session.content);
-    setEmpty(isEditorEmpty(el));
-    try {
-      document.execCommand("defaultParagraphSeparator", false, "p");
-      document.execCommand("styleWithCSS", false, false);
-    } catch {
-      /* abaikan */
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Draft baru: langsung fokus ke judul.
-  useEffect(() => {
-    if (!session.id && !session.title) titleInputRef.current?.focus();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Penutupan yang diblokir validasi -> fokuskan judul.
-  useEffect(() => {
-    if (focusTick > 0) titleInputRef.current?.focus();
-  }, [focusTick]);
-
-  // Sinkronkan status tombol toolbar dengan posisi kursor, dan ingat seleksi terakhir.
-  useEffect(() => {
-    const el = editorRef.current;
-    function sync() {
-      const sel = document.getSelection();
-      if (!sel || !sel.rangeCount || !sel.anchorNode || !el.contains(sel.anchorNode)) return;
-      savedRange.current = sel.getRangeAt(0).cloneRange();
-      const next = readFormat();
-      setFormat((prev) => (shallowEqual(prev, next) ? prev : next));
-    }
-    document.addEventListener("selectionchange", sync);
-    return () => document.removeEventListener("selectionchange", sync);
-  }, []);
-
-  function focusEditor() {
-    const el = editorRef.current;
-    el.focus();
-    const sel = document.getSelection();
-    if (!sel) return;
-    const inside = sel.rangeCount && sel.anchorNode && el.contains(sel.anchorNode);
-    if (inside) return;
-    if (savedRange.current) {
-      sel.removeAllRanges();
-      sel.addRange(savedRange.current);
-    } else {
-      placeCaret(el, true);
-    }
-  }
-
-  function afterChange() {
-    const el = editorRef.current;
-    if (!el.innerHTML) {
-      el.innerHTML = EMPTY_HTML; // editor tidak boleh benar-benar kosong
-      placeCaret(el.firstChild, false);
-    }
-    setEmpty(isEditorEmpty(el));
-    changeContent(el.innerHTML);
-    const next = readFormat();
-    setFormat((prev) => (shallowEqual(prev, next) ? prev : next));
-  }
-
-  function run(command, value) {
-    focusEditor();
-    document.execCommand(command, false, value);
-    afterChange();
-  }
-
-  function handleKeyDown(e) {
-    if (e.nativeEvent.isComposing) return;
-    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
-    const key = e.key.toLowerCase();
-    const map = {
-      z: () => run(e.shiftKey ? "redo" : "undo"),
-      y: () => run("redo"),
-      b: () => run("bold"),
-      i: () => run("italic"),
-      u: () => run("underline"),
-    };
-    if (map[key]) {
-      e.preventDefault();
-      map[key]();
-    }
-  }
-
-  function handlePaste(e) {
-    // Tempel sebagai teks polos agar format dari luar tidak mengotori catatan.
-    e.preventDefault();
-    const text = e.clipboardData?.getData("text/plain") ?? "";
-    if (text) {
-      document.execCommand("insertText", false, text);
-      afterChange();
-    }
-  }
-
-  function handleFocus() {
-    const el = editorRef.current;
-    if (!el.innerHTML) {
-      el.innerHTML = EMPTY_HTML;
-      placeCaret(el.firstChild, false);
-    }
-  }
-
-  async function handleBack() {
-    if (closing) return;
-    setClosing(true);
-    await closeEditor();
-    setClosing(false);
-  }
-
-  function handleTitleChange(e) {
-    setTitle(e.target.value);
-    changeTitle(e.target.value);
-  }
-
-  function handleTitleKeyDown(e) {
-    if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-      e.preventDefault();
-      focusEditor();
-    }
-  }
-
-  const draftIsBlank = !session.id && !title.trim() && empty;
-
-  return (
-    <div className="notes-view note-editor">
-      <div className="panel-head note-editor-head">
-        <button type="button" className="tool-btn" onClick={handleBack} aria-label="Kembali ke daftar catatan" title="Kembali">
-          <BackIcon />
-        </button>
-        <div className="note-editor-head-right">
-          <SaveIndicator status={saveStatus} />
-          <button
-            type="button"
-            className="icon-btn note-trash"
-            aria-label="Hapus catatan"
-            title="Hapus catatan"
-            onClick={() => onRequestDelete(draftIsBlank)}
-          >
-            {icons.trash}
-          </button>
-          <button
-            type="button"
-            className="panel-toggle"
-            onClick={onToggle}
-            aria-label="Ciutkan panel Catatan"
-            aria-expanded="true"
-          >
-            {icons.toggle}
-          </button>
-        </div>
-      </div>
-
-      <input
-        ref={titleInputRef}
-        className="input note-title-input"
-        value={title}
-        maxLength={TITLE_MAX}
-        onChange={handleTitleChange}
-        onKeyDown={handleTitleKeyDown}
-        placeholder="Judul Catatan"
-        aria-label="Judul Catatan"
-        aria-invalid={titleError ? "true" : undefined}
-        aria-describedby={titleError ? "note-title-error" : undefined}
-        autoComplete="off"
-      />
-      {titleError && (
-        <p id="note-title-error" className="msg-error note-title-error" role="alert">
-          {titleError}
-        </p>
-      )}
-
-      <div className="note-toolbar" role="toolbar" aria-label="Format teks">
-        <ToolButton label="Urungkan" shortcut="Ctrl+Z" onClick={() => run("undo")}>
-          <UndoIcon />
-        </ToolButton>
-        <ToolButton label="Ulangi" shortcut="Ctrl+Y" onClick={() => run("redo")}>
-          <RedoIcon />
-        </ToolButton>
-        <span className="tool-sep" aria-hidden="true" />
-        <select
-          className="note-heading-select"
-          aria-label="Gaya paragraf"
-          value={format.heading}
-          onChange={(e) => run("formatBlock", `<${e.target.value}>`)}
-        >
-          {HEADINGS.map((h) => (
-            <option key={h.value} value={h.value}>
-              {h.label}
-            </option>
-          ))}
-        </select>
-        <span className="tool-sep" aria-hidden="true" />
-        <ToolButton label="Tebal" shortcut="Ctrl+B" active={format.bold} onClick={() => run("bold")}>
-          <span className="tool-glyph tool-glyph--bold">B</span>
-        </ToolButton>
-        <ToolButton label="Miring" shortcut="Ctrl+I" active={format.italic} onClick={() => run("italic")}>
-          <span className="tool-glyph tool-glyph--italic">I</span>
-        </ToolButton>
-        <span className="tool-spacer" />
-        <ToolButton
-          label="Alat lainnya"
-          active={moreOpen}
-          controls="note-more-tools"
-          expanded={moreOpen}
-          onClick={() => setMoreOpen((v) => !v)}
-        >
-          <MoreIcon />
-        </ToolButton>
-      </div>
-
-      {moreOpen && (
-        <div id="note-more-tools" className="note-toolbar note-toolbar--more" role="toolbar" aria-label="Alat format tambahan">
-          <ToolButton label="Garis bawah" shortcut="Ctrl+U" active={format.underline} onClick={() => run("underline")}>
-            <span className="tool-glyph tool-glyph--underline">U</span>
-          </ToolButton>
-          <ToolButton label="Daftar berpoin" active={format.ul} onClick={() => run("insertUnorderedList")}>
-            <BulletListIcon />
-          </ToolButton>
-          <ToolButton label="Daftar bernomor" active={format.ol} onClick={() => run("insertOrderedList")}>
-            <NumberListIcon />
-          </ToolButton>
-          <span className="tool-sep" aria-hidden="true" />
-          <ToolButton label="Rata kiri" active={format.align === "left"} onClick={() => run("justifyLeft")}>
-            <AlignIcon kind="left" />
-          </ToolButton>
-          <ToolButton label="Rata tengah" active={format.align === "center"} onClick={() => run("justifyCenter")}>
-            <AlignIcon kind="center" />
-          </ToolButton>
-          <ToolButton label="Rata kanan" active={format.align === "right"} onClick={() => run("justifyRight")}>
-            <AlignIcon kind="right" />
-          </ToolButton>
-          <ToolButton label="Rata kiri-kanan" active={format.align === "justify"} onClick={() => run("justifyFull")}>
-            <AlignIcon kind="justify" />
-          </ToolButton>
-        </div>
-      )}
-
-      <div className="note-area">
-        {empty && (
-          <span className="note-placeholder" aria-hidden="true">
-            Tulis catatan Anda di sini...
-          </span>
         )}
-        <div
-          ref={editorRef}
-          className="note-content"
-          contentEditable
-          suppressContentEditableWarning
-          role="textbox"
-          aria-multiline="true"
-          aria-label="Isi catatan"
-          spellCheck
-          onInput={afterChange}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          onFocus={handleFocus}
-          onDrop={(e) => e.preventDefault()}
-        />
-      </div>
-    </div>
-  );
-}
 
-/* ======================================================================
-   Panel utama
-   ====================================================================== */
+        {/* Panel menyusut: tombol tambah + satu ikon per catatan. Klik ikon = buka panel dan catatannya. */}
+        {collapsed && (
+          <ul className="panel-rail" aria-label="Daftar catatan">
+            {/* <li>
+              <button
+                type="button"
+                className="rail-add"
+                aria-label="Tambahkan catatan"
+                title="Tambahkan catatan"
+                disabled={creating}
+                onClick={async () => {
+                  // Panel dibuka setelah catatan baru jadi, supaya tidak sempat menampilkan catatan lama.
+                  if (await addNote()) onToggle();
+                }}
+              >
+                <PlusIcon />
+              </button>
+            </li> */}
+            {sorted.map((n) => (
+              <li key={n._id}>
+                <button
+                  type="button"
+                  className={`rail-note${n._id === activeId ? " is-active" : ""}`}
+                  aria-label={`Buka catatan ${n.title}`}
+                  title={n.title}
+                  onClick={() => {
+                    onToggle();
+                    setActiveId(n._id);
+                  }}
+                >
+                  <NoteIcon />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
 
-export function NotesPanel({ notes, collapsed, onToggle, icons = {} }) {
-  const [renameTarget, setRenameTarget] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null); // { id } untuk dari daftar, { active: true } dari editor
-
-  const safeIcons = { toggle: icons.toggle ?? null, rename: icons.rename ?? null, trash: icons.trash ?? null };
-
-  function requestDeleteFromEditor(draftIsBlank) {
-    if (draftIsBlank) {
-      notes.deleteActive();
-      return;
-    }
-    setDeleteTarget({ active: true });
-  }
-
-  async function confirmDelete() {
-    if (deleteTarget?.active) await notes.deleteActive();
-    else if (deleteTarget?.id) await notes.removeNote(deleteTarget.id);
-    setDeleteTarget(null);
-  }
-
-  return (
-    <section className={`panel panel-notes${collapsed ? " is-collapsed" : ""}`} aria-label="Catatan">
-      {collapsed && (
-        <div className="panel-head">
-          <button
-            type="button"
-            className="panel-toggle"
-            onClick={onToggle}
-            aria-label="Perluas panel Catatan"
-            aria-expanded="false"
-          >
-            {safeIcons.toggle}
-          </button>
-        </div>
-      )}
-
-      {/* Tetap ter-mount saat menyusut supaya draft & riwayat undo tidak hilang. */}
-      <div className="notes-body" hidden={collapsed}>
-        {notes.session ? (
+        {!collapsed && activeNote && (
           <NoteEditor
-            key={notes.session.key}
-            notes={notes}
-            onToggle={onToggle}
-            icons={safeIcons}
-            onRequestDelete={requestDeleteFromEditor}
-          />
-        ) : (
-          <NotesList
-            notes={notes}
-            onToggle={onToggle}
-            icons={safeIcons}
-            onRename={setRenameTarget}
-            onDelete={(note) => setDeleteTarget({ id: note.id })}
+            key={activeNote._id}
+            note={activeNote}
+            focusTitle={activeNote._id === newNoteId}
+            onBack={() => setActiveId(null)}
+            onSave={saveNote}
+            onDelete={setDeleteTarget}
           />
         )}
-      </div>
+
+        {!collapsed && !activeNote && (
+          <>
+            <ul className="notes-list" aria-busy={loading}>
+              {loading && <li className="notes-empty">Memuat catatan...</li>}
+              {!loading && sorted.length === 0 && <li className="notes-empty">Belum ada catatan.</li>}
+              {sorted.map((n) => (
+                <li key={n._id} className="note-item">
+                  <button type="button" className="note-open" onClick={() => setActiveId(n._id)}>
+                    <NoteIcon />
+                    <span className="note-text">
+                      <span className="note-title" title={n.title}>{n.title}</span>
+                      <span className="note-date">{formatDate(n.updatedAt)}</span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    aria-label={`Opsi untuk ${n.title}`}
+                    aria-haspopup="menu"
+                    aria-expanded={menu?.id === n._id}
+                    onClick={(e) => toggleMenu(e, n._id)}
+                  >
+                    ⋮
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            <button type="button" className="notes-add-btn" onClick={addNote} disabled={creating}>
+              <NoteIcon /> Tambahkan Catatan
+            </button>
+
+            {menu && menuNote && (
+              <>
+                <div className="menu-backdrop" onClick={() => setMenu(null)} />
+                <div className="dropdown-menu dropdown-menu--fixed" role="menu" style={{ top: menu.top, right: menu.right }}>
+                  <button type="button" role="menuitem" className="danger" onClick={() => pick(setDeleteTarget)}>
+                    {icons.trash} Hapus
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => pick(setRenameTarget)}>
+                    {icons.rename} Ganti judul
+                  </button>
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </section>
 
       {renameTarget && (
-        <RenameNoteDialog note={renameTarget} onClose={() => setRenameTarget(null)} onRename={notes.renameNote} />
+        <RenameNoteDialog note={renameTarget} onClose={() => setRenameTarget(null)} onRename={renameNote} />
       )}
-      {deleteTarget && <ConfirmDeleteNoteDialog onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete} />}
-    </section>
+      {deleteTarget && (
+        <ConfirmDeleteNoteDialog
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={async () => {
+            await removeNote(deleteTarget._id);
+            setDeleteTarget(null);
+          }}
+        />
+      )}
+    </>
   );
 }

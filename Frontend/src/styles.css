@@ -4,7 +4,7 @@
   --panel: #272727;
   --text: #cecece;
   --text-muted: #8f8f8f;
-  --border: #a37a7a;
+  --border: #cecece;
   --border-focus: #e2b6b6;
   --btn-bg: #d6d6d6;
   --btn-text: #1c1c1c;
@@ -124,7 +124,7 @@ body {
 }
 
 .input[aria-invalid="true"] {
-  border-color: var(--error);
+  border: 3px solid #ff0000;
 }
 
 .eye {
@@ -173,18 +173,23 @@ body {
 }
 
 .error-summary {
-  margin: 0 -20px 12px;
-  padding: 10px 14px;
-  border-radius: 8px;
-  background: #ff8080;
+  align-self: center; /* Mematikan efek stretch flexbox & memaksa ke tengah */
+  width: fit-content; /* Membuat ukuran box pas selebar teks saja */
+  margin: 8px auto 12px;
+  padding: 4px 16px;  /* Ketebalan box (atas-bawah & kiri-kanan) */
+  border-radius: 10px;
+  background: #FF8E8E;
+  border: 2px solid #ff0000;
+  border-radius: 10px;
 }
 
 .error-summary p {
   margin: 0;
-  color: #7a0000;
+  color: #ff0000;
   font-weight: 500;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   line-height: 1.6;
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -382,12 +387,12 @@ body {
   min-width: 150px;
   margin-top: 6px;
   padding: 6px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: #2b2b2b;
   border-radius: 10px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  /* box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); */
+  stroke: 1px solid #1A1C1D;
 }
 
 .dropdown-menu--right {
@@ -431,15 +436,15 @@ body {
 .notebooks-table th {
   text-align: left;
   padding: 10px 8px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
+  border-bottom: 3px solid var(--border);
+  color: var(--text);
   font-size: 0.75rem;
   font-weight: 400;
 }
 
 .notebooks-table td {
   padding: 14px 8px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 3px solid var(--border);
   font-size: 0.875rem;
   vertical-align: middle;
 }
@@ -944,8 +949,22 @@ body {
   outline-offset: 2px;
 }
 
-.panel-sources .msg-error {
-  margin: 6px 4px 0;
+/* Pesan error upload: pil merah di dasar panel Sumber (sesuai desain).
+   Warnanya sama dengan .error-summary; teks boleh turun ke baris kedua kalau panel sempit. */
+.source-error {
+  flex-shrink: 0;
+  align-self: center;
+  max-width: 100%;
+  margin: 12px 0 8px;
+  padding: 4px 14px;
+  background: #ff8e8e;
+  border: 1px solid #ff0000;
+  border-radius: 999px;
+  color: #ff0000;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: center;
 }
 
 .source-list {
@@ -1047,6 +1066,11 @@ body {
   line-height: 1.5;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   animation: toast-in 0.2s ease-out;
+}
+
+/* Ikon peringatan (⚠️) di toast error */
+.toast-icon {
+  margin-right: 0.5em;
 }
 
 /* Toast sukses (hijau) */
@@ -1195,9 +1219,12 @@ body {
 
 /* ======================================================================
    Panel Catatan (kolom kanan)
+   Kerangka panel memakai kelas yang sudah ada di atas: .panel, .panel-head, .panel-toggle,
+   .icon-btn, .dropdown-menu, .msg-error, .toast. Variabel tema yang sama dipakai di sini.
    ====================================================================== */
 
-/* Grid: kolom Catatan menyusut jadi 56px (sama seperti panel Sumber). Hanya desktop. */
+/* Grid: kolom Catatan menyusut jadi 56px (sama seperti panel Sumber). Hanya desktop:
+   di <= 900px panel samping disembunyikan di bagian paling bawah file ini. */
 @media (min-width: 901px) {
   .workspace--notes-collapsed {
     grid-template-columns: minmax(240px, 1fr) minmax(0, 1.5fr) 56px;
@@ -1208,6 +1235,7 @@ body {
   }
 }
 
+/* Panel menyusut: hanya tersisa ikon toggle (sama seperti .panel-sources.is-collapsed) */
 .panel-notes.is-collapsed {
   align-items: center;
   padding: 16px 0;
@@ -1218,6 +1246,433 @@ body {
   justify-content: center;
 }
 
+/* Ikon toggle dicerminkan karena panel ini ada di sisi kanan */
+.panel-notes .panel-toggle svg {
+  transform: scaleX(-1);
+}
+
+/* ----- State 1: daftar catatan ----- */
+.notes-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notes-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 10px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.note-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 4px;
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+
+.note-item:hover,
+.note-item:focus-within {
+  background: var(--surface);
+}
+
+.note-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: none;
+  border: 0;
+  border-radius: 10px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.note-icon {
+  flex-shrink: 0;
+}
+
+.note-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.note-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+}
+
+.note-date {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+.notes-add-btn {
+  flex-shrink: 0;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  margin-top: 12px;
+  padding: 0 14px;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.notes-add-btn:hover:not(:disabled) {
+  background: #ffffff;
+}
+
+.notes-add-btn:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.notes-add-btn:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+/* ----- State 2: editor (sesuai desain) -----
+   Garis pemisah membentang penuh selebar panel: wrap memakai margin negatif seukuran padding
+   .panel (20px), lalu tiap baris memberi padding sendiri. */
+.note-editor-wrap {
+  --note-line: #635252; /* var(--border) yang diredupkan */
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin: 0 -20px;
+  --note-line-width: 3px;
+}
+
+.note-head,
+.note-title-row,
+.note-toolbar {
+  padding-left: 20px;
+  padding-right: 20px;
+  border-bottom: 3px solid var(--note-line);
+}
+
+.note-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+}
+
+.note-head .panel-title {
+  margin: 0;
+}
+
+.note-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.note-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+.note-status svg {
+  color: var(--success);
+}
+
+.note-status--error {
+  color: var(--error);
+}
+
+/* Judul besar tanpa kotak + tombol hapus */
+.note-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
+.note-title-row.has-error {
+  border-bottom-color: var(--error);
+}
+
+.note-title-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.note-title-input {
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: 0;
+  outline: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.75rem;
+  font-weight: 300;
+  line-height: 1.3;
+}
+
+.note-title-input::placeholder {
+  color: var(--text-muted);
+}
+
+.note-trash {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.note-trash:hover {
+  background: var(--surface);
+}
+
+/* Toolbar satu baris: Undo, Redo | Normal ▾ | B, I | ••• */
+.note-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.note-sep {
+  flex-shrink: 0;
+  width: var(--note-line-width);
+  height: 24px;
+  margin: 0 8px;
+  background: var(--note-line);
+}
+
+.note-tool,
+.note-style-btn {
+  min-width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 6px;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.note-style-btn {
+  padding: 0 8px;
+}
+
+.note-tool:hover,
+.note-style-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.note-tool.is-active {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--link);
+}
+
+/* Bilah alat lanjutan yang melayang di bawah tombol ••• */
+.note-more {
+  position: relative;
+}
+
+.note-popup {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 11;
+  display: flex;
+  gap: 2px;
+  padding: 4px 6px;
+  background: var(--bg);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.note-open:focus-visible,
+.rail-add:focus-visible,
+.rail-note:focus-visible,
+.note-tool:focus-visible,
+.note-style-btn:focus-visible,
+.note-trash:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* Area ketik: teks polos di atas warna panel (tanpa kotak) */
+.note-editor {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px 20px;
+  outline: none;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.note-editor p {
+  margin: 0 0 0.6em;
+}
+
+.note-editor ul,
+.note-editor ol {
+  margin: 0 0 0.6em;
+  padding-left: 1.5em;
+}
+
+.note-editor ul {
+  list-style: disc;
+}
+
+.note-editor ol {
+  list-style: decimal;
+}
+
+/* Hierarki heading: H1 paling besar, mengecil berangsur sampai H5 */
+.note-editor h1,
+.note-editor h2,
+.note-editor h3,
+.note-editor h4,
+.note-editor h5 {
+  margin: 0.3em 0 0.4em;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.note-editor h1 { font-size: 2em; }
+.note-editor h2 { font-size: 1.6em; }
+.note-editor h3 { font-size: 1.3em; }
+.note-editor h4 { font-size: 1.1em; }
+.note-editor h5 { font-size: 0.95em; }
+
+/* ----- Panel menyusut: hanya ikon (dipakai panel Sumber dan Catatan) -----
+   Kerangkanya (lebar 56px, ikon toggle di tengah) sudah diatur .panel-sources.is-collapsed
+   di style utama dan .panel-notes.is-collapsed di atas. */
+.panel-rail {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.rail-add {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 50%;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.rail-add:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.rail-add:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.rail-item,
+.rail-note {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.rail-note {
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.rail-note:hover,
+.rail-note.is-active {
+  background: var(--surface);
+}
+
+/* File yang sedang diunggah / diekstrak: berkedip pelan */
+.rail-item.is-processing {
+  animation: rail-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes rail-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ----- Gaya cadangan: belum dipakai oleh NotesPanel.jsx saat ini -----
+   Dipertahankan dari style.css lama (daftar catatan dengan cuplikan isi, skeleton, tampilan
+   kosong/gagal-muat, dan footer). Hapus bagian ini kalau memang tidak akan dipakai. */
 .notes-body {
   flex: 1;
   min-height: 0;
@@ -1249,7 +1704,6 @@ body {
   }
 }
 
-/* ----- State 1: daftar ----- */
 .note-list {
   flex: 1;
   min-height: 0;
@@ -1260,41 +1714,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-
-.note-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding-right: 4px;
-  border-radius: 10px;
-  transition: background 0.15s;
-}
-
-.note-item:hover,
-.note-item:focus-within {
-  background: var(--surface);
-}
-
-.note-open {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 9px 4px 9px 10px;
-  background: none;
-  border: 0;
-  border-radius: 10px;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.note-open:focus-visible {
-  outline: 2px solid var(--border-focus);
-  outline-offset: -2px;
 }
 
 .note-open-icon {
@@ -1333,17 +1752,6 @@ body {
   gap: 9px;
 }
 
-.notes-empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 0 12px;
-  text-align: center;
-}
-
 .notes-empty-title {
   margin: 0;
   font-size: 0.8125rem;
@@ -1377,312 +1785,6 @@ body {
   padding-top: 12px;
 }
 
-.notes-add-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 16px;
-  background: var(--btn-bg);
-  color: var(--btn-text);
-  border: 0;
-  border-radius: 10px;
-  font: inherit;
-  font-size: 0.75rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.notes-add-btn:hover:not(:disabled) {
-  background: #ffffff;
-}
-
-.notes-add-btn:focus-visible {
-  outline: 2px solid var(--border-focus);
-  outline-offset: 2px;
-}
-
-.notes-add-btn:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-/* ----- State 2: editor ----- */
-.note-editor {
-  gap: 10px;
-}
-
-.note-editor-head {
-  margin-bottom: 0;
-}
-
-.note-editor-head-right {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.note-trash {
-  display: grid;
-  place-items: center;
-  padding: 4px;
-}
-
-.save-slot {
-  min-width: 96px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.save-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.6875rem;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.save-status--saved {
-  color: var(--success);
-}
-
-.save-status--error {
-  color: var(--error);
-}
-
-.spinner {
-  width: 11px;
-  height: 11px;
-  border: 1.5px solid rgba(255, 255, 255, 0.2);
-  border-top-color: var(--text);
-  border-radius: 50%;
-  animation: notes-spin 0.8s linear infinite;
-}
-
-@keyframes notes-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.note-title-input {
-  flex-shrink: 0;
-  padding: 0 12px;
-  font-weight: 500;
-}
-
-.note-title-error {
-  margin: -4px 0 0 4px;
-}
-
-.note-toolbar {
-  flex-shrink: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px;
-  padding: 4px;
-  background: var(--surface);
-  border-radius: 10px;
-}
-
-.tool-btn {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  background: none;
-  border: 0;
-  border-radius: 8px;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.tool-btn:hover {
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--text);
-}
-
-.tool-btn.is-active {
-  background: rgba(69, 157, 170, 0.2);
-  color: #7fd0dc;
-}
-
-.tool-btn:focus-visible,
-.note-heading-select:focus-visible {
-  outline: 2px solid var(--border-focus);
-  outline-offset: 1px;
-}
-
-.tool-glyph {
-  font-size: 0.875rem;
-  line-height: 1;
-}
-
-.tool-glyph--bold {
-  font-weight: 700;
-}
-
-.tool-glyph--italic {
-  font-style: italic;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1rem;
-}
-
-.tool-glyph--underline {
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  font-weight: 500;
-}
-
-.tool-sep {
-  width: 1px;
-  height: 18px;
-  margin: 0 4px;
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.tool-spacer {
-  flex: 1;
-}
-
-.note-heading-select {
-  height: 30px;
-  padding: 0 6px;
-  background: transparent;
-  color: var(--text);
-  border: 0;
-  border-radius: 8px;
-  font: inherit;
-  font-size: 0.75rem;
-  cursor: pointer;
-}
-
-.note-heading-select:hover {
-  background: rgba(255, 255, 255, 0.07);
-}
-
-.note-heading-select option {
-  background: var(--surface);
-  color: var(--text);
-}
-
-.note-area {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  display: flex;
-}
-
-.note-content {
-  flex: 1;
-  min-width: 0;
-  padding: 12px 14px;
-  overflow-y: auto;
-  background: var(--surface);
-  border: 1px solid transparent;
-  border-radius: 12px;
-  font-size: 0.8125rem;
-  line-height: 1.65;
-  overflow-wrap: anywhere;
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.note-content:focus-visible {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 2px rgba(226, 182, 182, 0.25);
-}
-
-.note-placeholder {
-  position: absolute;
-  top: 13px;
-  left: 15px;
-  z-index: 1;
-  font-size: 0.8125rem;
-  line-height: 1.65;
-  color: var(--text-muted);
-  pointer-events: none;
-}
-
-.note-content > :first-child {
-  margin-top: 0;
-}
-
-.note-content p,
-.note-content div {
-  margin: 0 0 0.5em;
-}
-
-.note-content ul,
-.note-content ol {
-  margin: 0 0 0.5em;
-  padding-left: 1.5em;
-}
-
-/* Hierarki heading: H1 terbesar, mengecil bertahap sampai H5 */
-.note-content h1,
-.note-content h2,
-.note-content h3,
-.note-content h4,
-.note-content h5 {
-  margin: 0.9em 0 0.35em;
-  font-weight: 600;
-  line-height: 1.3;
-}
-
-.note-content h1 { font-size: 1.75rem; }
-.note-content h2 { font-size: 1.5rem; }
-.note-content h3 { font-size: 1.25rem; }
-.note-content h4 { font-size: 1.0625rem; }
-.note-content h5 { font-size: 0.9375rem; }
-
-.modal .msg-error {
-  margin: 10px 0 0;
-}
-
-/* Dashboard: ikon pin di kiri ikon titik tiga */
-.notebooks-table-actions {
-  width: 1%;
-  white-space: nowrap;
-}
-
-.row-actions {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 2px;
-}
-
-.row-pin {
-  display: inline-flex;
-  align-items: center;
-}
-
-.row-pin svg {
-  width: 20px;
-  height: 20px;
-}
-
-/* Sumber yang gagal diproses */
-.source-item--error .source-title {
-  color: var(--text-muted);
-}
-
-.source-badge {
-  flex-shrink: 0;
-  padding: 2px 8px;
-  border: 1px solid var(--error);
-  border-radius: 999px;
-  color: var(--error);
-  font-size: 0.625rem;
-  line-height: 1.4;
-}
-
 /* Layar sempit: sementara hanya tampilkan panel Chat */
 @media (max-width: 900px) {
   .workspace {
@@ -1706,5 +1808,11 @@ body {
   .notes-view,
   .spinner {
     animation: none;
+  }
+
+  /* File yang diproses di panel menyusut: tidak berkedip, cukup diredupkan */
+  .rail-item.is-processing {
+    animation: none;
+    opacity: 0.5;
   }
 }
