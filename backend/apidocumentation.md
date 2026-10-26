@@ -298,7 +298,7 @@ PUT /user
       "_id": "665f1a2b3c4d5e6f7a8b9c0d",
       "email": "raffi@example.com",
       "username": "raffi_baru",
-      "avatarUrl": "https://res.cloudinary.com/.../avatar.jpg",
+      "avatarUrl": "https://storage.sibernote.com/avatars/avatar.jpg",
       "createdAt": "2026-09-24T10:00:00.000Z",
       "updatedAt": "2026-09-24T10:15:00.000Z"
     }
@@ -306,7 +306,7 @@ PUT /user
 }
 ```
 
-> Foto profil lama otomatis dihapus dari Cloudinary saat foto baru berhasil diupload.
+> Foto profil lama otomatis dihapus dari storage server saat foto baru berhasil diupload.
 
 **Error Responses**
 
@@ -385,17 +385,23 @@ POST /notebooks
 
 ### Get All Notebooks
 
-Mengambil semua notebook milik user, diurutkan berdasarkan pin lalu terbaru diupdate.
+Mengambil semua notebook milik user, diurutkan berdasarkan pin lalu terbaru diupdate. Mendukung pagination.
 
 ```
-GET /notebooks
+GET /notebooks?page=1
 ```
+
+**Query Params**
+
+| Param  | Keterangan                                  |
+|--------|---------------------------------------------|
+| `page` | Opsional, nomor halaman (default: 1), limit 10 per halaman |
 
 **Response `200 OK`**
 ```json
 {
   "status": "success",
-  "message": "berhasil dapet semua notebook user",
+  "message": "berhasil mendapatkan semua notebook user",
   "data": {
     "notebooks": [
       {
@@ -404,13 +410,24 @@ GET /notebooks
         "title": "Catatan Belajar",
         "description": "Kumpulan catatan belajar machine learning",
         "isPinned": false,
+        "jumlah_sumber": 3,
         "createdAt": "2026-09-24T10:00:00.000Z",
         "updatedAt": "2026-09-24T10:00:00.000Z"
       }
-    ]
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 10,
+      "totalItems": 25,
+      "totalPages": 3,
+      "hasNextPage": true,
+      "hasPrevPage": false
+    }
   }
 }
 ```
+
+> `jumlah_sumber` adalah jumlah dokumen yang terupload di notebook tersebut.
 
 **Error Responses**
 
@@ -423,7 +440,7 @@ GET /notebooks
 
 ### Delete Notebook
 
-Menghapus notebook beserta seluruh dokumen, chunks, dan file Cloudinary yang terkait. Hanya bisa dilakukan oleh pemilik notebook.
+Menghapus notebook beserta seluruh dokumen, chunks, dan file yang terkait. Hanya bisa dilakukan oleh pemilik notebook.
 
 ```
 DELETE /notebooks/:notebookId
@@ -443,7 +460,7 @@ DELETE /notebooks/:notebookId
 }
 ```
 
-> Cascade delete: semua `documents`, `chunks`, dan file di Cloudinary yang terkait notebook ini ikut dihapus.
+> Cascade delete: semua `documents`, `chunks`, dan file di storage server yang terkait notebook ini ikut dihapus.
 
 **Error Responses**
 
@@ -871,7 +888,7 @@ Authorization: Bearer <accessToken>
 
 ### Upload Document
 
-Upload file PDF, PPTX, DOCX, atau TXT ke notebook. File disimpan ke Cloudinary, lalu dipecah menjadi chunks dan di-embed menggunakan Gemini secara background (tidak memblokir response).
+Upload file PDF, PPTX, DOCX, atau TXT ke notebook. File disimpan ke storage server, lalu dipecah menjadi chunks dan di-embed menggunakan Gemini secara background (tidak memblokir response).
 
 ```
 POST /documents/:notebookId
@@ -893,7 +910,7 @@ POST /documents/:notebookId
 
 **Response `201 Created`**
 
-Response dikembalikan langsung setelah file terupload ke Cloudinary. Proses chunking dan embedding berjalan di background.
+Response dikembalikan langsung setelah file terupload ke storage server. Proses chunking dan embedding berjalan di background.
 
 ```json
 {
@@ -905,7 +922,7 @@ Response dikembalikan langsung setelah file terupload ke Cloudinary. Proses chun
       "notebookId": "665f1a2b3c4d5e6f7a8b9c0e",
       "title": "Sistem_Operasi",
       "fileType": "pdf",
-      "fileUrl": "https://res.cloudinary.com/...",
+      "fileUrl": "https://storage.sibernote.com/documents/Sistem_Operasi.pdf",
       "fileSize": 2048576,
       "totalPages": 0,
       "parseStatus": "pending",
@@ -934,7 +951,7 @@ Response dikembalikan langsung setelah file terupload ke Cloudinary. Proses chun
 | `401`  | Tipe file tidak didukung (bukan PDF, PPTX, DOCX, atau TXT) |
 | `401`  | File tidak disertakan                           |
 | `404`  | Notebook tidak ditemukan atau bukan milik user  |
-| `500`  | Kesalahan server / gagal upload ke Cloudinary   |
+| `500`  | Kesalahan server / gagal upload ke storage server   |
 
 ---
 
@@ -964,7 +981,7 @@ GET /documents/:notebookId
         "notebookId": "665f1a2b3c4d5e6f7a8b9c0e",
         "title": "Sistem_Operasi",
         "fileType": "pdf",
-        "fileUrl": "https://res.cloudinary.com/...",
+        "fileUrl": "https://storage.sibernote.com/documents/Sistem_Operasi.pdf",
         "fileSize": 2048576,
         "totalPages": 42,
         "parseStatus": "done",
@@ -1041,7 +1058,7 @@ PATCH /documents/:documentId
 
 ### Delete Document
 
-Menghapus dokumen beserta seluruh chunks dan file Cloudinary-nya. Hanya bisa dilakukan oleh pemilik notebook yang memuat dokumen tersebut.
+Menghapus dokumen beserta seluruh chunks dan file di storage server. Hanya bisa dilakukan oleh pemilik notebook yang memuat dokumen tersebut.
 
 ```
 DELETE /documents/:documentId
@@ -1061,7 +1078,7 @@ DELETE /documents/:documentId
 }
 ```
 
-> Cascade delete: semua `chunks` dan file di Cloudinary yang terkait dokumen ini ikut dihapus.
+> Cascade delete: semua `chunks` dan file di storage server yang terkait dokumen ini ikut dihapus.
 
 **Error Responses**
 
@@ -1182,7 +1199,7 @@ Chat berjalan langsung di level notebook — tidak ada manajemen sesi. Setiap no
 Mengambil seluruh riwayat percakapan pada notebook, diurutkan dari yang paling lama.
 
 ```
-GET /chats/:notebookId
+GET /chat/:notebookId
 ```
 
 **URL Params**
@@ -1253,7 +1270,7 @@ GET /chats/:notebookId
 Endpoint utama RAG — menerima pertanyaan user, menjalankan pipeline RAG, dan mengembalikan jawaban Gemini beserta citations.
 
 ```
-POST /chats/:notebookId
+POST /chat/:notebookId
 ```
 
 **URL Params**
@@ -1274,7 +1291,7 @@ POST /chats/:notebookId
 }
 ```
 
-**Response `201 OK`**
+**Response `200 OK`**
 
 Kedua pesan (user dan assistant) disimpan ke database. Response mengembalikan keduanya.
 
@@ -1338,7 +1355,8 @@ Kedua pesan (user dan assistant) disimpan ke database. Response mengembalikan ke
 | `400`  | Validasi gagal (`message` kosong)                                                    |
 | `401`  | Tidak terautentikasi                                                                 |
 | `404`  | Notebook tidak ditemukan atau bukan milik user                                       |
-| `500`  | Kesalahan server / Gemini API gagal                                                  |
+| `422`  | Tidak ada dokumen di notebook yang `parseStatus: "done"` — chat belum bisa berjalan |
+| `500`  | Gagal mendapatkan jawaban, silakan coba lagi.                                        |
 
 ---
 

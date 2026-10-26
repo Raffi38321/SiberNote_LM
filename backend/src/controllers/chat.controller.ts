@@ -8,7 +8,7 @@ import { generateQueryEmbedding } from "../services/embedding.js"
 import { askLLM } from "../services/LLM.js"
 import type { RetrievedChunk, ChatHistoryEntry } from "../services/LLM.js"
 
-const HISTORY_LIMIT = 10
+const HISTORY_LIMIT = 4
 const TOP_K = 5
 
 const NUM_CANDIDATES = 50
@@ -139,7 +139,7 @@ export const sendMessage = async (req: Request, res: Response) => {
         )
     } catch (error) {
         console.error("[chat] sendMessage error:", error)
-        return response.serverError(res, "gagal kirim pesan")
+        return response.serverError(res, "Gagal mendapatkan jawaban, silakan coba lagi.")
     }
 }
 
