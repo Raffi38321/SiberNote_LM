@@ -55,8 +55,8 @@ export const registerUser = async (req: Request, res: Response) => {
 export const loginUser = async (req: Request, res: Response) => {
     try {
         const { email, password } = req.body
-
-        const user = await User.findOne({ email })
+        console.log(email);
+        const user = await User.findOne({ email:email })
         if (!user || !(await verifyPassword(password, user.password))) {
             return response.userError(res, "email atau password salah")
         }
