@@ -44,10 +44,10 @@ export const getAllNotebookUser = async (
     const limit = 10;
 
     const pageQuery = Number(req.query.page);
-    const page =
-      Number.isInteger(pageQuery) && pageQuery > 0
-        ? pageQuery
-        : 1;
+      const page = Number(pageQuery)
+      if (pageQuery <= 0) {
+          return response.userError(res,"bilangan bulat, minimal 1",400)
+      }
 
     const skip = (page - 1) * limit;
 
