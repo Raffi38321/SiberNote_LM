@@ -27,14 +27,14 @@ const USERNAME_RE = /^[a-zA-Z0-9_-]{1,16}$/;
 const PASSWORD_RE = /^[a-zA-Z0-9]{8,16}$/;
 
 function validateUsername(username) {
-  if (!username.trim()) return "Username wajib diisi.";
+  if (!username.trim()) return "Username tidak boleh kosong.";
   if (!USERNAME_RE.test(username.trim()))
     return "Username 1–16 karakter, hanya huruf, angka, _ dan -.";
   return "";
 }
 
 function validatePassword(password, username) {
-  if (!password) return "Password wajib diisi.";
+  if (!password) return "Password tidak boleh kosong.";
   if (!PASSWORD_RE.test(password))
     return "Password 8–16 karakter, hanya huruf dan angka.";
   if (username && password.toLowerCase().includes(username.trim().toLowerCase()))
@@ -171,11 +171,11 @@ function PasswordInput({ id, error, describedBy, ...props }) {
 /** Validasi satu kolom Login. Mengembalikan pesan error, atau "" kalau valid. */
 function validateLoginField(name, value) {
   if (name === "email") {
-    if (!value.trim()) return "Email wajib diisi.";
+    if (!value.trim()) return "Email tidak boleh kosong.";
     if (!EMAIL_RE.test(value)) return "Format email tidak valid.";
     return "";
   }
-  return value ? "" : "Password wajib diisi.";
+  return value ? "" : "Password tidak boleh kosong.";
 }
 
 function LoginPage({ goRegister, notice, onLoginSuccess }) {
@@ -282,13 +282,13 @@ function validateField(name, value, form) {
     case "username":
       return validateUsername(value);
     case "email":
-      if (!value.trim()) return "Email wajib diisi.";
+      if (!value.trim()) return "Email tidak boleh kosong.";
       if (!EMAIL_RE.test(value)) return "Format email tidak valid.";
       return "";
     case "password":
       return validatePassword(value, form.username);
     case "confirm":
-      if (!value) return "Konfirmasi password wajib diisi.";
+      if (!value) return "Konfirmasi password tidak boleh kosong.";
       if (value !== form.password) return "Konfirmasi password tidak sama.";
       return "";
     default:
@@ -346,7 +346,7 @@ function RegisterPage({ goLogin, onRegistered }) {
     const next = {};
     const usernameError = validateUsername(form.username);
     if (usernameError) next.username = usernameError;
-    if (!form.email.trim()) next.email = "Email wajib diisi.";
+    if (!form.email.trim()) next.email = "Email tidak boleh kosong.";
     else if (!EMAIL_RE.test(form.email)) next.email = "Format email tidak valid.";
     const passwordError = validatePassword(form.password, form.username);
     if (passwordError) next.password = passwordError;
@@ -468,7 +468,7 @@ function SearchIcon() {
 
 function SegitigaBawah() {
   return (
-    <svg width="13" height="10" viewBox="0 0 20 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="17" height="14" viewBox="0 0 20 17" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M10 17L0 0L20 0L10 17Z" fill="#CECECE"/>
     </svg>
   );
@@ -553,8 +553,8 @@ function formatSourceCount(count) {
 }
 
 const SORT_OPTIONS = [
-  { value: "newest", label: "Terbaru" },
-  { value: "az", label: "A-Z" },
+  { value: "newest", label: "Terbaru ",},
+  { value: "az", label: "A-Z",},
 ];
 
 /**
@@ -1032,66 +1032,75 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
                     onClick={() => onOpenNotebook(nb)}
                   >
                     <td>
-                      {/* Tombol sungguhan supaya bisa dipilih & ditekan lewat keyboard */}
                       <button type="button" className="row-title">
+                        {nb.title}
+                      </button>
+                    </td>
+                    
+                    <td>{formatSourceCount(sourceCounts[nb._id])}</td>
+                    <td>{formatDate(nb.createdAt)}</td>
+                    
+                    {/* stopPropagation: klik menu titik tiga tidak ikut membuka workspace */}
+                    <td className="notebooks-table-actions" onClick={(e) => e.stopPropagation()}>
+                      {/* PEMBUNGKUS BARU: Menjaga pin & titik tiga sejajar ke samping */}
+                      <div className="actions-wrap">
+                        
+                        {/* 1. IKON PIN DITAMBAHKAN DI SINI */}
                         {nb.isPinned && (
                           <span
+                            className="pin-badge"
                             role="img"
                             aria-label="Disematkan"
                             title="Disematkan"
-                            style={{ display: "inline-flex", marginRight: 6, verticalAlign: "middle" }}
                           >
                             <PinIcon />
                           </span>
                         )}
-                        {nb.title}
-                      </button>
-                    </td>
-                    <td>{formatSourceCount(sourceCounts[nb._id])}</td>
-                    <td>{formatDate(nb.createdAt)}</td>
-                    {/* stopPropagation: klik menu titik tiga tidak ikut membuka workspace */}
-                    <td className="notebooks-table-actions" onClick={(e) => e.stopPropagation()}>
-                      <div className="menu-wrap">
-                        <button
-                          type="button"
-                          className="icon-btn"
-                          aria-label={`Opsi untuk ${nb.title}`}
-                          aria-haspopup="menu"
-                          aria-expanded={openMenuId === nb._id}
-                          disabled={deletingId === nb._id || pinningId === nb._id}
-                          onClick={() => setOpenMenuId((id) => (id === nb._id ? null : nb._id))}
-                        >
-                          <Titik3Icon />
-                        </button>
-                        {openMenuId === nb._id && (
-                          <>
-                            <div className="menu-backdrop" onClick={() => setOpenMenuId(null)} />
-                            <div className="dropdown-menu dropdown-menu--right" role="menu">
-                              <button
-                                type="button"
-                                role="menuitem"
-                                onClick={() => { setOpenMenuId(null); setRenameTarget(nb); }}
-                              >
-                                <PencilIcon /> Ganti Judul
-                              </button>
-                              <button
-                                type="button"
-                                role="menuitem"
-                                onClick={() => { setOpenMenuId(null); handleTogglePin(nb); }}
-                              >
-                                <PinIcon /> {nb.isPinned ? "Batal sematkan" : "Sematkan"}
-                              </button>
-                              <button
-                                type="button"
-                                role="menuitem"
-                                className="danger"
-                                onClick={() => { setOpenMenuId(null); setDeleteTarget(nb); }}
-                              >
-                                <TrashIcon /> Hapus
-                              </button>
-                            </div>
-                          </>
-                        )}
+
+                        {/* 2. MENU TITIK TIGA */}
+                        <div className="menu-wrap">
+                          <button
+                            type="button"
+                            className="icon-btn"
+                            aria-label={`Opsi untuk ${nb.title}`}
+                            aria-haspopup="menu"
+                            aria-expanded={openMenuId === nb._id}
+                            disabled={deletingId === nb._id || pinningId === nb._id}
+                            onClick={() => setOpenMenuId((id) => (id === nb._id ? null : nb._id))}
+                          >
+                            <Titik3Icon />
+                          </button>
+                          {openMenuId === nb._id && (
+                            <>
+                              <div className="menu-backdrop" onClick={() => setOpenMenuId(null)} />
+                              <div className="dropdown-menu dropdown-menu--right" role="menu">
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  onClick={() => { setOpenMenuId(null); setRenameTarget(nb); }}
+                                >
+                                  <PencilIcon /> Ganti Judul
+                                </button>
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  onClick={() => { setOpenMenuId(null); handleTogglePin(nb); }}
+                                >
+                                  <PinIcon /> {nb.isPinned ? "Batal sematkan" : "Sematkan"}
+                                </button>
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="danger"
+                                  onClick={() => { setOpenMenuId(null); setDeleteTarget(nb); }}
+                                >
+                                  <TrashIcon /> Hapus
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+
                       </div>
                     </td>
                   </tr>
@@ -2593,7 +2602,7 @@ export default function App() {
           <RegisterPage
             goLogin={() => setView("login")}
             onRegistered={() => {
-              setNotice("Akun berhasil dibuat. Silakan login.");
+              // setNotice("Akun berhasil dibuat. Silakan login.");
               setView("login");
             }}
           />
