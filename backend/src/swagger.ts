@@ -10,6 +10,7 @@ const options: swaggerJSDoc.Options = {
         },
         servers: [
             { url: "http://localhost:8080", description: "Development" },
+            { url: "http://43.129.49.191:8080", description: "Production" },
         ],
         components: {
             securitySchemes: {
