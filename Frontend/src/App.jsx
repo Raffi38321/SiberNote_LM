@@ -520,20 +520,23 @@ function Titik3Icon() {
 
 function ArrowRightIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-         strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 12h14" />
-      <path d="m13 6 6 6-6 6" />
+   <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6.25 15L23.75 15M15 23.75L23.75 15L15 6.25" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" stroke="#1A1C1D"/>
     </svg>
+
+
   );
 }
 
 function MenuIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-         strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-      <path d="M5 8h14M5 12h14M5 16h14" />
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="15" cy="15" r="15" fill="#CECECE"/>
+      <rect x="4.5" y="8.7002" width="21" height="2.1" fill="#1A1C1D"/>
+      <rect x="4.5" y="18.8999" width="21" height="2.1" fill="#1A1C1D"/>
+      <rect x="4.5" y="13.7998" width="21" height="2.1" fill="#1A1C1D"/>
     </svg>
+
   );
 }
 
@@ -982,7 +985,7 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
               {sortOpen && (
                 <>
                   <div className="menu-backdrop" onClick={() => setSortOpen(false)} />
-                  <div className="dropdown-menu dropdown-menu--right" role="menu">
+                  <div className="dropdown-menu dropdown-menu--center" role="menu">
                     {SORT_OPTIONS.map((opt) => (
                       <button
                         key={opt.value}
@@ -2066,8 +2069,8 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={handleKeyDown}
                   disabled={!hasDocuments}
-                  placeholder="Tulis pesan..."
-                  aria-label="Tulis pesan"
+                  // placeholder="Tulis pesan..."
+                  // aria-label="Tulis pesan"
                 />
                 <button
                   type="submit"

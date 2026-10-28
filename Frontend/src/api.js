@@ -80,11 +80,7 @@ async function request(path, { method = "GET", body, accessToken, isRetry = fals
       signal: controller.signal,
     });
   } catch (err) {
-    throw new ApiError(
-      err.name === "AbortError"
-        ? "Server terlalu lama merespons. Coba lagi."
-        : "Tidak dapat terhubung ke server. Periksa koneksi internet Anda."
-    );
+    return " "
   } finally {
     clearTimeout(timer);
   }

@@ -362,15 +362,15 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  width: 150px;
-  height: 44px;
+  width: 120px;
+  height: 34px;
   padding: 0 12px;
   background: none;
   border: 3px solid #635252;
-  border-radius: 15px;
+  border-radius: 13px;
   color: var(--text);
   font: inherit;
-  font-size: 1.5rem;
+  font-size: 1rem;
   cursor: pointer;
 }
 
@@ -405,10 +405,15 @@ body {
   right: auto;
 }
 
+.dropdown-menu--center {
+  justify-content: center;
+  align-items: center;
+}
+
 .dropdown-menu button {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: left;
+  justify-content: left;
   gap: 10px;
   padding: 8px 10px;
   text-align: center;
@@ -449,14 +454,14 @@ body {
   padding: 10px 8px;
   border-bottom: 3px solid var(--border);
   color: var(--text);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 400;
 }
 
 .notebooks-table td {
   padding: 14px 8px;
   border-bottom: 3px solid var(--border);
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   vertical-align: middle;
 }
 
@@ -614,7 +619,7 @@ body {
   margin: 8px 16px 0;
   padding: 12px 14px;
   background: var(--bg);
-  border-radius: 18px;
+  border-radius: 100px;
 }
 
 .chat-input:focus-within {
@@ -672,6 +677,8 @@ body {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+
 
 /* ----- Skeleton loading (panel Chat AI) ----- */
 .chat-skeleton {

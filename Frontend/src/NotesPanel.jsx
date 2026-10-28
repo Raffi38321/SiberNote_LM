@@ -238,10 +238,11 @@ export function useNotes({ notebookId, accessToken, notify }) {
 
 function CheckIcon() {
   return (
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
-         strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6 0C4.81331 0 3.65328 0.351894 2.66658 1.01118C1.67989 1.67047 0.910851 2.60754 0.456725 3.7039C0.0025997 4.80026 -0.11622 6.00665 0.115291 7.17054C0.346802 8.33443 0.918247 9.40352 1.75736 10.2426C2.59648 11.0818 3.66557 11.6532 4.82946 11.8847C5.99335 12.1162 7.19975 11.9974 8.2961 11.5433C9.39246 11.0891 10.3295 10.3201 10.9888 9.33342C11.6481 8.34672 12 7.18669 12 6C12 4.4087 11.3679 2.88258 10.2426 1.75736C9.11742 0.632141 7.5913 0 6 0ZM6 11.1429C4.98284 11.1429 3.98852 10.8412 3.14278 10.2761C2.29705 9.71102 1.63787 8.90782 1.24862 7.96808C0.859371 7.02835 0.757526 5.99429 0.955964 4.99668C1.1544 3.99906 1.64421 3.08269 2.36345 2.36345C3.08269 1.64421 3.99906 1.1544 4.99668 0.955961C5.9943 0.757523 7.02835 0.859369 7.96809 1.24862C8.90782 1.63787 9.71103 2.29704 10.2761 3.14278C10.8412 3.98852 11.1429 4.98284 11.1429 6C11.1429 7.36397 10.601 8.67207 9.63655 9.63655C8.67208 10.601 7.36397 11.1429 6 11.1429Z" fill="#CECECE"/>
+      <path d="M9.12478 3.5528L5.14335 7.53851L2.87621 5.26708C2.79551 5.18638 2.68606 5.14104 2.57193 5.14104C2.4578 5.14104 2.34834 5.18638 2.26764 5.26708C2.18694 5.34778 2.1416 5.45724 2.1416 5.57137C2.1416 5.62788 2.15273 5.68384 2.17436 5.73605C2.19598 5.78826 2.22768 5.83569 2.26764 5.87565L4.83907 8.44708C4.87891 8.48725 4.92631 8.51913 4.97854 8.54089C5.03076 8.56265 5.08678 8.57385 5.14335 8.57385C5.19993 8.57385 5.25595 8.56265 5.30817 8.54089C5.3604 8.51913 5.4078 8.48725 5.44764 8.44708L9.73335 4.16137C9.77331 4.12141 9.80501 4.07397 9.82664 4.02176C9.84826 3.96955 9.85939 3.91359 9.85939 3.85708C9.85939 3.80057 9.84826 3.74461 9.82664 3.6924C9.80501 3.64019 9.77331 3.59276 9.73335 3.5528C9.69339 3.51284 9.64596 3.48114 9.59375 3.45951C9.54154 3.43789 9.48558 3.42676 9.42907 3.42676C9.37256 3.42676 9.3166 3.43789 9.26439 3.45951C9.21218 3.48114 9.16474 3.51284 9.12478 3.5528Z" fill="#CECECE"/>
     </svg>
+
   );
 }
 
@@ -372,6 +373,15 @@ function AlignJustifyIcon() {
     </svg>
   );
 }
+
+function Iicon() {
+  return (
+      <svg width="9" height="13" viewBox="0 0 11 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3.43965 13.4098L5.63965 0.909823H7.52965L5.31965 13.4098H3.43965ZM-0.000351548 14.3198L0.309649 12.5598H8.74965L8.43965 14.3198H-0.000351548ZM2.21965 1.74982L2.51965 -0.00017643H10.9596L10.6496 1.74982H2.21965Z" fill="#CECECE"/>
+      </svg>
+ );  
+}
+
 
 /** Ikon "tutup editor / kembali ke daftar" di header (panah masuk dari sudut). */
 function CollapseNoteIcon() {
@@ -582,15 +592,6 @@ function NoteEditor({ note, focusTitle, onBack, onSave, onDelete }) {
       <div className="note-head">
         <h2 className="panel-title">Catatan</h2>
         <div className="note-head-actions">
-          <span className={`note-status note-status--${status}`} role="status" aria-live="polite">
-            {status === "saving" && "Menyimpan..."}
-            {status === "saved" && (
-              <>
-                <CheckIcon /> Tersimpan
-              </>
-            )}
-            {status === "error" && "Gagal menyimpan"}
-          </span>
           <button
             type="button"
             className="panel-toggle"
@@ -606,6 +607,15 @@ function NoteEditor({ note, focusTitle, onBack, onSave, onDelete }) {
       {/* Judul besar tanpa kotak + tombol hapus */}
       <div className={`note-title-row${titleError ? " has-error" : ""}`}>
         <div className="note-title-field">
+        <span className={`note-status note-status--${status}`} role="status" aria-live="polite">
+            {status === "saving" && "Menyimpan..."}
+            {status === "saved" && (
+              <>
+                <CheckIcon /> Tersimpan
+              </>
+            )}
+            {status === "error" && "Gagal menyimpan"}
+          </span>
           <input
             ref={titleRef}
             className="note-title-input"
@@ -682,7 +692,7 @@ function NoteEditor({ note, focusTitle, onBack, onSave, onDelete }) {
         <span className="note-sep" aria-hidden="true" />
 
         <ToolBtn label="Tebal (Ctrl+B)" active={active.bold} onClick={() => exec("bold")}><b>B</b></ToolBtn>
-        <ToolBtn label="Miring (Ctrl+I)" active={active.italic} onClick={() => exec("italic")}><i>I</i></ToolBtn>
+        <ToolBtn label="Miring (Ctrl+I)" active={active.italic} onClick={() => exec("italic")}><Iicon/></ToolBtn>
 
         <span className="note-sep" aria-hidden="true" />
 
