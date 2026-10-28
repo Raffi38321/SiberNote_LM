@@ -8,6 +8,7 @@ export interface RetrievedChunk {
     pageStart: number
     pageEnd: number
     content: string
+    score: number
 }
 
 export interface ChatHistoryEntry {
@@ -81,6 +82,8 @@ const toGeminiHistory = (history: ChatHistoryEntry[]) =>
         parts: [{ text: entry.content }],
     }))
 
+const MAX_CITATIONS = 5
+
 const parseCitations = (
     responseText: string,
     chunks: RetrievedChunk[],
@@ -98,20 +101,36 @@ const parseCitations = (
         }
     }
 
-    return Array.from(found)
-        .sort((a, b) => a - b)
+    // map ke chunk, sort by score descending (paling relevan duluan)
+    const candidates = Array.from(found)
         .flatMap((citationIndex) => {
             const chunk = chunks[citationIndex - 1]
             if (!chunk) return []
-            return [{
-                citationIndex,
-                documentId: chunk.documentId,
-                documentTitle: chunk.documentTitle,
-                pageStart: chunk.pageStart,
-                pageEnd: chunk.pageEnd,
-                chunkContent: chunk.content,
-            }]
+            return [{ citationIndex, chunk }]
         })
+        .sort((a, b) => b.chunk.score - a.chunk.score)
+
+    // deduplikasi: buang yang punya documentId + pageStart sama, ambil yang score tertinggi
+    const seen = new Set<string>()
+    const deduplicated = candidates.filter(({ chunk }) => {
+        const key = `${chunk.documentId.toString()}:${chunk.pageStart}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+    })
+
+    // ambil max 5, kembalikan dengan citationIndex asli (urutan di prompt)
+    return deduplicated
+        .slice(0, MAX_CITATIONS)
+        .sort((a, b) => a.citationIndex - b.citationIndex)
+        .map(({ citationIndex, chunk }) => ({
+            citationIndex,
+            documentId: chunk.documentId,
+            documentTitle: chunk.documentTitle,
+            pageStart: chunk.pageStart,
+            pageEnd: chunk.pageEnd,
+            chunkContent: chunk.content,
+        }))
 }
 
 /**

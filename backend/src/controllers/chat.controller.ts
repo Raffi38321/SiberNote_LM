@@ -9,9 +9,8 @@ import { askLLM } from "../services/LLM.js"
 import type { RetrievedChunk, ChatHistoryEntry } from "../services/LLM.js"
 
 const HISTORY_LIMIT = 4
-const TOP_K = 5
-
-const NUM_CANDIDATES = 50
+const TOP_K = 8
+const NUM_CANDIDATES = 100
 
 const vectorSearch = async (
     queryVector: number[],
@@ -49,12 +48,14 @@ const vectorSearch = async (
         content: string
         pageStart: number
         pageEnd: number
+        score: number
     }): RetrievedChunk => ({
         documentId: r.documentId,
         documentTitle: titleMap.get(r.documentId.toString()) ?? "Unknown",
         pageStart: r.pageStart,
         pageEnd: r.pageEnd,
         content: r.content,
+        score: r.score,
     }))
 }
 
@@ -77,7 +78,6 @@ export const sendMessage = async (req: Request, res: Response) => {
             notebookId,
             parseStatus: "done",
         }).select("_id")
-        console.log("request masuk")
 
         if (readyDocuments.length === 0) {
             return response.userError(
@@ -96,7 +96,6 @@ export const sendMessage = async (req: Request, res: Response) => {
             citations: [],
             sourceType: null,
         })
-        console.log("message di simpen")
 
         const recentMessages = await Message.find({
             notebookId,
@@ -106,9 +105,6 @@ export const sendMessage = async (req: Request, res: Response) => {
             .limit(HISTORY_LIMIT)
             .select("role content")
             .lean()
-        console.log("dapetin chat sebelumnya")
-        
-
         const history: ChatHistoryEntry[] = recentMessages
             .reverse()
             .map((m) => ({ role: m.role, content: m.content }))
@@ -116,11 +112,8 @@ export const sendMessage = async (req: Request, res: Response) => {
         const queryVector = await generateQueryEmbedding(message)
 
         const chunks = await vectorSearch(queryVector, documentIds)
-        console.log("udah dapet chunk",chunks)
 
         const llmResult = await askLLM(message, chunks, history)
-        console.log("jawaban ai")
-
 
         const assistantMessage = await Message.create({
             notebookId,
@@ -129,7 +122,6 @@ export const sendMessage = async (req: Request, res: Response) => {
             citations: llmResult.citations,
             sourceType: llmResult.sourceType,
         })
-        console.log("jawaban ai di simpen")
 
         return response.requestSuccessWithData(
             res,
@@ -163,6 +155,6 @@ export const getMessages = async (req: Request, res: Response) => {
         )
     } catch (error) {
         console.error("[chat] getMessages error:", error)
-        return response.serverError(res, "gagal dapet riwayat pesan")
+        return response.serverError(res, "Gagal memuat riwayat obrolan, silahkan muat ulang halaman")
     }
 }

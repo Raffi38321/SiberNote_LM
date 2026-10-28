@@ -84,7 +84,7 @@ const options: swaggerJSDoc.Options = {
                     properties: {
                         page: { type: "number", example: 1 },
                         limit: { type: "number", example: 10 },
-                        totalItems: { type: "number", example: 25 },
+                        totalNotebook: { type: "number", example: 25 },
                         totalPages: { type: "number", example: 3 },
                         hasNextPage: { type: "boolean", example: true },
                         hasPrevPage: { type: "boolean", example: false },

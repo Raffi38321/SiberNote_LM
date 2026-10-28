@@ -76,7 +76,7 @@ export const getAllNotebookUser = async (
         pagination: {
           page,
           limit,
-          totalItems: count,
+          totalNotebook: count,
           totalPages,
           hasNextPage: page < totalPages,
           hasPrevPage: page > 1,
