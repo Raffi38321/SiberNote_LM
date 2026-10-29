@@ -6,7 +6,7 @@ export const getCitation = async (req: Request, res: Response) => {
     try {
         const { messageId, citationIndex } = req.params
 
-        if (!messageId || !citationIndex) {
+        if (!messageId || !citationIndex || typeof citationIndex !== "string" || typeof messageId !== "string") {
             return response.userError(res, "messageId atau citationIndex tidak valid")
         }
 
