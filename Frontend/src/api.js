@@ -294,3 +294,8 @@ export async function sendChatMessage(notebookId, message, accessToken) {
   }
   return data.data; // mengembalikan { userMessage, assistantMessage }
 }
+
+/**
+ * GET /documents/:documentId/content?page=:page
+ * Mengambil isi teks dokumen hasil OCR/ekstraksi berdasarkan ID dan Halaman.
+ */

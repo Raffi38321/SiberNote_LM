@@ -605,10 +605,10 @@ body {
 
 .msg-ai .ai-text {
   color: #e0e0e0;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.6;
   margin: 0;
-  display: inline;
+  display: block;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -621,19 +621,27 @@ body {
   vertical-align: middle;
 }
 
+.citations-wrapper {
+  display: flex;
+  flex-wrap: wrap;        /* Turun baris bila tidak muat */
+  gap: 8px;               /* Jarak antar tag 8px */
+  margin-top: 10px;       /* Jarak terpisah di bawah teks jawaban */
+}
+
 /* Badge Sitasi Bulat (Angka 1) */
 /* Badge Sitasi Kotak ([1]) */
 .citation-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 5px 3px;
+  padding: 3px 8px;
   border-radius: 4px;        /* Sudut membulat kecil untuk bentuk kotak */
   background-color: #1a1c1d; /* Warna background gelap */
   color: #cecece;            /* Warna teks angka */
   font-size: 12px;
   font-weight: 500;
   line-height: 1;
+  border: none;
   cursor: pointer;
   user-select: none;
   transition: background-color 0.15s, color 0.15s;
@@ -815,7 +823,63 @@ body {
   cursor: not-allowed;
 }
 
+/* Styling Tag Rujukan Aktif (Desain 38a) */
+.tag-rujukan.is-active {
+  background-color: var(--link); /* Menggunakan warna highlight/link */
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 0 0 1px var(--link);
+}
 
+/* Container Pratinjau Dokumen di Panel Sumber */
+.source-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  margin-top: 8px;
+}
+
+.source-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.source-preview-title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-preview-page-label {
+  margin-top: 8px;
+  margin-bottom: 8px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.source-preview-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.source-preview-text {
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 
 /* ----- Skeleton loading (panel Chat AI) ----- */
 .chat-skeleton {

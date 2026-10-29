@@ -561,6 +561,8 @@ function formatDate(value) {
 function formatSourceCount(count) {
   if (count === undefined) return "…";
   if (count === null) return "—";
+  if (count === 0) return "0 Sumber";
+  if (count >= 100) return "99+";
   return `${count} Sumber`;
 }
 
@@ -851,6 +853,7 @@ function ConfirmDeleteDialog({ message, onCancel, onConfirm }) {
 }
 
 function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNotebook }) {
+  const { toasts, notify, dismiss } = useToasts();
   const [notebooks, setNotebooks] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState("");
@@ -880,19 +883,21 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
   }
 
   async function loadNotebooks() {
-    setLoadingList(true);
-    setListError("");
-    try {
-      const data = await getNotebooks(accessToken);
-      const list = data?.notebooks || [];
-      setNotebooks(list);
-      loadSourceCounts(list); // tanpa await: tabel tampil dulu, kolom Sumber menyusul
-    } catch (err) {
-      setListError(err.message);
-    } finally {
-      setLoadingList(false);
-    }
+  setLoadingList(true);
+  setListError("");
+  try {
+    const data = await getNotebooks(accessToken);
+    const list = data?.notebooks || [];
+    setNotebooks(list);
+    loadSourceCounts(list);
+  } catch (err) {
+    // Pemicu Toast Notification sesuai requirement TC-DSGN-NOTE-EDGE-13
+    notify("Gagal memuat catatan, silakan coba lagi", "error");
+    setListError(err.message);
+  } finally {
+    setLoadingList(false);
   }
+}
 
   useEffect(() => {
     loadNotebooks();
@@ -1154,6 +1159,7 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
           }}
         />
       )}
+      <ToastStack toasts={toasts} onDismiss={dismiss} />
     </>
   );
 }
@@ -1617,16 +1623,89 @@ function PlusIcon() {
   );
 }
 
+function DocumentPreview({ previewData, onBack, accessToken }) {
+  const [content, setContent] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+
+    // Mengambil isi teks dokumen berdasarkan documentId / pageStart
+    // (Panggil helper API fetchDocumentContent dari card 38c)
+    fetchDocumentContent(previewData.documentId, previewData.pageStart, accessToken)
+      .then((data) => {
+        if (!cancelled) {
+          setContent(data?.content || "Isi dokumen tidak tersedia.");
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err.message || "Gagal memuat pratinjau dokumen.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [previewData.documentId, previewData.pageStart, accessToken]);
+
+  return (
+    <div className="source-preview-wrap">
+      {/* Header Pratinjau */}
+      <div className="source-preview-head">
+        <h3 className="source-preview-title" title={previewData.documentTitle}>
+          {previewData.documentTitle}
+        </h3>
+        {/* Tombol Kembali (Ikon X / Panah Kembali) */}
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={onBack}
+          aria-label="Kembali ke daftar dokumen"
+          title="Kembali ke daftar dokumen"
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Sub-header Label Halaman */}
+      <div className="source-preview-page-label">
+        Halaman {previewData.pageStart || 1}
+      </div>
+
+      {/* Area Isi Teks Dokumen */}
+      <div className="source-preview-body">
+        {loading ? (
+          <p className="empty-state">Memuat isi halaman...</p>
+        ) : error ? (
+          <p className="msg-error">{error}</p>
+        ) : (
+          <div className="source-preview-text">{content}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SourcesPanel({
   collapsed,
   onToggle,
+  sumberView,
+  activePreview,
+  onClosePreview,
   documents,
   uploads,
   sourceError,
   onAddFile,
-  onPreview,
   onRename,
   onDelete,
+  accessToken
 }) {
   const fileInputRef = useRef(null);
   const listRef = useRef(null);
@@ -1925,7 +2004,21 @@ function fetchChatHistory() {
   });
 }
 
-function ChatMessage({ message }) {
+// 1. Komponen TagRujukan (Pil) sesuai spesifikasi
+function TagRujukan({ nomor, documentTitle, pageStart, isActive, onClick }) {
+  return (
+    <button
+      type="button"
+      className={`tag-rujukan${isActive ? " is-active" : ""}`}
+      onClick={onClick}
+      title={`${documentTitle} (Halaman ${pageStart})`}
+    >
+      [{nomor}]
+    </button>
+  );
+}
+
+function ChatMessage({ message, activePreview, onTagClick }) {
   const isUser = message.role === "user" || message.role === "human";
 
   if (isUser) {
@@ -1938,25 +2031,54 @@ function ChatMessage({ message }) {
     );
   }
 
-  // Tampilan Pesan AI: Polos tanpa bubble dengan sitasi [1]
+  // --- DEDUPLIKASI & PEMBATASAN MAKSIMAL 3 TAG ---
+  const rawCitations = message.citations || [];
+  const uniqueCitations = [];
+  const seenKeys = new Set();
+
+  for (const c of rawCitations) {
+    const key = `${c.documentId || c.documentTitle}-${c.pageStart}`;
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      uniqueCitations.push(c);
+    }
+  }
+
+  const displayCitations = uniqueCitations.slice(0, 3);
+
   return (
     <div className="msg msg-ai">
       <div className="ai-text">
         <ReactMarkdown>{message.content || message.text}</ReactMarkdown>
+      </div>
 
-    {message.citations && message.citations.length > 0 && (
-      <span className="citations-inline">
-        {message.citations.map((c) => (
-          <span key={c.citationIndex} className="citation-badge">
-            [{c.citationIndex}]
-          </span>
-        ))}
-      </span>
-    )}
-  </div>
-</div>
+      {displayCitations.length > 0 && (
+        <div className="citations-wrapper">
+          {displayCitations.map((c, index) => {
+            const isActive =
+              activePreview &&
+              activePreview.documentId === (c.documentId || c.documentTitle) &&
+              activePreview.pageStart === c.pageStart;
+
+            return (
+              <TagRujukan
+                key={c.citationIndex || index}
+                nomor={index + 1}
+                documentTitle={c.documentTitle}
+                pageStart={c.pageStart}
+                isActive={isActive}
+                onClick={() => onTagClick && onTagClick(c)}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
+
+
+
 
 const CHAT_SKELETON_WIDTHS = ["100%", "80%", "60%"];
 
@@ -1982,6 +2104,33 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
 
   // Input chat hanya aktif kalau ada minimal 1 dokumen yang 'done'
   const hasDocuments = documents.some((d) => d.parseStatus === "done");
+
+  // State tampilan panel Sumber: "list" atau "preview"
+  const [sumberView, setSumberView] = useState("list"); // "list" | "preview"
+  const [activePreview, setActivePreview] = useState(null); // { documentId, documentTitle, fileType, pageStart }
+
+  // Handler saat tag [1] diklik di Chat Message
+function handleTagClick(citation) {
+  console.log("Tag diklik, data citation:", citation); // <--- Log 1
+  setActivePreview({
+    documentId: citation.documentId || citation.documentTitle,
+    documentTitle: citation.documentTitle,
+    fileType: citation.fileType,
+    pageStart: citation.pageStart || 1,
+  });
+  setSumberView("preview");
+
+  // Jika panel sumber sedang terkuncup/collapsed, otomatis perluas
+  if (sourcesCollapsed) {
+    setSourcesCollapsed(false);
+  }
+}
+
+// Handler saat tombol kembali di pratinjau diklik
+function handleClosePreview() {
+  setSumberView("list");
+  setActivePreview(null);
+}
 
   // 1. Load riwayat chat dari backend saat workspace dibuka
   useEffect(() => {
@@ -2086,6 +2235,9 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
         <SourcesPanel
           collapsed={sourcesCollapsed}
           onToggle={() => setSourcesCollapsed((v) => !v)}
+          sumberView={sumberView}
+          activePreview={activePreview}
+          onClosePreview={handleClosePreview}
           documents={documents}
           uploads={uploads}
           sourceError={sourceError}
@@ -2093,6 +2245,7 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
           onPreview={setPreviewDoc}
           onRename={setRenameDoc}
           onDelete={setDeleteDoc}
+          accessToken={accessToken}
         />
 
         {/* Panel Tengah: Chat AI */}
@@ -2112,8 +2265,13 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
             <>
               <div className="chat-messages" role="log">
                 {messages.map((m) => (
-                  <ChatMessage key={m._id || m.id} message={m} />
-                ))}
+                    <ChatMessage
+                      key={m._id || m.id}
+                      message={m}
+                      activePreview={activePreview}
+                      onTagClick={handleTagClick}
+                    />
+                  ))}
                 {/* Item sementara saat AI sedang memproses jawaban */}
                 {sendingChat && (
                   <div className="chat-sending-wrapper">
@@ -2696,7 +2854,7 @@ export default function App() {
       <>
         <Header />
         <main className="auth">
-          <p className="empty-state" role="status">Memuat...</p>
+          <p className="empty-state" role="status"></p>
         </main>
       </>
     );
