@@ -1142,8 +1142,6 @@ GET /documents/status/:documentId
 | `404`  | Dokumen tidak ditemukan            |
 | `500`  | Kesalahan server                   |
 
----
-
 ## parseStatus Flow
 
 Field `parseStatus` pada dokumen menunjukkan status pemrosesan background. Frontend polling `GET /documents/status/:documentId` sampai `parseStatus` bukan `"pending"`.
@@ -1357,6 +1355,63 @@ Kedua pesan (user dan assistant) disimpan ke database. Response mengembalikan ke
 | `404`  | Notebook tidak ditemukan atau bukan milik user                                       |
 | `422`  | Tidak ada dokumen di notebook yang `parseStatus: "done"` — chat belum bisa berjalan |
 | `500`  | Gagal mendapatkan jawaban, silakan coba lagi.                                        |
+
+---
+
+## Citations
+
+Semua endpoint citation membutuhkan `accessToken` yang valid di header:
+
+```
+Authorization: Bearer <accessToken>
+```
+
+---
+
+### Get Citation
+
+Mengambil detail satu citation dari pesan assistant. Digunakan saat user klik `[1]`, `[2]`, dst. pada jawaban AI.
+
+```
+GET /citations/:messageId/:citationIndex
+```
+
+**URL Params**
+
+| Param           | Keterangan                                                    |
+|-----------------|---------------------------------------------------------------|
+| `messageId`     | ID pesan assistant MongoDB                                    |
+| `citationIndex` | Nomor citation (1, 2, 3, ...) sesuai `[1]`, `[2]` di teks jawaban |
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "berhasil get citation",
+  "data": {
+    "citation": {
+      "citationIndex": 1,
+      "documentId": "665f1a2b3c4d5e6f7a8b9c0f",
+      "documentTitle": "Sistem_Operasi",
+      "pageStart": 31,
+      "pageEnd": 33,
+      "chunkContent": "Virtual memory adalah mekanisme yang memungkinkan..."
+    }
+  }
+}
+```
+
+**Error Responses**
+
+| Status | Kondisi                                           |
+|--------|---------------------------------------------------|
+| `400`  | `messageId` atau `citationIndex` tidak valid      |
+| `401`  | Tidak terautentikasi                              |
+| `401`  | Pesan bukan milik role `"assistant"`              |
+| `403`  | Message bukan milik user                          |
+| `404`  | Message tidak ditemukan                           |
+| `404`  | Citation dengan index tersebut tidak ditemukan    |
+| `500`  | Kesalahan server                                  |
 
 ---
 

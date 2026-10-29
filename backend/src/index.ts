@@ -11,6 +11,7 @@ import cors from "cors"
 import noteRouter from "./routes/note.route.js"
 import chatRouter from "./routes/chat.route.js"
 import swaggerSpec from "./swagger.js"
+import citationRouter from "./routes/citation.route.js"
 
 const app = express()
 const PORT = envVariable.PORT
@@ -39,6 +40,7 @@ app.use("/notebooks",notebookRouter)
 app.use("/documents", documentRouter)
 app.use("/notes",noteRouter)
 app.use("/chats", chatRouter)
+app.use("/citations",citationRouter)
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 
 app.listen(PORT, () => {

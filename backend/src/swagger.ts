@@ -894,6 +894,60 @@ const options: swaggerJSDoc.Options = {
                     },
                 },
             },
+            // ═══════════════════════════════════════════════════════════════
+            // CITATIONS
+            // ═══════════════════════════════════════════════════════════════
+            "/citations/{messageId}/{citationIndex}": {
+                get: {
+                    tags: ["Citations"],
+                    summary: "Get detail citation dari pesan AI",
+                    description: "Digunakan saat user klik citation [1], [2], dst. pada jawaban AI. Mengembalikan data citation yang tersimpan di message — termasuk konten chunk, nama dokumen, dan nomor halaman.",
+                    security: [{ bearerAuth: [] }],
+                    parameters: [
+                        {
+                            in: "path",
+                            name: "messageId",
+                            required: true,
+                            schema: { type: "string" },
+                            description: "ID pesan assistant MongoDB",
+                        },
+                        {
+                            in: "path",
+                            name: "citationIndex",
+                            required: true,
+                            schema: { type: "integer", minimum: 1 },
+                            description: "Nomor citation (1, 2, 3, ...) sesuai [1], [2], [3] di teks jawaban",
+                        },
+                    ],
+                    responses: {
+                        200: {
+                            description: "Detail citation",
+                            content: {
+                                "application/json": {
+                                    schema: {
+                                        type: "object",
+                                        properties: {
+                                            status: { type: "string", example: "success" },
+                                            message: { type: "string", example: "berhasil get citation" },
+                                            data: {
+                                                type: "object",
+                                                properties: {
+                                                    citation: { $ref: "#/components/schemas/Citation" },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                        400: { description: "messageId atau citationIndex tidak valid", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        401: { description: "Tidak terautentikasi", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        403: { description: "Message bukan milik user", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        404: { description: "Message atau citation tidak ditemukan", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        500: { description: "Kesalahan server", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                    },
+                },
+            },
         },
     },
     apis: [],

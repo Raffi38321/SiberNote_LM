@@ -233,7 +233,38 @@ export const updateDocument = async (req: Request, res: Response) => {
     }
 }
 
-// GET /documents/:documentId/status — polling endpoint untuk FE
+// export const getCitationsByDocument = async (req: Request, res: Response) => {
+//     try {
+//         const userId = req.userId
+//         if (!userId) {
+//             return response.userError(res, "tidak terautentikasi")
+//         }
+
+//         const { documentId } = req.params
+
+//         const doc = await Document.findById(documentId)
+//             .select("notebookId title fileType")
+//             .populate<{ notebookId: { userId: { toString(): string } } }>("notebookId", "userId")
+
+//         if (!doc) {
+//             return response.notFoundError(res, "dokumen tidak ditemukan")
+//         }
+
+//         if (doc.notebookId.userId.toString() !== userId) {
+//             return response.notAuthorizedError(res, "tidak punya akses ke dokumen ini")
+//         }
+
+//         const chunks = await Chunk.find({ documentId })
+//             .select("chunkIndex content pageStart pageEnd")
+//             .sort({ chunkIndex: 1 })
+//             .lean()
+
+//         return response.requestSuccessWithData(res, "berhasil get citations", { chunks }, 200)
+//     } catch (error) {
+//         console.error(error)
+//         return response.serverError(res, "gagal get citations")
+//     }
+// }
 export const getDocumentStatus = async (req: Request, res: Response) => {
     try {
         const userId = req.userId

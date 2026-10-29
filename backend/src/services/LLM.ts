@@ -54,8 +54,7 @@ const buildPrompt = (question: string, chunks: RetrievedChunk[]): string => {
     if (chunks.length === 0) {
         return [
             "Tidak ada dokumen yang relevan ditemukan untuk pertanyaan ini.",
-            "Jawab dari pengetahuan umum kamu dan tandai setiap klaim dengan [AI].",
-            "",
+            "Jawab dari pengetahuan umum kamu.",
             `Pertanyaan: ${question}`,
         ].join("\n")
     }
@@ -68,7 +67,8 @@ const buildPrompt = (question: string, chunks: RetrievedChunk[]): string => {
         "---",
         "Jawab pertanyaan di bawah HANYA berdasarkan SOURCE di atas.",
         "Sertakan citation dengan format [1], [2], dst. di setiap klaim.",
-        "Jika ada informasi yang tidak ada di SOURCE, tambahkan dari pengetahuan umum dan tandai dengan [AI].",
+        "Jika ada informasi yang tidak ada di SOURCE, tambahkan dari pengetahuan umum.",
+        "jika citation tidak memuat informasi yang ditanyakan tidak usah bilang tidak disebutkan di dalam dokumen SOURCE yang diberikan [1], [2], [3], [4], [5], [6], [7], [8]",
         "Jangan membuat citation yang tidak tersedia dalam SOURCE.",
         "Gunakan Bahasa Indonesia.",
         "",
@@ -167,6 +167,7 @@ export const askLLM = async (
     history: ChatHistoryEntry[],
 ): Promise<LLMResult> => {
     const prompt = buildPrompt(question, chunks)
+    console.log(prompt)
 
     const chat = model.startChat({
         history: toGeminiHistory(history),
