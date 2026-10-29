@@ -296,6 +296,26 @@ export async function sendChatMessage(notebookId, message, accessToken) {
 }
 
 /**
+ * GET /citations/:messageId/:citationIndex
+ * Mengambil detail isi rujukan/sitasi berdasarkan messageId dan citationIndex.
+ */
+export async function fetchDocumentContent(messageId, citationIndex, token) {
+  const res = await fetch(`${BASE_URL}/citations/${messageId}/${citationIndex}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || "Gagal mengambil isi pratinjau dokumen");
+  }
+
+  return res.json();
+}
+
+/**
  * GET /documents/:documentId/content?page=:page
  * Mengambil isi teks dokumen hasil OCR/ekstraksi berdasarkan ID dan Halaman.
  */

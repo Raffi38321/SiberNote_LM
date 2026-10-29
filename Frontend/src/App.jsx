@@ -21,6 +21,7 @@ import {
   updateProfile,
   getChatHistory,
   sendChatMessage,
+  fetchDocumentContent,
 } from "./api";
 import { NotesPanel, useNotes } from "./NotesPanel";
 import ReactMarkdown from "react-markdown";
@@ -1633,12 +1634,12 @@ function DocumentPreview({ previewData, onBack, accessToken }) {
     setLoading(true);
     setError("");
 
-    // Mengambil isi teks dokumen berdasarkan documentId / pageStart
-    // (Panggil helper API fetchDocumentContent dari card 38c)
-    fetchDocumentContent(previewData.documentId, previewData.pageStart, accessToken)
-      .then((data) => {
+    fetchDocumentContent(previewData.messageId, previewData.citationIndex, accessToken)
+      .then((res) => {
         if (!cancelled) {
-          setContent(data?.content || "Isi dokumen tidak tersedia.");
+          // Mengambil chunkContent sesuai struktur JSON response dari backend
+          const textContent = res?.data?.citation?.chunkContent || "Isi dokumen tidak tersedia.";
+          setContent(textContent);
         }
       })
       .catch((err) => {
@@ -1653,7 +1654,7 @@ function DocumentPreview({ previewData, onBack, accessToken }) {
     return () => {
       cancelled = true;
     };
-  }, [previewData.documentId, previewData.pageStart, accessToken]);
+  }, [previewData.messageId, previewData.citationIndex, accessToken]);
 
   return (
     <div className="source-preview-wrap">
@@ -1662,7 +1663,6 @@ function DocumentPreview({ previewData, onBack, accessToken }) {
         <h3 className="source-preview-title" title={previewData.documentTitle}>
           {previewData.documentTitle}
         </h3>
-        {/* Tombol Kembali (Ikon X / Panah Kembali) */}
         <button
           type="button"
           className="icon-btn"
@@ -1679,14 +1679,16 @@ function DocumentPreview({ previewData, onBack, accessToken }) {
         Halaman {previewData.pageStart || 1}
       </div>
 
-      {/* Area Isi Teks Dokumen */}
+      {/* Area Teks Dokumen */}
       <div className="source-preview-body">
         {loading ? (
           <p className="empty-state">Memuat isi halaman...</p>
         ) : error ? (
           <p className="msg-error">{error}</p>
         ) : (
-          <div className="source-preview-text">{content}</div>
+          <div className="source-preview-text" style={{ whiteSpace: "pre-line" }}>
+            {content}
+          </div>
         )}
       </div>
     </div>
@@ -1723,7 +1725,6 @@ function SourcesPanel({
   }
 
   // Ada error saat panel sedang menyusut (mis. OCR gagal): buka panel supaya pesannya terbaca.
-  // Ref dipakai agar efek ini hanya berjalan saat ada error baru, bukan setiap panel diciutkan.
   const collapsedRef = useRef(collapsed);
   const onToggleRef = useRef(onToggle);
   collapsedRef.current = collapsed;
@@ -1771,7 +1772,7 @@ function SourcesPanel({
         onChange={handleFileChange}
       />
 
-      {/* Panel menyusut: tombol tambah + satu ikon per file (yang sedang diproses berkedip pelan). */}
+      {/* Panel menyusut: tombol tambah + satu ikon per file */}
       {collapsed && (
         <ul className="panel-rail" aria-label="Daftar sumber">
           <li>
@@ -1812,93 +1813,99 @@ function SourcesPanel({
         </ul>
       )}
 
+      {/* Panel diperluas */}
       {!collapsed && (
         <>
-          <button type="button" className="upload-btn" onClick={() => fileInputRef.current?.click()}>
-            Tambah Sumber +
-          </button>
-          <ul className="source-list" ref={listRef}>
-            {/* File yang sedang dikirim ke server: progress bar naik */}
-            {uploads.map((u) => (
-              <li key={u.id} className="source-item source-item--processing" aria-busy="true">
-                <FileIcon type={u.type} />
-                <div className="source-processing">
-                  <span className="source-title" title={u.name}>{u.name}</span>
-                  <div
-                    className="progress"
-                    role="progressbar"
-                    aria-label={`Mengunggah ${u.name}`}
-                    aria-valuemin={0}
-                    //aria-valuemax={100}
-                    aria-valuenow={u.progress}
-                  >
-                    <div className="progress-bar" style={{ width: `${u.progress}%` }} />
-                  </div>
-                </div>
-              </li>
-            ))}
-
-            {documents.map((doc) =>
-              doc.parseStatus === "pending" ? (
-                // OCR/ekstraksi masih berjalan di backend: animasi loading, belum ada menu
-                <li key={doc.id} className="source-item source-item--processing" aria-busy="true">
-                  <FileIcon type={doc.type} />
-                  <div className="source-processing">
-                    <span className="source-title" title={doc.title}>{doc.title}</span>
-                    <div
-                      className="progress"
-                      role="progressbar"
-                      aria-label={`Mengekstrak teks ${doc.title}`}
-                      aria-valuemin={0}
-                      //aria-valuemax={100}
-                    >
-                      <div className="progress-bar progress-bar--indeterminate" />
-                    </div>
-                  </div>
-                </li>
-              ) : (
-                <li key={doc.id} className="source-item">
-                  <FileIcon type={doc.type} />
-                  <span className="source-title" title={doc.title}>{doc.title}</span>
-                  <button
-                    type="button"
-                    className="icon-btn"
-                    aria-label={`Opsi untuk ${doc.title}`}
-                    aria-haspopup="menu"
-                    aria-expanded={menu?.id === doc.id}
-                    onClick={(e) => toggleMenu(e, doc.id)}
-                  >
-                    ⋮
-                  </button>
-                </li>
-              )
-            )}
-          </ul>
-
-          {/* Pesan error sumber: setelah daftar (yang memenuhi sisa tinggi panel), jadi tampil di dasar panel */}
-          {sourceError && (
-            <p className="source-error" role="alert">
-              {sourceError.message}
-            </p>
-          )}
-
-          {menu && menuDoc && (
+          {/* CABANG PREVIEW: Jika sumberView === "preview" dan ada activePreview, tampilkan DocumentPreview */}
+          {sumberView === "preview" && activePreview ? (
+            <DocumentPreview
+              previewData={activePreview}
+              onBack={onClosePreview}
+              accessToken={accessToken}
+            />
+          ) : (
+            /* CABANG DAFTAR UTAMA: Jika mode biasa, tampilkan daftar sumber */
             <>
-              <div className="menu-backdrop" onClick={() => setMenu(null)} />
-              <div
-                className="dropdown-menu dropdown-menu--fixed"
-                role="menu"
-                style={{ top: menu.top, right: menu.right }}
-              >
-                <button type="button" role="menuitem" className="danger" onClick={() => pick(onDelete)}>
-                  <TrashIcon /> Hapus
-                </button>
-                
-                <button type="button" role="menuitem" onClick={() => pick(onRename)}>
-                  <PencilIcon /> Ganti judul
-                </button>
-                
-              </div>
+              <button type="button" className="upload-btn" onClick={() => fileInputRef.current?.click()}>
+                Tambah Sumber +
+              </button>
+              <ul className="source-list" ref={listRef}>
+                {uploads.map((u) => (
+                  <li key={u.id} className="source-item source-item--processing" aria-busy="true">
+                    <FileIcon type={u.type} />
+                    <div className="source-processing">
+                      <span className="source-title" title={u.name}>{u.name}</span>
+                      <div
+                        className="progress"
+                        role="progressbar"
+                        aria-label={`Mengunggah ${u.name}`}
+                        aria-valuemin={0}
+                        aria-valuenow={u.progress}
+                      >
+                        <div className="progress-bar" style={{ width: `${u.progress}%` }} />
+                      </div>
+                    </div>
+                  </li>
+                ))}
+
+                {documents.map((doc) =>
+                  doc.parseStatus === "pending" ? (
+                    <li key={doc.id} className="source-item source-item--processing" aria-busy="true">
+                      <FileIcon type={doc.type} />
+                      <div className="source-processing">
+                        <span className="source-title" title={doc.title}>{doc.title}</span>
+                        <div
+                          className="progress"
+                          role="progressbar"
+                          aria-label={`Mengekstrak teks ${doc.title}`}
+                          aria-valuemin={0}
+                        >
+                          <div className="progress-bar progress-bar--indeterminate" />
+                        </div>
+                      </div>
+                    </li>
+                  ) : (
+                    <li key={doc.id} className="source-item">
+                      <FileIcon type={doc.type} />
+                      <span className="source-title" title={doc.title}>{doc.title}</span>
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        aria-label={`Opsi untuk ${doc.title}`}
+                        aria-haspopup="menu"
+                        aria-expanded={menu?.id === doc.id}
+                        onClick={(e) => toggleMenu(e, doc.id)}
+                      >
+                        ⋮
+                      </button>
+                    </li>
+                  )
+                )}
+              </ul>
+
+              {sourceError && (
+                <p className="source-error" role="alert">
+                  {sourceError.message}
+                </p>
+              )}
+
+              {menu && menuDoc && (
+                <>
+                  <div className="menu-backdrop" onClick={() => setMenu(null)} />
+                  <div
+                    className="dropdown-menu dropdown-menu--fixed"
+                    role="menu"
+                    style={{ top: menu.top, right: menu.right }}
+                  >
+                    <button type="button" role="menuitem" className="danger" onClick={() => pick(onDelete)}>
+                      <TrashIcon /> Hapus
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => pick(onRename)}>
+                      <PencilIcon /> Ganti judul
+                    </button>
+                  </div>
+                </>
+              )}
             </>
           )}
         </>
@@ -2067,7 +2074,7 @@ function ChatMessage({ message, activePreview, onTagClick }) {
                 documentTitle={c.documentTitle}
                 pageStart={c.pageStart}
                 isActive={isActive}
-                onClick={() => onTagClick && onTagClick(c)}
+                onClick={() => onTagClick && onTagClick(c, message._id || message.id)}
               />
             );
           })}
@@ -2110,9 +2117,11 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
   const [activePreview, setActivePreview] = useState(null); // { documentId, documentTitle, fileType, pageStart }
 
   // Handler saat tag [1] diklik di Chat Message
-function handleTagClick(citation) {
-  console.log("Tag diklik, data citation:", citation); // <--- Log 1
+function handleTagClick(citation, messageId) {
+  console.log("Tag diklik:", citation, "Message ID:", messageId);
   setActivePreview({
+    messageId: messageId,
+    citationIndex: citation.citationIndex,
     documentId: citation.documentId || citation.documentTitle,
     documentTitle: citation.documentTitle,
     fileType: citation.fileType,
@@ -2120,7 +2129,6 @@ function handleTagClick(citation) {
   });
   setSumberView("preview");
 
-  // Jika panel sumber sedang terkuncup/collapsed, otomatis perluas
   if (sourcesCollapsed) {
     setSourcesCollapsed(false);
   }
