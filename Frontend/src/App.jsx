@@ -19,8 +19,11 @@ import {
   refreshToken,
   getCurrentUser,
   updateProfile,
+  getChatHistory,
+  sendChatMessage,
 } from "./api";
 import { NotesPanel, useNotes } from "./NotesPanel";
+import ReactMarkdown from "react-markdown";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_RE = /^[a-zA-Z0-9_-]{1,16}$/;
@@ -521,7 +524,13 @@ function Titik3Icon() {
 function ArrowRightIcon() {
   return (
    <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M6.25 15L23.75 15M15 23.75L23.75 15L15 6.25" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" stroke="#1A1C1D"/>
+      <path
+        d="M6.25 15L23.75 15M15 23.75L23.75 15L15 6.25"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        stroke="#1A1C1D"
+      />
     </svg>
 
 
@@ -552,13 +561,19 @@ function formatDate(value) {
 function formatSourceCount(count) {
   if (count === undefined) return "…";
   if (count === null) return "—";
-  return count;
+  return `${count} Sumber`;
 }
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Terbaru ",},
   { value: "az", label: "A-Z",},
 ];
+
+function truncateTitle(title, maxLength = 15) {
+  if (!title) return "";
+  if (title.length <= maxLength) return title;
+  return title.slice(0, maxLength) + "...";
+}
 
 /**
  * Header untuk halaman setelah login.
@@ -1036,7 +1051,7 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
                   >
                     <td>
                       <button type="button" className="row-title">
-                        {nb.title}
+                        {truncateTitle(nb.title, 15)}
                       </button>
                     </td>
                     
@@ -1911,25 +1926,39 @@ function fetchChatHistory() {
 }
 
 function ChatMessage({ message }) {
-  if (message.role === "user") {
+  const isUser = message.role === "user" || message.role === "human";
+
+  if (isUser) {
     return (
       <div className="msg msg-user">
-        <p className="bubble">{message.text}</p>
+        <div className="bubble">
+          <p>{message.content || message.text}</p>
+        </div>
       </div>
     );
   }
 
+  // Tampilan Pesan AI: Polos tanpa bubble dengan sitasi [1]
   return (
     <div className="msg msg-ai">
-      <p>
-        {message.text}
-        {(message.sources || []).map((src, i) => (
-          <span key={`${src}-${i}`} className="source-chip">{src}</span>
+      <div className="ai-text">
+        <ReactMarkdown>{message.content || message.text}</ReactMarkdown>
+
+    {message.citations && message.citations.length > 0 && (
+      <span className="citations-inline">
+        {message.citations.map((c) => (
+          <span key={c.citationIndex} className="citation-badge">
+            [{c.citationIndex}]
+          </span>
         ))}
-      </p>
-    </div>
+      </span>
+    )}
+  </div>
+</div>
   );
 }
+
+const CHAT_SKELETON_WIDTHS = ["100%", "80%", "60%"];
 
 function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEditProfile }) {
   const { toasts, notify, dismiss } = useToasts();
@@ -1940,59 +1969,90 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
   const [renameDoc, setRenameDoc] = useState(null);
   const [deleteDoc, setDeleteDoc] = useState(null);
 
-  // Catatan (panel kanan): data dan auto-save ada di NotesPanel.jsx.
   const notesApi = useNotes({ notebookId: notebook._id, accessToken, notify });
   const [notesCollapsed, setNotesCollapsed] = useState(false);
 
-  // Tombol "Catatan Baru +" di header: buka panel kalau sedang diciutkan, lalu buat catatan.
-  async function handleNewNote() {
-    const created = await notesApi.addNote();
-    if (created) setNotesCollapsed(false); // dibuka setelah catatan jadi, supaya tidak berkedip
-  }
-
+  // --- STATE CHAT AI ---
   const [messages, setMessages] = useState([]);
   const [loadingChat, setLoadingChat] = useState(true);
+  const [sendingChat, setSendingChat] = useState(false);
+  const [chatError, setChatError] = useState("");
   const [draft, setDraft] = useState("");
   const endRef = useRef(null);
 
-  // Input chat hanya aktif kalau ada minimal 1 dokumen yang sudah selesai diproses.
+  // Input chat hanya aktif kalau ada minimal 1 dokumen yang 'done'
   const hasDocuments = documents.some((d) => d.parseStatus === "done");
 
-  // Muat riwayat chat setiap workspace dibuka (termasuk setelah di-refresh).
+  // 1. Load riwayat chat dari backend saat workspace dibuka
   useEffect(() => {
     let cancelled = false;
     setLoadingChat(true);
-    fetchChatHistory()
-      .then((history) => {
-        if (cancelled) return;
-        setMessages(history);
-        setLoadingChat(false);
+    setChatError("");
+
+    getChatHistory(notebook._id, accessToken)
+      .then((data) => {
+        if (!cancelled) {
+          setMessages(data?.messages || []);
+        }
       })
-      .catch(() => {
-        // TODO: tampilan error belum ada di desain. Sementara skeleton dihentikan.
+      .catch((err) => {
+        if (!cancelled) {
+          setChatError(err.message);
+        }
+      })
+      .finally(() => {
         if (!cancelled) setLoadingChat(false);
       });
+
     return () => {
       cancelled = true;
     };
-  }, [notebook._id]);
+  }, [notebook._id, accessToken]);
 
-  // Setiap ada pesan baru (atau loading selesai), gulung otomatis ke bawah.
+  // Scroll otomatis ke bawah saat ada pesan baru
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, loadingChat]);
+  }, [messages, loadingChat, sendingChat]);
 
-  function handleSend(e) {
-    e.preventDefault();
-    if (!hasDocuments) return;
+  // 2. Handler Kirim Pesan Chat AI
+  async function handleSend(e) {
+    if (e) e.preventDefault();
+    if (!hasDocuments || sendingChat) return;
+
     const text = draft.trim();
     if (!text) return;
-    setMessages((list) => [...list, { id: Date.now(), role: "user", text }]);
+
     setDraft("");
-    // TODO (sprint 3): kirim ke endpoint chat, lalu tambahkan balasan AI beserta sitasinya.
+    setChatError("");
+
+    // Optimistic Update: Tampilkan pesan user sementara di UI
+    const tempUserMsg = {
+      _id: `temp-${Date.now()}`,
+      role: "user",
+      content: text,
+      createdAt: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, tempUserMsg]);
+    setSendingChat(true);
+
+    try {
+      const res = await sendChatMessage(notebook._id, text, accessToken);
+      // Ganti pesan temporary dengan data asli user & assistant dari DB backend
+      setMessages((prev) => [
+        ...prev.filter((m) => m._id !== tempUserMsg._id),
+        res.userMessage,
+        res.assistantMessage,
+      ]);
+    } catch (err) {
+      setChatError(err.message);
+      // Hapus pesan temp jika request gagal
+      setMessages((prev) => prev.filter((m) => m._id !== tempUserMsg._id));
+    } finally {
+      setSendingChat(false);
+    }
   }
 
-  // Enter = kirim, Shift+Enter = baris baru.
   function handleKeyDown(e) {
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       handleSend(e);
@@ -2007,7 +2067,10 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
         onEditProfile={onEditProfile}
         profile={profile}
         actions={
-          <button type="button" className="btn-pill" onClick={handleNewNote} disabled={notesApi.creating}>
+          <button type="button" className="btn-pill" onClick={async () => {
+            const created = await notesApi.addNote();
+            if (created) setNotesCollapsed(false);
+          }} disabled={notesApi.creating}>
             Catatan Baru +
           </button>
         }
@@ -2019,7 +2082,7 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
         }`}
         aria-label={`Workspace ${notebook.title}`}
       >
-        {/* Panel kiri: Sumber */}
+        {/* Panel Kiri: Sumber */}
         <SourcesPanel
           collapsed={sourcesCollapsed}
           onToggle={() => setSourcesCollapsed((v) => !v)}
@@ -2032,30 +2095,37 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
           onDelete={setDeleteDoc}
         />
 
-        {/* Panel tengah: Chat AI */}
+        {/* Panel Tengah: Chat AI */}
         <section className="panel panel-chat">
           <h2 className="panel-title">Chat AI</h2>
 
           {loadingChat ? (
             <>
-              {/* Skeleton loading, sesuai gambar desain */}
               <div className="chat-skeleton" role="status" aria-live="polite" aria-busy="true">
                 <p className="chat-skeleton-title">Loading...</p>
                 {SKELETON_LINE_WIDTHS.map((width, i) => (
                   <div key={i} className="skeleton skeleton-line" style={{ width }} />
                 ))}
               </div>
-              <div className="chat-input chat-input--skeleton" aria-hidden="true">
-                <span className="chat-input-icon"><MenuIcon /></span>
-                <span className="chat-input-icon"><ArrowRightIcon /></span>
-              </div>
             </>
           ) : (
             <>
               <div className="chat-messages" role="log">
                 {messages.map((m) => (
-                  <ChatMessage key={m.id} message={m} />
+                  <ChatMessage key={m._id || m.id} message={m} />
                 ))}
+                {/* Item sementara saat AI sedang memproses jawaban */}
+                {sendingChat && (
+                  <div className="chat-sending-wrapper">
+                    <p className="chat-loading-text">Loading...</p>
+                    <div className="chat-skeleton" role="status" aria-live="polite" aria-busy="true">
+                      {CHAT_SKELETON_WIDTHS.map((width, i) => (
+                        <div key={i} className="skeleton-bar" style={{ width }} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {chatError && <div className="source-error" role="alert">{chatError}</div>}
                 <div ref={endRef} />
               </div>
 
@@ -2068,15 +2138,18 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  disabled={!hasDocuments}
-                  // placeholder="Tulis pesan..."
-                  // aria-label="Tulis pesan"
+                  disabled={!hasDocuments || sendingChat}
+                  placeholder={
+                    !hasDocuments
+                      ? "Unggah & tunggu dokumen selesai diproses..."
+                      : "Tanyakan sesuatu tentang dokumen ini..."
+                  }
                 />
                 <button
                   type="submit"
                   className="send-btn"
                   aria-label="Kirim pesan"
-                  disabled={!hasDocuments || !draft.trim()}
+                  disabled={!hasDocuments || !draft.trim() || sendingChat}
                 >
                   <ArrowRightIcon />
                 </button>
@@ -2085,7 +2158,7 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
           )}
         </section>
 
-        {/* Panel kanan: Catatan */}
+        {/* Panel Kanan: Catatan */}
         <NotesPanel
           notes={notesApi}
           collapsed={notesCollapsed}
@@ -2094,8 +2167,8 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
         />
       </main>
 
+      {/* Dialog & Toast */}
       {previewDoc && <PreviewDialog doc={previewDoc} onClose={() => setPreviewDoc(null)} />}
-
       {renameDoc && (
         <RenameDocumentDialog
           doc={renameDoc}
@@ -2103,10 +2176,9 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
           onRename={renameDocument}
         />
       )}
-
       {deleteDoc && (
         <ConfirmDeleteDialog
-          message="Apakah Anda yakin ingin menghapus sumber ini? Sumber ini akan dihapus secara permanen. Anda tidak dapat memulihkannya"
+          message="Apakah Anda yakin ingin menghapus sumber ini? Sumber ini akan dihapus secara permanen."
           onCancel={() => setDeleteDoc(null)}
           onConfirm={async () => {
             await removeDocument(deleteDoc.id);
@@ -2114,7 +2186,6 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
           }}
         />
       )}
-
       <ToastStack toasts={toasts} onDismiss={dismiss} />
     </div>
   );

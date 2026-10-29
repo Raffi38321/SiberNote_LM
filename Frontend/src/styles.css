@@ -465,6 +465,30 @@ body {
   vertical-align: middle;
 }
 
+.notebooks-table th:nth-child(1),
+.notebooks-table td:nth-child(1) {
+  width: 45%; /* Kolom Judul lebih lebar */
+  text-align: left;
+}
+
+.notebooks-table th:nth-child(2),
+.notebooks-table td:nth-child(2) {
+  width: 25%; /* Kolom Sumber */
+  text-align: left;
+}
+
+.notebooks-table th:nth-child(3),
+.notebooks-table td:nth-child(3) {
+  width: 25%; /* Kolom Tanggal Dibuat */
+  text-align: left;
+}
+
+.notebooks-table th:nth-child(4),
+.notebooks-table td:nth-child(4) {
+  width: 5%;  /* Kolom Aksi (Titik tiga & Pin) */
+  text-align: right;
+}
+
 .notebooks-table-actions {
   text-align: right;
   width: auto;
@@ -569,6 +593,72 @@ body {
 }
 
 /* ----- Chat AI ----- */
+/* Container Pesan AI: Tanpa background & padding bubble */
+.msg-ai {
+  align-self: flex-start;
+  width: 100%;
+  background: transparent;
+  padding: 0;
+  margin-top: 12px;
+  margin-bottom: 20px;
+}
+
+.msg-ai .ai-text {
+  color: #e0e0e0;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+  display: inline;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Container Lencana Sitasi */
+.citations-inline {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* Badge Sitasi Bulat (Angka 1) */
+/* Badge Sitasi Kotak ([1]) */
+.citation-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 3px;
+  border-radius: 4px;        /* Sudut membulat kecil untuk bentuk kotak */
+  background-color: #1a1c1d; /* Warna background gelap */
+  color: #cecece;            /* Warna teks angka */
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.citation-badge:hover {
+  background-color: #3e3e3e;
+  color: #ffffff;
+}
+
+/* Pesan User: Tetap menggunakan bubble di kanan */
+.msg-user {
+  align-self: flex-end;
+  margin-bottom: 16px;
+}
+
+.msg-user .bubble {
+  background-color: #242424;
+  color: #ffffff;
+  padding: 10px 18px;
+  border-radius: 20px;
+  font-size: 14px;
+  max-width: 80%;
+}
+
 .chat-messages {
   flex: 1;
   min-height: 0;
@@ -654,6 +744,53 @@ body {
 
 .chat-input textarea::placeholder {
   color: var(--text-muted);
+}
+
+/* Container item sementara saat mengirim pesan */
+.chat-sending-wrapper {
+  align-self: flex-start;
+  width: 100%;
+  margin-top: 12px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Teks Loading... di atas bar kerangka */
+.chat-loading-text {
+  font-size: 13px;
+  color: #a0a0a0;
+  margin: 0;
+}
+
+/* Pembungkus 3 bar kerangka */
+.chat-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+/* 3 Bar Kerangka Abu-abu (Tinggi 12px, Sudut Membulat) */
+.skeleton-bar {
+  height: 12px;
+  background-color: #2a2a2a; /* Warna abu-abu kerangka */
+  border-radius: 6px;       /* Sudut membulat */
+  animation: skeleton-pulse 1.5s infinite ease-in-out;
+}
+
+/* Animasi kedip pelan saat memuat */
+@keyframes skeleton-pulse {
+  0% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0.4;
+  }
 }
 
 .send-btn {

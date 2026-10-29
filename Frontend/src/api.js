@@ -258,3 +258,39 @@ export function updateNote(notebookId, noteId, { title, content }, accessToken) 
 export function deleteNote(notebookId, noteId, accessToken) {
   return request(`/notes/${notebookId}/${noteId}`, { method: "DELETE", accessToken });
 }
+
+/** Mengambil riwayat percakapan chat AI dalam notebook */
+export async function getChatHistory(notebookId, accessToken) {
+  const res = await fetch(`${BASE_URL}/chats/${notebookId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new ApiError(data.message || "Gagal memuat riwayat chat", res.status);
+  return data.data; // mengembalikan { messages: [...] }
+}
+
+/** Mengirim pesan baru ke AI */
+export async function sendChatMessage(notebookId, message, accessToken) {
+  const res = await fetch(`${BASE_URL}/chats/${notebookId}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ message }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    if (res.status === 422) {
+      throw new ApiError(
+        "Dokumen belum siap. Tunggu hingga dokumen selesai diproses (parseStatus: done).",
+        422
+      );
+    }
+    throw new ApiError(data.message || "Gagal mengirim pesan ke AI", res.status);
+  }
+  return data.data; // mengembalikan { userMessage, assistantMessage }
+}
