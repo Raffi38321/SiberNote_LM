@@ -1199,7 +1199,7 @@ Chat berjalan langsung di level notebook — tidak ada manajemen sesi. Setiap no
 Mengambil seluruh riwayat percakapan pada notebook, diurutkan dari yang paling lama.
 
 ```
-GET /chat/:notebookId
+GET /chats/:notebookId
 ```
 
 **URL Params**
@@ -1270,7 +1270,7 @@ GET /chat/:notebookId
 Endpoint utama RAG — menerima pertanyaan user, menjalankan pipeline RAG, dan mengembalikan jawaban Gemini beserta citations.
 
 ```
-POST /chat/:notebookId
+POST /chats/:notebookId
 ```
 
 **URL Params**

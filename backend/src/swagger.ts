@@ -812,7 +812,7 @@ const options: swaggerJSDoc.Options = {
             // ═══════════════════════════════════════════════════════════════
             // CHAT AI
             // ═══════════════════════════════════════════════════════════════
-            "/chat/{notebookId}": {
+            "/chats/{notebookId}": {
                 get: {
                     tags: ["Chat AI"],
                     summary: "Get riwayat percakapan notebook",
