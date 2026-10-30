@@ -441,14 +441,21 @@ const options: swaggerJSDoc.Options = {
                 },
                 get: {
                     tags: ["Notebooks"],
-                    summary: "Get semua notebook milik user (dengan pagination)",
+                    summary: "Get semua notebook milik user (dengan pagination & search)",
                     security: [{ bearerAuth: [] }],
                     parameters: [
                         {
                             in: "query",
                             name: "page",
-                            schema: { type: "integer", default: 1 },
-                            description: "Nomor halaman, limit 10 per halaman",
+                            required: true,
+                            schema: { type: "integer", minimum: 1, default: 1 },
+                            description: "Nomor halaman, minimal 1, limit 10 per halaman",
+                        },
+                        {
+                            in: "query",
+                            name: "title",
+                            schema: { type: "string" },
+                            description: "Filter notebook berdasarkan judul (case-insensitive, partial match)",
                         },
                     ],
                     responses: {
@@ -460,7 +467,7 @@ const options: swaggerJSDoc.Options = {
                                         type: "object",
                                         properties: {
                                             status: { type: "string", example: "success" },
-                                            message: { type: "string" },
+                                            message: { type: "string", example: "berhasil mendapatkan semua notebook user" },
                                             data: {
                                                 type: "object",
                                                 properties: {
@@ -473,6 +480,7 @@ const options: swaggerJSDoc.Options = {
                                 },
                             },
                         },
+                        400: { description: "page kurang dari 1", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
                         401: { description: "Tidak terautentikasi", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
                         500: { description: "Kesalahan server", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
                     },
