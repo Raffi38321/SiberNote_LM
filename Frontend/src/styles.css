@@ -624,7 +624,7 @@ body {
 .citations-wrapper {
   display: flex;
   flex-wrap: wrap;        /* Turun baris bila tidak muat */
-  gap: 8px;               /* Jarak antar tag 8px */
+  gap: 5px;               /* Jarak antar tag 8px */
   margin-top: 10px;       /* Jarak terpisah di bawah teks jawaban */
 }
 
@@ -634,12 +634,12 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 3px 8px;
+  padding: 6px 6px;
   border-radius: 4px;        /* Sudut membulat kecil untuk bentuk kotak */
   background-color: #1a1c1d; /* Warna background gelap */
   color: #cecece;            /* Warna teks angka */
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
   line-height: 1;
   border: none;
   cursor: pointer;
@@ -648,7 +648,7 @@ body {
 }
 
 .citation-badge:hover {
-  background-color: #3e3e3e;
+  background-color: #1a1c1d; /* Tetap gelap saat hover */
   color: #ffffff;
 }
 
@@ -675,6 +675,42 @@ body {
   flex-direction: column;
   gap: 18px;
   padding: 4px 4px 12px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.chat-messages::-webkit-scrollbar {
+  width: 5px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+.chat-menu-btn {
+  background: transparent !important; /* Menghapus latar belakang kotak abu-abu */
+  border: none !important;             /* Menghapus border bawaan button */
+  outline: none;
+  padding: 0;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  width: 30px;                        /* Sesuaikan dengan lebar SVG (30px) */
+  height: 30px;                       /* Sesuaikan dengan tinggi SVG (30px) */
+  border-radius: 50%;                 /* Area interaktif berbentuk lingkaran */
+  overflow: hidden;                   /* Mencegah overflow visual */
 }
 
 .msg-user {
@@ -712,17 +748,17 @@ body {
 
 .chat-input {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 10px;
   margin: 8px 16px 0;
-  padding: 12px 14px;
+  padding: 6px 14px;
   background: var(--bg);
   border-radius: 100px;
 }
 
-.chat-input:focus-within {
+/* .chat-input:focus-within {
   box-shadow: 0 0 0 1px var(--border-focus);
-}
+} */
 
 .chat-input.is-disabled {
   background: var(--surface);
@@ -824,15 +860,70 @@ body {
 }
 
 /* Styling Tag Rujukan Aktif (Desain 38a) */
-.tag-rujukan.is-active {
-  background-color: var(--link); /* Menggunakan warna highlight/link */
+/* .tag-rujukan.is-active {
+  background-color: var(--link); 
   color: #ffffff;
   font-weight: 600;
   box-shadow: 0 0 0 1px var(--link);
-}
+} */
 
 /* Container Pratinjau Dokumen di Panel Sumber */
-.source-preview-wrap {
+/* Container Utama Preview Sumber */
+.source-preview-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 8px 12px 0;
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+/* Kustomisasi Webkit (Chrome, Safari, Edge) */
+.source-preview-container::-webkit-scrollbar {
+  width: 5px;
+}
+
+.source-preview-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.source-preview-container::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+.source-preview-container::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Judul File Dokumen (misal: Basis Data.pdf) */
+.source-preview-doc-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #e5e7eb;
+  margin: 0;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+/* Label Halaman */
+.source-preview-page-info {
+  font-size: 0.95rem;
+  color: #9ca3af;
+  margin-bottom: 4px;
+}
+
+/* Teks Isian Dokumen dengan Tanda Petik */
+.source-preview-quote {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #d1d5db;
+  white-space: pre-line;
+  word-break: break-word;
+}
+/* .source-preview-wrap {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -879,7 +970,7 @@ body {
   line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
+} */
 
 /* ----- Skeleton loading (panel Chat AI) ----- */
 .chat-skeleton {
@@ -1482,6 +1573,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
 .notes-empty {
@@ -1835,6 +1928,42 @@ body {
   align-items: center;
   gap: 10px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.panel-rail::-webkit-scrollbar {
+  width: 5px;
+}
+
+.panel-rail::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.panel-rail::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+.note-list::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+.panel-rail::-webkit-scrollbar {
+  width: 5px;
+}
+
+.panel-rail::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.panel-rail::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+.panel-rail::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.4);
 }
 
 .rail-add {
@@ -1939,6 +2068,42 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.note-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.note-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.note-list::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+.note-list::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+.note-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.note-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.note-list::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+.note-list::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.4);
 }
 
 .note-open-icon {

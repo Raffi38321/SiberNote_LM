@@ -526,8 +526,8 @@ function ArrowRightIcon() {
   return (
    <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
-        d="M6.25 15L23.75 15M15 23.75L23.75 15L15 6.25"
-        strokeWidth="3.5"
+        d="M2 15H19.5M11 9.5L20 15L11 21"
+        strokeWidth="2.8"
         strokeLinecap="round"
         strokeLinejoin="round"
         stroke="#1A1C1D"
@@ -546,6 +546,7 @@ function MenuIcon() {
       <rect x="4.5" y="18.8999" width="21" height="2.1" fill="#1A1C1D"/>
       <rect x="4.5" y="13.7998" width="21" height="2.1" fill="#1A1C1D"/>
     </svg>
+
 
   );
 }
@@ -1624,10 +1625,55 @@ function PlusIcon() {
   );
 }
 
+function ClosePreviewIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="6.81836" y="8.18188" width="6.81818" height="1.36364" transform="rotate(90 6.81836 8.18188)" fill="#CECECE"/>
+      <rect y="8.18188" width="6.81818" height="1.36364" fill="#CECECE"/>
+      <rect x="8.18164" y="6.81812" width="6.81818" height="1.36364" transform="rotate(-90 8.18164 6.81812)" fill="#CECECE"/>
+      <rect x="15" y="6.81812" width="6.81818" height="1.36364" transform="rotate(-180 15 6.81812)" fill="#CECECE"/>
+    </svg>
+
+  );
+}
+
 function DocumentPreview({ previewData, onBack, accessToken }) {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+
+  const cleanTitle = (title) => {
+    if (!title) return "";
+    return title.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+  };
+
+  // Helper untuk merapikan baris/poin teks dari backend
+  const formatDocumentContent = (text) => {
+    if (!text) return "";
+
+    // 1. Bersihkan spasi berlebih per baris
+    let lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+
+    let formattedParagraphs = [];
+    let temp = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Jika baris berisi angka urutan (misal "1", "2", "3") dan baris berikutnya adalah judul poin (misal "SaaS")
+      if (/^\d+$/.test(line) && lines[i + 1]) {
+        // Gabungkan angka dengan judul poinnya, contoh: "1. SaaS"
+        temp.push(`\n${line}. ${lines[i + 1]}`);
+        i++; // lewati baris berikutnya karena sudah digabung
+      } else {
+        temp.push(line);
+      }
+    }
+
+    return temp.join("\n");
+  };
+
 
   useEffect(() => {
     let cancelled = false;
@@ -1637,9 +1683,8 @@ function DocumentPreview({ previewData, onBack, accessToken }) {
     fetchDocumentContent(previewData.messageId, previewData.citationIndex, accessToken)
       .then((res) => {
         if (!cancelled) {
-          // Mengambil chunkContent sesuai struktur JSON response dari backend
           const textContent = res?.data?.citation?.chunkContent || "Isi dokumen tidak tersedia.";
-          setContent(textContent);
+          setContent(formatDocumentContent(textContent));
         }
       })
       .catch((err) => {
@@ -1657,37 +1702,26 @@ function DocumentPreview({ previewData, onBack, accessToken }) {
   }, [previewData.messageId, previewData.citationIndex, accessToken]);
 
   return (
-    <div className="source-preview-wrap">
-      {/* Header Pratinjau */}
-      <div className="source-preview-head">
-        <h3 className="source-preview-title" title={previewData.documentTitle}>
-          {previewData.documentTitle}
-        </h3>
-        <button
-          type="button"
-          className="icon-btn"
-          onClick={onBack}
-          aria-label="Kembali ke daftar dokumen"
-          title="Kembali ke daftar dokumen"
-        >
-          ✕
-        </button>
-      </div>
+    <div className="source-preview-container">
+      {/* Judul Dokumen */}
+      <h3 className="source-preview-doc-title" title={previewData.documentTitle}>
+        {cleanTitle(previewData.documentTitle)}
+      </h3>
 
-      {/* Sub-header Label Halaman */}
-      <div className="source-preview-page-label">
+      {/* Info Halaman */}
+      <div className="source-preview-page-info">
         Halaman {previewData.pageStart || 1}
       </div>
 
-      {/* Area Teks Dokumen */}
-      <div className="source-preview-body">
+      {/* Teks Isi Dokumen */}
+      <div className="source-preview-content">
         {loading ? (
           <p className="empty-state">Memuat isi halaman...</p>
         ) : error ? (
           <p className="msg-error">{error}</p>
         ) : (
-          <div className="source-preview-text" style={{ whiteSpace: "pre-line" }}>
-            {content}
+          <div className="source-preview-quote">
+            "{content}"
           </div>
         )}
       </div>
@@ -1712,6 +1746,8 @@ function SourcesPanel({
   const fileInputRef = useRef(null);
   const listRef = useRef(null);
   const [menu, setMenu] = useState(null); // { id, top, right }
+
+  const isPreviewMode = !collapsed && sumberView === "preview" && activePreview;
 
   // Saat ada file baru dikirim, gulung daftar ke atas supaya progress bar-nya terlihat.
   useEffect(() => {
@@ -1756,11 +1792,15 @@ function SourcesPanel({
         <button
           type="button"
           className="panel-toggle"
-          onClick={onToggle}
-          aria-label={collapsed ? "Perluas panel Sumber" : "Ciutkan panel Sumber"}
+          onClick={isPreviewMode ? onClosePreview : onToggle}
+          aria-label={isPreviewMode
+              ? "Tutup pratinjau dokumen"
+              : collapsed
+              ? "Perluas panel Sumber"
+              : "Ciutkan panel Sumber"}
           aria-expanded={!collapsed}
         >
-          <ToggleSidebarIcon />
+          {isPreviewMode ? <ClosePreviewIcon /> : <ToggleSidebarIcon />}
         </button>
       </div>
 
@@ -1817,7 +1857,7 @@ function SourcesPanel({
       {!collapsed && (
         <>
           {/* CABANG PREVIEW: Jika sumberView === "preview" dan ada activePreview, tampilkan DocumentPreview */}
-          {sumberView === "preview" && activePreview ? (
+          {isPreviewMode? (
             <DocumentPreview
               previewData={activePreview}
               onBack={onClosePreview}
@@ -2016,7 +2056,7 @@ function TagRujukan({ nomor, documentTitle, pageStart, isActive, onClick }) {
   return (
     <button
       type="button"
-      className={`tag-rujukan${isActive ? " is-active" : ""}`}
+      className={`citation-badge${isActive ? " is-active" : ""}`}
       onClick={onClick}
       title={`${documentTitle} (Halaman ${pageStart})`}
     >
@@ -2299,16 +2339,23 @@ function handleClosePreview() {
                 className={`chat-input${hasDocuments ? "" : " is-disabled"}`}
                 onSubmit={handleSend}
               >
+                <button
+                  type="button"
+                  className="chat-menu-btn"
+                  aria-label="Opsi obrolan"
+                  title="Opsi obrolan"
+                ><MenuIcon/></button>
+
                 <textarea
                   rows={1}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  disabled={!hasDocuments || sendingChat}
+                  disabled={sendingChat}
                   placeholder={
                     !hasDocuments
-                      ? "Unggah & tunggu dokumen selesai diproses..."
-                      : "Tanyakan sesuatu tentang dokumen ini..."
+                      ? " "
+                      : " "
                   }
                 />
                 <button
