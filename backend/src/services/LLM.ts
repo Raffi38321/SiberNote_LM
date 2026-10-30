@@ -135,9 +135,9 @@ const parseCitations = (
 
 /**
  * Tentukan sourceType dari jawaban dan citations.
- * - "document" → ada citation dari dokumen, tidak ada [AI]
+ * - "document" → ada citation dari dokumen
  * - "ai"       → tidak ada citation dokumen sama sekali, jawaban dari pengetahuan AI
- * - "mixed"    → ada citation dokumen DAN ada [AI]
+ * - "mixed"    → ada citation dokumen DAN ada AI
  */
 const determineSourceType = (
     responseText: string,

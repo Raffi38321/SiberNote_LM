@@ -9,7 +9,7 @@ import { askLLM } from "../services/LLM.js"
 import type { RetrievedChunk, ChatHistoryEntry } from "../services/LLM.js"
 
 const HISTORY_LIMIT = 4
-const TOP_K = 8
+const TOP_K = 5
 const NUM_CANDIDATES = 100
 
 const vectorSearch = async (
@@ -112,7 +112,7 @@ export const sendMessage = async (req: Request, res: Response) => {
         const queryVector = await generateQueryEmbedding(message)
 
         const chunks = await vectorSearch(queryVector, documentIds)
-
+        console.log(chunks);
         const llmResult = await askLLM(message, chunks, history)
 
         const assistantMessage = await Message.create({
