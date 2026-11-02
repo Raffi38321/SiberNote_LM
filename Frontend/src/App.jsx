@@ -170,6 +170,29 @@ function PasswordInput({ id, error, describedBy, ...props }) {
   );
 }
 
+function ButtonSpinner() {
+  return (
+    <>
+      <svg className="btn-spinner" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+          <line
+            key={i}
+            x1="12"
+            y1="2.5"
+            x2="12"
+            y2="6.5"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            opacity={1 - i * 0.12}
+            transform={`rotate(${i * 45} 12 12)`}
+          />
+        ))}
+      </svg>
+    </>
+  );
+}
+
 /* ---------- Halaman Login (terhubung ke POST /user/login) ---------- */
 
 /** Validasi satu kolom Login. Mengembalikan pesan error, atau "" kalau valid. */
@@ -267,7 +290,8 @@ function LoginPage({ goRegister, notice, onLoginSuccess }) {
         </Field>
 
         <button className="btn" type="submit" disabled={loading}>
-          {loading ? "Memproses..." : "Login"}
+          <span>Login</span>
+          {loading && <ButtonSpinner />}
         </button>
       </form>
       <p className="switch">
@@ -413,7 +437,8 @@ function RegisterPage({ goLogin, onRegistered }) {
         </Field>
 
         <button className="btn" type="submit" disabled={loading}>
-          {loading ? "Memproses..." : "Register"}
+          <span>Register</span>
+          {loading && <ButtonSpinner />}
         </button>
       </form>
       <p className="switch">
@@ -894,17 +919,19 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
   }
 
   // 1. Perbarui fungsi loadNotebooks agar menerima parameter page & search
-  async function loadNotebooks(currentPage = page, currentSearch = search) {
-    setLoadingList(true);
+  async function loadNotebooks(currentPage = page, currentSearch = search, { silent = false } = {}) {
+    if (!silent) setLoadingList(true);
     setListError("");
     try {
       // Panggil getNotebooks dengan menyertakan page & search (title)
       const data = await getNotebooks(accessToken, { 
         page: currentPage, 
-        search: currentSearch 
+        search: currentSearch,
+         sort: sortBy
       });
       
       const list = data?.notebooks || [];
+      console.table(list.map(({ title, isPinned, createdAt, updatedAt }) => ({ title, isPinned, createdAt, updatedAt })));
       setNotebooks(list);
 
       // Simpan objek pagination dari backend ke state
@@ -915,7 +942,10 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
       loadSourceCounts(list);
     } catch (err) {
       // Pemicu Toast Notification sesuai requirement TC-DSGN-NOTE-EDGE-13
-      notify("Gagal memuat catatan, silakan coba lagi", "error");
+      const errorMessage = !navigator.onLine
+        ? "Koneksi terputus. Silakan periksa jaringan internet Anda."
+        : err.message || "Gagal memuat catatan, silakan coba lagi";
+      notify(errorMessage, "error");
       setListError(err.message);
     } finally {
       setLoadingList(false);
@@ -964,12 +994,8 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
   }
 
   async function handleCreate(title) {
-    // Backend mewajibkan description, sedangkan popup di desain hanya punya kolom judul.
-    // Sementara description diisi sama dengan judul.
-    // TODO: konfirmasi ke tim backend/designer (jadikan description opsional, atau tambah kolomnya).
     const data = await createNotebook({ title, description: title }, accessToken);
     if (data?.notebook) {
-      // Setelah dibuat, langsung buka workspace-nya. Daftar dimuat ulang saat kembali ke dashboard.
       onOpenNotebook(data.notebook);
     } else {
       await loadNotebooks();
@@ -982,9 +1008,12 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
     setPinningId(notebook._id);
     setListError("");
     try {
-      const data = await togglePinNotebook(notebook._id, pinned, accessToken);
-      const updated = data?.notebook ?? { isPinned: pinned };
-      setNotebooks((list) => list.map((nb) => (nb._id === notebook._id ? { ...nb, ...updated } : nb)));
+      await togglePinNotebook(notebook._id, pinned, accessToken);
+      if (pinned && page !== 1) {
+        setPage(1); // catatan yang disematkan ada di halaman 1: pindah ke sana (efek [page] memuat ulang)
+      } else {
+        await loadNotebooks(page, search, { silent: true });
+      }
     } catch (err) {
       setListError(err.message);
     } finally {
@@ -1011,7 +1040,6 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
     });
 
   const sortLabel = SORT_OPTIONS.find((o) => o.value === sortBy).label;
-  console.log(pagination)
 
     return (
     <>
@@ -1025,7 +1053,7 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
             <SearchIcon />
             <input
               className="search-input"
-              type="search"
+              type="text"
               placeholder="Cari catatan..."
               value={search}
               onChange={handleSearchChange}
@@ -1061,8 +1089,7 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
                         role="menuitemradio"
                         aria-checked={sortBy === opt.value}
                         className={sortBy === opt.value ? "is-active" : ""}
-                        onClick={() => { setSortBy(opt.value); setSortOpen(false); }}
-                      >
+                        onClick={() => { setSortBy(opt.value); setSortOpen(false); }}>
                         {opt.label}
                       </button>
                     ))}
@@ -1078,7 +1105,7 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
               </span>
             )}
 
-          {listError && <ErrorSummary messages={[listError]} />}
+          {/* {listError && <ErrorSummary messages={[listError]} />} */}
 
           {loadingList ? (
             <p className="empty-state">Memuat catatan...</p>
@@ -1237,7 +1264,7 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
           }}
         />
       )}
-      <ToastStack toasts={toasts} onDismiss={dismiss} />
+      <ToastStack toasts={toasts} onDismiss={dismiss} /> {/*error toast yang ada di pojok kanan atas menutupi profile*/}
     </>
   );
 }
@@ -2205,7 +2232,7 @@ function ChatMessage({ message, activePreview, onTagClick }) {
 
 const CHAT_SKELETON_WIDTHS = ["100%", "80%", "60%"];
 
-function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEditProfile }) {
+function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEditProfile, onNotebookUpdate, onOpenNotebook }) {
   const { toasts, notify, dismiss } = useToasts();
   const { documents, uploads, sourceError, addFile, renameDocument, removeDocument } =
     useSources({ notebookId: notebook._id, accessToken });
@@ -2216,12 +2243,13 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
 
   const notesApi = useNotes({ notebookId: notebook._id, accessToken, notify });
   const [notesCollapsed, setNotesCollapsed] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   // --- STATE CHAT AI ---
   const [messages, setMessages] = useState([]);
   const [loadingChat, setLoadingChat] = useState(true);
   const [sendingChat, setSendingChat] = useState(false);
-  const [chatError, setChatError] = useState("");
+  const [chatError, setChatError] = useState("Gagal");
   const [draft, setDraft] = useState("");
   const endRef = useRef(null);
 
@@ -2234,7 +2262,6 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
 
   // Handler saat tag [1] diklik di Chat Message
 function handleTagClick(citation, messageId) {
-  console.log("Tag diklik:", citation, "Message ID:", messageId);
   setActivePreview({
     messageId: messageId,
     citationIndex: citation.citationIndex,
@@ -2249,6 +2276,15 @@ function handleTagClick(citation, messageId) {
     setSourcesCollapsed(false);
   }
 }
+
+async function handleCreate(title) {
+    const data = await createNotebook({ title, description: title }, accessToken);
+    if (data?.notebook) {
+      onOpenNotebook(data.notebook);
+    } else {
+      await loadNotebooks();
+    }
+  }
 
 // Handler saat tombol kembali di pratinjau diklik
 function handleClosePreview() {
@@ -2340,13 +2376,10 @@ function handleClosePreview() {
         onEditProfile={onEditProfile}
         profile={profile}
         actions={
-          <button type="button" className="btn-pill" onClick={async () => {
-            const created = await notesApi.addNote();
-            if (created) setNotesCollapsed(false);
-          }} disabled={notesApi.creating}>
+          <button type="button" className="btn-pill" onClick={() => setCreateOpen(true)}>
             Catatan Baru +
           </button>
-        }
+        }   
       />
 
       <main
@@ -2407,7 +2440,7 @@ function handleClosePreview() {
                     </div>
                   </div>
                 )}
-                {chatError && <div className="source-error" role="alert">{chatError}</div>}
+                {chatError && <div className="source-error" role="alert">{chatError}</div>} {/* Pesan error saat mengirim chat */}
                 <div ref={endRef} />
               </div>
 
@@ -2457,6 +2490,16 @@ function handleClosePreview() {
       </main>
 
       {/* Dialog & Toast */}
+      {createOpen && (
+        <CreateNotebookDialog
+          onClose={() => setCreateOpen(false)}
+          onCreate={async (title, description) => {
+            await handleCreate(title);
+            setCreateOpen(false);
+          }}
+        />
+      )}
+
       {previewDoc && <PreviewDialog doc={previewDoc} onClose={() => setPreviewDoc(null)} />}
       {renameDoc && (
         <RenameDocumentDialog
@@ -2475,7 +2518,7 @@ function handleClosePreview() {
           }}
         />
       )}
-      <ToastStack toasts={toasts} onDismiss={dismiss} />
+      <ToastStack toasts={toasts} onDismiss={dismiss} /> {/* ToastStack menampilkan notifikasi di pojok kanan bawah */}
     </div>
   );
 }
@@ -2936,9 +2979,11 @@ export default function App() {
     if (view === "workspace" && accessToken && activeNotebook) {
       return (
         <WorkspacePage
+          key={activeNotebook._id} 
           notebook={activeNotebook}
           accessToken={accessToken}
           profile={profile}
+          onOpenNotebook={handleOpenNotebook} 
           onBack={handleBackToDashboard}
           onLogout={handleLogout}
           onEditProfile={handleEditProfile}

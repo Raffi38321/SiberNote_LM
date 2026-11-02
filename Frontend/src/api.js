@@ -164,10 +164,10 @@ export function createNotebook({ title, description }, accessToken) {
   return request("/notebooks", { method: "POST", body: { title, description }, accessToken });
 }
 
-export function getNotebooks(accessToken, { page = 1, search = "" } = {}) {
-  const query = new URLSearchParams({ page });
+export function getNotebooks(accessToken, { page = 1, search = "", sort = "newest" } = {}) {
+  const query = new URLSearchParams({ page, sort });
   if (search.trim()) query.append("title", search.trim());
-  
+
   return request(`/notebooks?${query.toString()}`, { accessToken });
 }
 
