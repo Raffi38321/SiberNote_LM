@@ -33,16 +33,27 @@ export const createNotebook = async (req: Request, res: Response) => {
 export const getAllNotebookUser = async (req: Request, res: Response) => {
   try {
     const userId = req.userId;
+    const sortBy = req.query.sortBy;
+
+const sort: Record<string, 1 | -1> = {
+  isPinned: -1,
+};
+
+if (sortBy === "title") {
+  sort.title = 1; 
+} else {
+  sort.createdAt = -1; 
+}
 
     if (!userId) {
       return response.userError(res, "tidak terautentikasi");
     }
     const limit = 10;
 
-    const pageQuery = Number(req.query.page);
-    const page = Number(pageQuery);
-    if (pageQuery <= 0) {
-      return response.userError(res, "bilangan bulat, minimal 1", 400);
+    const page = Number(req.query.page ?? 1);
+
+    if (!Number.isInteger(page) || page < 1) {
+      return response.userError(res, "halaman harus bilangan bulat minimal 1", 400);
     }
 
     const skip = (page - 1) * limit;
@@ -60,10 +71,7 @@ export const getAllNotebookUser = async (req: Request, res: Response) => {
     const count = await Notebook.countDocuments(filter);
 
     const notebooks = await Notebook.find(filter)
-      .sort({
-        isPinned: -1,
-        createdAt: -1,
-      })
+      .sort(sort)
       .populate({
         path: "jumlah_sumber",
         select: "-fileUrl",

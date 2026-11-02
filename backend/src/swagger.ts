@@ -457,6 +457,12 @@ const options: swaggerJSDoc.Options = {
                             schema: { type: "string" },
                             description: "Filter notebook berdasarkan judul (case-insensitive, partial match)",
                         },
+                        {
+                            in: "query",
+                            name: "sortBy",
+                            schema: { type: "string", enum: ["title", "createdAt"], default: "createdAt" },
+                            description: "Urutan hasil: `title` = A–Z, `createdAt` = terbaru (default). Pinned notebook selalu di atas.",
+                        },
                     ],
                     responses: {
                         200: {
@@ -480,7 +486,7 @@ const options: swaggerJSDoc.Options = {
                                 },
                             },
                         },
-                        400: { description: "page kurang dari 1", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        400: { description: "page kurang dari 1 atau bukan bilangan bulat", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
                         401: { description: "Tidak terautentikasi", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
                         500: { description: "Kesalahan server", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
                     },
