@@ -62,7 +62,7 @@ export const getAllNotebookUser = async (req: Request, res: Response) => {
     const notebooks = await Notebook.find(filter)
       .sort({
         isPinned: -1,
-        updatedAt: -1,
+        createdAt: -1,
       })
       .populate({
         path: "jumlah_sumber",
