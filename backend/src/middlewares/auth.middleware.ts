@@ -7,14 +7,14 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
     const authHeader = req.headers.authorization
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        response.userError(res, "Sesi Anda telah berakhir, silakan login kembali")
+        response.userError(res, "Sesi Anda telah berakhir, silakan login kembali",401)
         return
     }
 
     const token = authHeader.split(" ")[1]
 
     if (!token) {
-        response.userError(res, "Sesi Anda telah berakhir, silakan login kembali")
+        response.userError(res, "Sesi Anda telah berakhir, silakan login kembali",401)
         return
     }
 
@@ -22,14 +22,14 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
         const decoded = jwt.verify(token, envVariable.JWT_KEY) as JwtPayload
 
         if (typeof decoded.userId !== "string") {
-            response.userError(res, "Sesi Anda telah berakhir, silahkan login kembali")
+            response.userError(res, "Sesi Anda telah berakhir, silahkan login kembali",401)
             return
         }
 
         req.userId = decoded.userId
         next()
     } catch (error) {
-        response.userError(res, "token tidak valid atau sudah expired")
+        response.userError(res, "Sesi Anda telah berakhir, silahkan login kembali",401)
         return
     }
 }
