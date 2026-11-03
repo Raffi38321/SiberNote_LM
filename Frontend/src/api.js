@@ -165,10 +165,9 @@ export function createNotebook({ title, description }, accessToken) {
 }
 
 export function getNotebooks(accessToken, { page = 1, search = "", sort = "newest" } = {}) {
-  const query = new URLSearchParams({ page, sort });
-  if (search.trim()) query.append("title", search.trim());
-
-  return request(`/notebooks?${query.toString()}`, { accessToken });
+  const params = new URLSearchParams({ page: String(page), sortBy: sort });
+  if (search.trim()) params.set("search", search.trim());
+  return request(`/notebooks?${params}`, { accessToken });
 }
 
 export function deleteNotebook(notebookId, accessToken) {

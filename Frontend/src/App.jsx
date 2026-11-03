@@ -589,13 +589,13 @@ function formatSourceCount(count) {
   if (count === undefined) return "…";
   if (count === null) return "—";
   if (count === 0) return "0 Sumber";
-  if (count >= 100) return "99+";
+  if (count >= 100) return "99+ Sumber";
   return `${count} Sumber`;
 }
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Terbaru ",},
-  { value: "az", label: "A-Z",},
+  { value: "title", label: "A-Z",},
 ];
 
 function truncateTitle(title, maxLength = 15) {
@@ -931,7 +931,7 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
       });
       
       const list = data?.notebooks || [];
-      console.table(list.map(({ title, isPinned, createdAt, updatedAt }) => ({ title, isPinned, createdAt, updatedAt })));
+      //console.table(list.map(({ title, isPinned, createdAt, updatedAt }) => ({ title, isPinned, createdAt, updatedAt })));
       setNotebooks(list);
 
       // Simpan objek pagination dari backend ke state
@@ -954,10 +954,11 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
 
   // 2. Perbarui useEffect agar memanggil loadNotebooks saat page atau search berubah
   useEffect(() => {
+    console.log("muat daftar", { page, search, sortBy });
     if (accessToken) {
       loadNotebooks(page, search);
     }
-  }, [accessToken, page, search]);
+  }, [accessToken, page, search, sortBy]);
 
     // Handler saat user mengetik kata kunci pencarian
   const handleSearchChange = (e) => {
@@ -985,13 +986,17 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
     setListError("");
     try {
       await deleteNotebook(notebook._id, accessToken);
-      setNotebooks((list) => list.filter((nb) => nb._id !== notebook._id));
-    } catch (err) {
-      setListError(err.message);
-    } finally {
-      setDeletingId(null);
+      if (notebooks.length === 1 && page > 1) {
+      setPage(page - 1); // efek [page] yang memuat ulang
+    } else {
+      await loadNotebooks(page, search, { silent: true });
     }
+  } catch (err) {
+    setListError(err.message);
+  } finally {
+    setDeletingId(null);
   }
+}
 
   async function handleCreate(title) {
     const data = await createNotebook({ title, description: title }, accessToken);
@@ -1089,7 +1094,11 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
                         role="menuitemradio"
                         aria-checked={sortBy === opt.value}
                         className={sortBy === opt.value ? "is-active" : ""}
-                        onClick={() => { setSortBy(opt.value); setSortOpen(false); }}>
+                        onClick={() => {
+                          console.log("klik opsi:", opt.value, "| sortBy sekarang:", sortBy)
+                          setSortBy(opt.value);
+                          setPage(1);
+                          setSortOpen(false); }}>
                         {opt.label}
                       </button>
                     ))}
