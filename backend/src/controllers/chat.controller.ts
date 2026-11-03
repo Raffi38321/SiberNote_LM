@@ -112,7 +112,7 @@ export const sendMessage = async (req: Request, res: Response) => {
         const queryVector = await generateQueryEmbedding(message)
 
         const chunks = await vectorSearch(queryVector, documentIds)
-        console.log(chunks);
+        // console.log(chunks);
         const llmResult = await askLLM(message, chunks, history)
 
         const assistantMessage = await Message.create({

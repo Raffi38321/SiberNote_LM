@@ -17,7 +17,6 @@ const ALLOWED_AVATAR_MIME_TYPES = [
 const MAX_DOCUMENT_SIZE_MB = 20
 const MAX_AVATAR_SIZE_MB = 5
 
-// Pastikan direktori ada sebelum multer menulis ke sana
 const ensureDir = (dirPath: string) => {
     if (!fs.existsSync(dirPath)) {
         fs.mkdirSync(dirPath, { recursive: true })
@@ -26,9 +25,6 @@ const ensureDir = (dirPath: string) => {
 
 const documentStorage = multer.diskStorage({
     destination: (_req, _file, cb) => {
-        // Folder akhir ditentukan saat upload di controller karena butuh userId & notebookId.
-        // Di sini kita pakai folder sementara; controller akan memindahkan file ke path final.
-        // Supaya simpel, kita tetap pakai memoryStorage khusus dokumen dan simpan di controller.
         cb(null, "")
     },
     filename: (_req, file, cb) => {
@@ -36,8 +32,6 @@ const documentStorage = multer.diskStorage({
     },
 })
 
-// Dokumen tetap pakai memoryStorage supaya controller bisa menentukan sub-folder
-// berdasarkan userId & notebookId (yang baru tersedia di request setelah auth middleware).
 const documentMemoryStorage = multer.memoryStorage()
 
 const avatarStorage = multer.diskStorage({
@@ -48,7 +42,6 @@ const avatarStorage = multer.diskStorage({
         cb(null, dir)
     },
     filename: (_req, _file, cb) => {
-        // Nama tetap "avatar.jpg" agar selalu overwrite file lama
         cb(null, "avatar.jpg")
     },
 })

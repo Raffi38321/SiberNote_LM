@@ -7,6 +7,7 @@ import Document from "../models/document.model.js";
 import Chunk from "../models/chunk.model.js";
 import Note from "../models/note.model.js";
 import Message from "../models/message.model.js";
+import TableOfContents from "../models/toc.model.js";
 import envVariable from "../utils/ENV.js";
 
 export const createNotebook = async (req: Request, res: Response) => {
@@ -142,6 +143,7 @@ export const deleteNotebook = async (req: Request, res: Response) => {
 
     await Note.deleteMany({ notebookId: notebook._id });
     await Message.deleteMany({ notebookId: notebook._id });
+    await TableOfContents.deleteOne({ notebookId: notebook._id });
     await notebook.deleteOne();
 
     return response.requestSuccess(res, "berhasil hapus notebook");

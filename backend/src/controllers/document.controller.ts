@@ -5,6 +5,7 @@ import mongoose from "mongoose"
 import Document from "../models/document.model.js"
 import Notebook from "../models/notebook.model.js"
 import Chunk from "../models/chunk.model.js"
+import TableOfContents from "../models/toc.model.js"
 import { chunkPDF, chunkPPTX, chunkTXT, chunkDOCX } from "../services/chunking.js"
 import response from "../utils/response.js"
 import envVariable from "../utils/ENV.js"
@@ -121,6 +122,9 @@ export const uploadDocument = async (req: Request, res: Response) => {
                     parseError: "",
                 })
 
+                // hapus ToC lama supaya GET /toc akan generate ulang dengan dokumen terbaru
+                await TableOfContents.deleteOne({ notebookId: doc.notebookId })
+
                 console.log(`[chunking] berhasil ${doc.title} — ${totalPages} halaman, ${chunks.length} chunks`)
             } catch (err) {
                 const errorMessage = err instanceof Error
@@ -182,24 +186,20 @@ export const deleteDocument = async (req: Request, res: Response) => {
             return response.notFoundError(res, "dokumen tidak ditemukan")
         }
 
-        // Hapus file fisik dari disk
-        // fileUrl format: {UPLOAD_BASE_URL}/documents/{userId}/{notebookId}/{filename}
         const base = envVariable.UPLOAD_BASE_URL.replace(/\/$/, "")
-        const relativePath = doc.fileUrl.replace(base, "")  // /documents/userId/notebookId/file.pdf
+        const relativePath = doc.fileUrl.replace(base, "")  
         const filePath = path.join(envVariable.UPLOADS_DIR, relativePath)
 
         if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath)
         }
 
-        // Coba hapus folder notebookId jika sudah kosong
         try {
             const parentDir = path.dirname(filePath)
             if (fs.readdirSync(parentDir).length === 0) {
                 fs.rmdirSync(parentDir)
             }
         } catch {
-            // abaikan jika gagal; folder mungkin masih punya file lain
         }
 
         await Chunk.deleteMany({ documentId: doc._id })
