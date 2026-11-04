@@ -2377,6 +2377,8 @@ function handleClosePreview() {
     }
   }
 
+  const isExpanded = draft.includes('\n') || draft.length > 45;
+
   return (
     <div className="workspace-page">
       <AppHeader
@@ -2452,7 +2454,7 @@ function handleClosePreview() {
                 {chatError && <div className="source-error" role="alert">{chatError}</div>} {/* Pesan error saat mengirim chat */}
                 <div ref={endRef} />
               </div>
-
+              
               <form
                 className={`chat-input${hasDocuments ? "" : " is-disabled"}`}
                 onSubmit={handleSend}

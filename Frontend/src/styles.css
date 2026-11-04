@@ -766,8 +766,16 @@ input[type="password"]::-ms-clear {
   color: #ffffff;
   padding: 10px 18px;
   border-radius: 20px;
-  font-size: 14px;
+  font-size: 12px;
   max-width: 80%;
+  width: fit-content;    /* Menyesuaikan lebar bubble sesuai panjang teks */
+  word-break: break-word; /* Mencegah teks panjang merusak layout */
+  text-align: left;
+}
+
+.msg-user .bubble p {
+  margin: 0;
+  white-space: pre-wrap; /* Mempertahankan spasi dan baris baru jika ada */
 }
 
 .chat-messages {
@@ -817,8 +825,10 @@ input[type="password"]::-ms-clear {
 }
 
 .msg-user {
-  align-self: flex-end;
-  max-width: 85%;
+  display: flex;
+  justify-content: flex-end; /* Memastikan bubble terdorong penuh ke kanan panel */
+  width: 100%;
+  margin-bottom: 12px;
 }
 
 .bubble {
@@ -857,11 +867,16 @@ input[type="password"]::-ms-clear {
   padding: 6px 14px;
   background: var(--bg);
   border-radius: 100px;
+  transition: border-radius 0.3s ease-in-out;
 }
 
 /* .chat-input:focus-within {
   box-shadow: 0 0 0 1px var(--border-focus);
 } */
+
+.chat-input.is-expanded {
+  border-radius: 25px; 
+}
 
 .chat-input.is-disabled {
   background: var(--surface);
