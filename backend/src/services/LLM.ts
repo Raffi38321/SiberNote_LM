@@ -68,7 +68,7 @@ const buildPrompt = (question: string, chunks: RetrievedChunk[]): string => {
         "Jawab pertanyaan di bawah HANYA berdasarkan SOURCE di atas.",
         "Sertakan citation dengan format [1], [2], dst. di setiap klaim.",
         "Jika ada informasi yang tidak ada di SOURCE, tambahkan dari pengetahuan umum.",
-        "jika citation tidak memuat informasi yang ditanyakan tidak usah bilang tidak disebutkan di dalam dokumen SOURCE yang diberikan [1], [2], [3], [4], [5], [6], [7], [8]",
+        "jika citation tidak memuat informasi yang ditanyakan tidak usah bilang tidak disebutkan di dalam dokumen SOURCE yang diberikan [1], [2], [3], [4], [5]",
         "Jangan membuat citation yang tidak tersedia dalam SOURCE.",
         "Gunakan Bahasa Indonesia.",
         "",
@@ -87,7 +87,7 @@ const MAX_CITATIONS = 5
 const parseCitations = (
     responseText: string,
     chunks: RetrievedChunk[],
-): ParsedCitation[] => {
+): { citations: ParsedCitation[]; content: string } => {
     const found = new Set<number>()
     const regex = /\[(\d+)\]/g
     let match: RegExpExecArray | null
@@ -118,27 +118,34 @@ const parseCitations = (
         seen.add(key)
         return true
     })
-
-    // ambil max 5, kembalikan dengan citationIndex asli (urutan di prompt)
-    return deduplicated
+    const finalCitations = deduplicated
         .slice(0, MAX_CITATIONS)
         .sort((a, b) => a.citationIndex - b.citationIndex)
-        .map(({ citationIndex, chunk }) => ({
-            citationIndex,
-            documentId: chunk.documentId,
-            documentTitle: chunk.documentTitle,
-            pageStart: chunk.pageStart,
-            pageEnd: chunk.pageEnd,
-            chunkContent: chunk.content,
+        .map(({ citationIndex, chunk }, i) => ({
+            oldIndex: citationIndex,
+            newIndex: i + 1,
+            citation: {
+                citationIndex: i + 1,
+                documentId: chunk.documentId,
+                documentTitle: chunk.documentTitle,
+                pageStart: chunk.pageStart,
+                pageEnd: chunk.pageEnd,
+                chunkContent: chunk.content,
+            },
         }))
+
+    let reNumberedText = responseText
+    for (const { oldIndex, newIndex } of finalCitations) {
+        reNumberedText = reNumberedText.replaceAll(`[${oldIndex}]`, `[__${newIndex}__]`)
+    }
+    reNumberedText = reNumberedText.replace(/\[__(\d+)__\]/g, "[$1]")
+
+    return {
+        citations: finalCitations.map((f) => f.citation),
+        content: reNumberedText,
+    }
 }
 
-/**
- * Tentukan sourceType dari jawaban dan citations.
- * - "document" → ada citation dari dokumen
- * - "ai"       → tidak ada citation dokumen sama sekali, jawaban dari pengetahuan AI
- * - "mixed"    → ada citation dokumen DAN ada AI
- */
 const determineSourceType = (
     responseText: string,
     citations: ParsedCitation[],
@@ -176,11 +183,11 @@ export const askLLM = async (
     const result = await chat.sendMessage(prompt)
     const responseText = result.response.text()
 
-    const citations = parseCitations(responseText, chunks)
-    const sourceType = determineSourceType(responseText, citations)
+    const { citations, content: reNumberedContent } = parseCitations(responseText, chunks)
+    const sourceType = determineSourceType(reNumberedContent, citations)
 
     return {
-        content: responseText,
+        content: reNumberedContent,
         citations,
         sourceType,
     }
