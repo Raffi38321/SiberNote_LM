@@ -23,10 +23,10 @@ export interface ParsedChapter {
 // ─── setup ────────────────────────────────────────────────────────────────────
 
 const genAI = new GoogleGenerativeAI(envVariable.GEMINI_MODEL)
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" })
+const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" })
 
 /** Maksimal chunk yang dikirim ke Gemini — batasi token */
-const MAX_CHUNKS = 100
+const MAX_CHUNKS = 300
 
 // ─── build prompt ─────────────────────────────────────────────────────────────
 
@@ -75,7 +75,7 @@ const buildTocPrompt = (
         "- Jika dokumen memiliki halaman daftar isi, gunakan informasi dari sana.",
         "- Jika tidak ada halaman daftar isi, identifikasi bab berdasarkan struktur dan isi dokumen.",
         "- Gunakan Bahasa Indonesia untuk judul bab.",
-        isMultiDoc ? "- Sertakan field \"documentTitle\" sesuai nama dokumen asal." : "",
+        isMultiDoc ? `- Sertakan field "documentTitle" dengan NAMA FILE ASLI dokumen (contoh: "${docs[0]?.documentTitle ?? "NamaFile.pdf"}"), BUKAN label "DOKUMEN 1" atau "DOKUMEN 2".` : "",
         "",
         "Return HANYA JSON array, tanpa teks lain:",
         returnExample,
@@ -175,12 +175,34 @@ const parseAndValidate = (
             if (typeof c.documentTitle !== "string" || !c.documentTitle.trim()) {
                 throw new Error(`documentTitle kosong pada item ke-${i}`)
             }
-            const id = docTitleToId.get(c.documentTitle)
+
+            // coba lookup langsung dengan nama dokumen
+            let id = docTitleToId.get(c.documentTitle)
+
+            // fallback: Gemini kadang return "DOKUMEN 1" alih-alih nama file asli
+            // coba parse nomor dari format "DOKUMEN N" dan map ke docs[N-1]
             if (!id) {
-                throw new Error(`documentTitle "${c.documentTitle}" tidak dikenal`)
+                const match = /^DOKUMEN\s+(\d+)$/i.exec(c.documentTitle.trim())
+                if (match) {
+                    const idx = parseInt(match[1]!, 10) - 1
+                    const fallbackDoc = docs[idx]
+                    if (fallbackDoc) {
+                        id = fallbackDoc.documentId
+                        c.documentTitle = fallbackDoc.documentTitle
+                    }
+                }
             }
+
+            if (!id) {
+                // last resort: assign ke dokumen pertama dan log warning
+                const fallbackDoc = docs[0]!
+                console.warn(`[toc] documentTitle "${c.documentTitle}" tidak dikenal, fallback ke "${fallbackDoc.documentTitle}"`)
+                id = fallbackDoc.documentId
+                c.documentTitle = fallbackDoc.documentTitle
+            }
+
             documentId = id
-            documentTitle = c.documentTitle
+            documentTitle = c.documentTitle as string
         } else {
             const singleDoc = docs[0]
             if (!singleDoc) throw new Error("Tidak ada dokumen")
@@ -199,6 +221,37 @@ const parseAndValidate = (
     })
 }
 
+const is503 = (err: unknown): boolean => {
+    if (typeof err !== "object" || err === null) return false
+    const status = (err as { status?: number }).status
+    const msg = (err as { message?: string }).message ?? ""
+    return status === 503 || msg.includes("503") || msg.toLowerCase().includes("high demand")
+}
+
+const RETRY_503_DELAY_MS = 10_000
+const MAX_503_RETRIES = 3
+
+const generateContentWithRetry = async (
+    prompt: string,
+    attempt = 0,
+): Promise<string> => {
+    try {
+        const result = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json" },
+        })
+        return result.response.text()
+    } catch (err) {
+        if (is503(err) && attempt < MAX_503_RETRIES) {
+            const delay = RETRY_503_DELAY_MS * (attempt + 1)
+            console.warn(`[toc] 503 model overload — retry ${attempt + 1}/${MAX_503_RETRIES} dalam ${delay / 1000}s`)
+            await new Promise((resolve) => setTimeout(resolve, delay))
+            return generateContentWithRetry(prompt, attempt + 1)
+        }
+        throw err
+    }
+}
+
 // ─── main export ──────────────────────────────────────────────────────────────
 
 /**
@@ -209,11 +262,6 @@ export const generateToc = async (docs: TocDocument[]): Promise<ParsedChapter[]>
     const chunksByDoc = await fetchChunksForDocs(docs)
     const prompt = buildTocPrompt(docs, chunksByDoc)
 
-    const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json" },
-    })
-
-    const raw = result.response.text()
+    const raw = await generateContentWithRetry(prompt)
     return parseAndValidate(raw, docs)
 }
