@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useLayoutEffect } from "react";
 import {
   ApiError,
   register,
@@ -2240,6 +2240,26 @@ function ChatMessage({ message, activePreview, onTagClick }) {
 
 
 const CHAT_SKELETON_WIDTHS = ["100%", "80%", "60%"];
+const CHAT_INPUT_MAX_HEIGHT = 160; 
+function useAutoGrowTextarea(ref, value, maxHeight = CHAT_INPUT_MAX_HEIGHT) {
+  const [expanded, setExpanded] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto"; // supaya tinggi bisa menyusut saat teks dihapus
+    const full = el.scrollHeight;
+    el.style.height = `${Math.min(full, maxHeight)}px`;
+    el.style.overflowY = full > maxHeight ? "auto" : "hidden";
+
+    const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 18;
+    if (!value) setExpanded(false);
+    else if (full > lineHeight * 1.5) setExpanded(true);
+  }, [ref, value, maxHeight, expanded]);
+
+  return expanded;
+}
+
 
 function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEditProfile, onNotebookUpdate, onOpenNotebook }) {
   const { toasts, notify, dismiss } = useToasts();
@@ -2261,6 +2281,8 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
   const [chatError, setChatError] = useState("Gagal");
   const [draft, setDraft] = useState("");
   const endRef = useRef(null);
+  const chatInputRef = useRef(null);
+  const chatExpanded = useAutoGrowTextarea(chatInputRef, draft);
 
   // Input chat hanya aktif kalau ada minimal 1 dokumen yang 'done'
   const hasDocuments = documents.some((d) => d.parseStatus === "done");
@@ -2456,7 +2478,7 @@ function handleClosePreview() {
               </div>
               
               <form
-                className={`chat-input${hasDocuments ? "" : " is-disabled"}`}
+                className={`chat-input${hasDocuments ? "" : " is-disabled"}${chatExpanded ? " is-expanded" : ""}`}
                 onSubmit={handleSend}
               >
                 <button
@@ -2467,6 +2489,7 @@ function handleClosePreview() {
                 ><MenuIcon/></button>
 
                 <textarea
+                  ref={chatInputRef}
                   rows={1}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}

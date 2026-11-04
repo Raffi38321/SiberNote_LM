@@ -860,22 +860,49 @@ input[type="password"]::-ms-clear {
 }
 
 .chat-input {
-  display: flex;
+  display: grid;
   align-items: center;
   gap: 10px;
   margin: 8px 16px 0;
   padding: 6px 14px;
   background: var(--bg);
   border-radius: 100px;
-  transition: border-radius 0.3s ease-in-out;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "menu text send";
+  transition: border-radius 0.15s;
+  scrollbar-width: 1px;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
+
+.chat-input::-webkit-scrollbar {
+  width: 1px;
+}
+
+.chat-input::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-input::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+.chat-input::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+
 
 /* .chat-input:focus-within {
   box-shadow: 0 0 0 1px var(--border-focus);
 } */
 
 .chat-input.is-expanded {
-  border-radius: 25px; 
+  border-radius: 22px;  
+  grid-template-areas:
+    "text text text"
+    "menu .    send";
+
 }
 
 .chat-input.is-disabled {
@@ -889,6 +916,8 @@ input[type="password"]::-ms-clear {
 }
 
 .chat-input textarea {
+  grid-area: text;
+  overflow-y: hidden;
   flex: 1;
   min-width: 0;
   max-height: 160px;
@@ -956,6 +985,8 @@ input[type="password"]::-ms-clear {
 }
 
 .send-btn {
+  grid-area: send;
+  margin-left: 10px;
   flex-shrink: 0;
   width: 32px;
   height: 32px;
@@ -1131,6 +1162,7 @@ input[type="password"]::-ms-clear {
 }
 
 .chat-input--skeleton {
+  display: flex;
   align-items: center;
   justify-content: space-between;
 }
