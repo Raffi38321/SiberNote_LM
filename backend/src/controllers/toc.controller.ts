@@ -1,11 +1,10 @@
 import type { Request, Response } from "express"
+import mongoose from "mongoose"
 import response from "../utils/response.js"
 import Document from "../models/document.model.js"
 import TableOfContents from "../models/toc.model.js"
 import { generateToc } from "../services/toc.js"
 import type { TocDocument } from "../services/toc.js"
-
-// ─── helper ───────────────────────────────────────────────────────────────────
 
 const getReadyDocuments = async (notebookId: string): Promise<TocDocument[]> => {
     const docs = await Document.find({ notebookId, parseStatus: "done" })
@@ -27,28 +26,35 @@ const doGenerate = async (notebookId: string): Promise<InstanceType<typeof Table
     }
 
     const chapters = await generateToc(docs)
+    const notebookObjectId = new mongoose.Types.ObjectId(notebookId)
 
     const toc = await TableOfContents.findOneAndUpdate(
-        { notebookId },
+        { notebookId: notebookObjectId },
         {
-            notebookId,
+            notebookId: notebookObjectId,
             chapters,
             generatedAt: new Date(),
         },
         { upsert: true, new: true },
     )
 
+    if (!toc) throw new Error("Gagal menyimpan ToC")
+
     return toc
 }
 
-// ─── controllers ──────────────────────────────────────────────────────────────
 
 export const getToc = async (req: Request, res: Response) => {
     try {
         const { notebookId } = req.params
 
-        // cek apakah ToC sudah ada
-        const existing = await TableOfContents.findOne({ notebookId }).lean()
+        if (!notebookId || typeof notebookId !== "string") {
+            return response.userError(res, "notebookId tidak valid")
+        }
+
+        const notebookObjectId = new mongoose.Types.ObjectId(notebookId)
+
+        const existing = await TableOfContents.findOne({ notebookId: notebookObjectId }).lean()
         if (existing) {
             return response.requestSuccessWithData(
                 res,
@@ -58,7 +64,6 @@ export const getToc = async (req: Request, res: Response) => {
             )
         }
 
-        // belum ada → generate
         const toc = await doGenerate(notebookId)
 
         return response.requestSuccessWithData(
@@ -84,8 +89,13 @@ export const regenerateToc = async (req: Request, res: Response) => {
     try {
         const { notebookId } = req.params
 
-        // hapus yang lama dulu
-        await TableOfContents.deleteOne({ notebookId })
+        if (!notebookId || typeof notebookId !== "string") {
+            return response.userError(res, "notebookId tidak valid")
+        }
+
+        const notebookObjectId = new mongoose.Types.ObjectId(notebookId)
+
+        await TableOfContents.deleteOne({ notebookId: notebookObjectId })
 
         const toc = await doGenerate(notebookId)
 
