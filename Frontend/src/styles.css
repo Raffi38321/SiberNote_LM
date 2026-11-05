@@ -1178,6 +1178,47 @@ input[type="password"]::-ms-clear {
   border-radius: 50%;
 }
 
+/* Posisi relatif untuk membungkus tombol menu agar dropdown/dropup mengikuti */
+.chat-menu-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Menu Dropup yang muncul ke atas */
+.dropdown-menu--dropup {
+  bottom: 100%;
+  left: 0;
+  top: auto;
+  margin-bottom: 8px;
+  min-width: 160px;
+}
+
+/* Tombol bab di dalam bubble chat AI */
+.chapter-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.chapter-btn {
+  background-color: #2b2b2b;
+  border: 1px solid #444;
+  color: #cecece;
+  padding: 10px 14px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.chapter-btn:hover {
+  background-color: #3b3b3b;
+  color: #fff;
+}
+
 /* ----- Popup (dialog) ----- */
 .modal {
   width: min(480px, calc(100vw - 32px));

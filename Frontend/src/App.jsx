@@ -1176,8 +1176,7 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
                               aria-haspopup="menu"
                               aria-expanded={openMenuId === nb._id}
                               disabled={deletingId === nb._id || pinningId === nb._id}
-                              onClick={() => setOpenMenuId((id) => (id === nb._id ? null : nb._id))}
-                            >
+                              onClick={() => setOpenMenuId((id) => (id === nb._id ? null : nb._id))}>
                               <Titik3Icon />
                             </button>
                             {openMenuId === nb._id && (
@@ -2177,7 +2176,7 @@ function TagRujukan({ nomor, documentTitle, pageStart, isActive, onClick }) {
   );
 }
 
-function ChatMessage({ message, activePreview, onTagClick }) {
+function ChatMessage({ message, activePreview, onTagClick, onSelectChapter }) {
   const isUser = message.role === "user" || message.role === "human";
 
   if (isUser) {
@@ -2210,6 +2209,31 @@ function ChatMessage({ message, activePreview, onTagClick }) {
       <div className="ai-text">
         <ReactMarkdown>{message.content || message.text}</ReactMarkdown>
       </div>
+
+      {message.isChapterList && message.chapters && (
+        <div className="chapter-list-container">
+          {message.chapters.map((chap, index) => {
+             // Jika dokumen > 1, munculkan nama dokumennya. Hilangkan underscore jika ada.
+             const docLabel = message.hasMultipleDocs && chap.documentTitle 
+                                ? `${chap.documentTitle.replace(/_/g, " ")}, ` 
+                                : '';
+             
+             // Format teks: Bab 1 Pendahuluan (JavaScript Developer, hlm. 4–4)
+             const label = `Bab ${chap.chapterNumber} ${chap.title} (${docLabel}hlm. ${chap.pageStart}–${chap.pageEnd})`;
+             
+             return (
+               <button
+                 key={`${chap.documentId}-bab-${chap.chapterNumber}-${index}`}
+                 type="button"
+                 className="chapter-btn"
+                 onClick={() => onSelectChapter(chap)}
+               >
+                 {label}
+               </button>
+             );
+          })}
+        </div>
+      )}
 
       {displayCitations.length > 0 && (
         <div className="citations-wrapper">
@@ -2291,37 +2315,42 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
   const [sumberView, setSumberView] = useState("list"); // "list" | "preview"
   const [activePreview, setActivePreview] = useState(null); // { documentId, documentTitle, fileType, pageStart }
 
+  // State untuk fitur Pelajari per Bab
+  const [chatMenuOpen, setChatMenuOpen] = useState(false);
+  const [fetchingChapters, setFetchingChapters] = useState(false);
+  const [babTerpilih, setBabTerpilih] = useState(null);
+
   // Handler saat tag [1] diklik di Chat Message
-function handleTagClick(citation, messageId) {
-  setActivePreview({
-    messageId: messageId,
-    citationIndex: citation.citationIndex,
-    documentId: citation.documentId || citation.documentTitle,
-    documentTitle: citation.documentTitle,
-    fileType: citation.fileType,
-    pageStart: citation.pageStart || 1,
-  });
-  setSumberView("preview");
+  function handleTagClick(citation, messageId) {
+    setActivePreview({
+      messageId: messageId,
+      citationIndex: citation.citationIndex,
+      documentId: citation.documentId || citation.documentTitle,
+      documentTitle: citation.documentTitle,
+      fileType: citation.fileType,
+      pageStart: citation.pageStart || 1,
+    });
+    setSumberView("preview");
 
-  if (sourcesCollapsed) {
-    setSourcesCollapsed(false);
-  }
-}
-
-async function handleCreate(title) {
-    const data = await createNotebook({ title, description: title }, accessToken);
-    if (data?.notebook) {
-      onOpenNotebook(data.notebook);
-    } else {
-      await loadNotebooks();
+    if (sourcesCollapsed) {
+      setSourcesCollapsed(false);
     }
   }
 
-// Handler saat tombol kembali di pratinjau diklik
-function handleClosePreview() {
-  setSumberView("list");
-  setActivePreview(null);
-}
+  async function handleCreate(title) {
+      const data = await createNotebook({ title, description: title }, accessToken);
+      if (data?.notebook) {
+        onOpenNotebook(data.notebook);
+      } else {
+        await loadNotebooks();
+      }
+    }
+
+  // Handler saat tombol kembali di pratinjau diklik
+  function handleClosePreview() {
+    setSumberView("list");
+    setActivePreview(null);
+  }
 
   // 1. Load riwayat chat dari backend saat workspace dibuka
   useEffect(() => {
@@ -2400,6 +2429,43 @@ function handleClosePreview() {
   }
 
   const isExpanded = draft.includes('\n') || draft.length > 45;
+  async function handlePelajariPerBab() {
+    setChatMenuOpen(false); // Tutup menu dropup
+    
+    // AC Skenario 5: Cegah eksekusi jika tidak ada dokumen
+    if (!hasDocuments || fetchingChapters) return;
+
+    setFetchingChapters(true); // AC Skenario 2: Tampilkan loading
+    try {
+      const res = await getChapters(notebook._id, accessToken);
+      const chaptersList = res?.data?.toc?.chapters || [];
+
+      // AC Skenario 3: Bersihkan daftar bab lama agar tidak ganda
+      setMessages((prev) => prev.filter((m) => m._id !== "temp-chapters"));
+
+      // AC Skenario 1: Buat pesan AI khusus berisi daftar bab
+      const tempMsg = {
+        _id: "temp-chapters",
+        role: "ai",
+        content: "Bab apa yang ingin dipelajari lebih dulu?",
+        isChapterList: true,
+        hasMultipleDocs: documents.length > 1, // AC Skenario 4: Flag penanda multi dokumen
+        chapters: chaptersList,
+      };
+
+      setMessages((prev) => [...prev, tempMsg]);
+    } catch (err) {
+      // AC Skenario 6: Munculkan notifikasi gagal
+      notify(err.message || "Gagal menyusun daftar bab, silakan coba lagi.", "error");
+    } finally {
+      setFetchingChapters(false);
+    }
+  }
+
+  function handleSelectChapter(chapter) {
+    setBabTerpilih(chapter);
+    console.log("Bab terpilih:", chapter); // Bab tersimpan di state untuk Card 41-42 nanti
+  }
 
   return (
     <div className="workspace-page">
@@ -2460,10 +2526,11 @@ function handleClosePreview() {
                       message={m}
                       activePreview={activePreview}
                       onTagClick={handleTagClick}
+                      onSelectChapter={handleSelectChapter}
                     />
                   ))}
                 {/* Item sementara saat AI sedang memproses jawaban */}
-                {sendingChat && (
+                {(sendingChat || fetchingChapters) && (
                   <div className="chat-sending-wrapper">
                     <p className="chat-loading-text">Loading...</p>
                     <div className="chat-skeleton" role="status" aria-live="polite" aria-busy="true">
@@ -2481,12 +2548,37 @@ function handleClosePreview() {
                 className={`chat-input${hasDocuments ? "" : " is-disabled"}${chatExpanded ? " is-expanded" : ""}`}
                 onSubmit={handleSend}
               >
+              
+              <div className="chat-menu-wrap"></div>
                 <button
                   type="button"
                   className="chat-menu-btn"
                   aria-label="Opsi obrolan"
                   title="Opsi obrolan"
+                  onClick={() => setChatMenuOpen(!chatMenuOpen)}
                 ><MenuIcon/></button>
+
+                {chatMenuOpen && (
+                  <>
+                    <div className="menu-backdrop" onClick={() => setChatMenuOpen(false)} />
+                    <div className="dropdown-menu dropdown-menu--dropup" role="menu">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        /* AC Skenario 5: Disabled & kursor silang jika tidak ada dokumen */
+                        disabled={!hasDocuments} 
+                        className={!hasDocuments ? "is-disabled" : ""}
+                        onClick={handlePelajariPerBab}
+                        style={{
+                          cursor: !hasDocuments ? "not-allowed" : "pointer",
+                          color: !hasDocuments ? "#777" : "inherit"
+                        }}
+                      >
+                        Pelajari per bab
+                      </button>
+                    </div>
+                  </>
+                )}
 
                 <textarea
                   ref={chatInputRef}
@@ -2676,6 +2768,8 @@ function ProfilePage({
       setUploading(false);
     }
   }
+
+  
 
   return (
     <>

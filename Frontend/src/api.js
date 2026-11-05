@@ -326,6 +326,28 @@ export async function fetchDocumentContent(messageId, citationIndex, token) {
   return res.json();
 }
 
+export function getChapters(notebookId, accessToken) {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      // Simulasi response persis seperti dari Backend
+      resolve({
+        status: "success",
+        message: "berhasil mendapatkan daftar bab",
+        data: {
+          toc: {
+            _id: "mock_id",
+            notebookId: notebookId,
+            chapters: [
+              { chapterNumber: 1, title: "Pendahuluan", pageStart: 4, pageEnd: 4, documentId: "doc_1", documentTitle: "JavaScript_Developer" },
+              { chapterNumber: 2, title: "Penulisan Kode JavaScript", pageStart: 5, pageEnd: 7, documentId: "doc_1", documentTitle: "JavaScript_Developer" }
+            ]
+          }
+        }
+      });
+    }, 1500); // Simulasi loading 1.5 detik
+  });
+}
+
 /**
  * GET /documents/:documentId/content?page=:page
  * Mengambil isi teks dokumen hasil OCR/ekstraksi berdasarkan ID dan Halaman.
