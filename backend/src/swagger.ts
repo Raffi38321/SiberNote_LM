@@ -824,6 +824,98 @@ const options: swaggerJSDoc.Options = {
                 },
             },
             // ═══════════════════════════════════════════════════════════════
+            // TABLE OF CONTENTS
+            // ═══════════════════════════════════════════════════════════════
+            "/notebooks/{notebookId}/toc": {
+                get: {
+                    tags: ["Notebooks"],
+                    summary: "Get daftar bab notebook (generate jika belum ada)",
+                    description: "Mengambil daftar bab dari semua dokumen di notebook. Jika belum ada, generate via Gemini lalu simpan. Jika sudah ada, langsung return dari DB.",
+                    security: [{ bearerAuth: [] }],
+                    parameters: [{ in: "path", name: "notebookId", required: true, schema: { type: "string" } }],
+                    responses: {
+                        200: {
+                            description: "Daftar bab",
+                            content: {
+                                "application/json": {
+                                    schema: {
+                                        type: "object",
+                                        properties: {
+                                            status: { type: "string", example: "success" },
+                                            message: { type: "string", example: "berhasil mendapatkan daftar bab" },
+                                            data: {
+                                                type: "object",
+                                                properties: {
+                                                    toc: {
+                                                        type: "object",
+                                                        properties: {
+                                                            _id: { type: "string" },
+                                                            notebookId: { type: "string" },
+                                                            generatedAt: { type: "string", format: "date-time" },
+                                                            chapters: {
+                                                                type: "array",
+                                                                items: {
+                                                                    type: "object",
+                                                                    properties: {
+                                                                        chapterNumber: { type: "number", example: 1 },
+                                                                        title: { type: "string", example: "Pendahuluan" },
+                                                                        pageStart: { type: "number", example: 1 },
+                                                                        pageEnd: { type: "number", example: 10 },
+                                                                        documentId: { type: "string" },
+                                                                        documentTitle: { type: "string", example: "Basis Data.pdf" },
+                                                                    },
+                                                                },
+                                                            },
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                        401: { description: "Tidak terautentikasi", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        404: { description: "Notebook tidak ditemukan atau bukan milik user", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        422: { description: "Belum ada dokumen yang selesai diproses", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        500: { description: "Gagal menyusun daftar bab, silakan coba lagi.", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                    },
+                },
+                post: {
+                    tags: ["Notebooks"],
+                    summary: "Force regenerate daftar bab",
+                    description: "Hapus daftar bab lama dan generate ulang. Gunakan setelah dokumen baru selesai diproses.",
+                    security: [{ bearerAuth: [] }],
+                    parameters: [{ in: "path", name: "notebookId", required: true, schema: { type: "string" } }],
+                    responses: {
+                        201: {
+                            description: "Daftar bab baru berhasil dibuat",
+                            content: {
+                                "application/json": {
+                                    schema: {
+                                        type: "object",
+                                        properties: {
+                                            status: { type: "string", example: "success" },
+                                            message: { type: "string", example: "berhasil membuat daftar bab" },
+                                            data: {
+                                                type: "object",
+                                                properties: {
+                                                    toc: { type: "object" },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                        401: { description: "Tidak terautentikasi", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        404: { description: "Notebook tidak ditemukan atau bukan milik user", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        422: { description: "Belum ada dokumen yang selesai diproses", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        500: { description: "Gagal menyusun daftar bab, silakan coba lagi.", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                    },
+                },
+            },
+            // ═══════════════════════════════════════════════════════════════
             // CHAT AI
             // ═══════════════════════════════════════════════════════════════
             "/chats/{notebookId}": {
@@ -905,6 +997,60 @@ const options: swaggerJSDoc.Options = {
                         404: { description: "Notebook tidak ditemukan atau bukan milik user", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
                         422: { description: "Tidak ada dokumen dengan parseStatus done di notebook ini", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
                         500: { description: "Gagal mendapatkan jawaban, silakan coba lagi.", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                    },
+                },
+            },
+            "/chats/{notebookId}/summary": {
+                post: {
+                    tags: ["Chat AI"],
+                    summary: "Buat ringkasan bab",
+                    description: "Membuat ringkasan 5–8 poin dari bab yang dipilih berdasarkan rentang halaman. Ringkasan disimpan ke riwayat chat (`messages`) dan muncul saat `GET /chats/:notebookId`.",
+                    security: [{ bearerAuth: [] }],
+                    parameters: [{ in: "path", name: "notebookId", required: true, schema: { type: "string" } }],
+                    requestBody: {
+                        required: true,
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    required: ["documentId", "chapterTitle", "pageStart", "pageEnd"],
+                                    properties: {
+                                        documentId: { type: "string", description: "ID dokumen MongoDB", example: "665f1a2b3c4d5e6f7a8b9c0f" },
+                                        chapterTitle: { type: "string", description: "Judul bab yang dipilih", example: "Normalisasi" },
+                                        pageStart: { type: "integer", minimum: 1, description: "Halaman awal bab", example: 11 },
+                                        pageEnd: { type: "integer", minimum: 1, description: "Halaman akhir bab (harus >= pageStart)", example: 30 },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    responses: {
+                        200: {
+                            description: "Ringkasan berhasil dibuat",
+                            content: {
+                                "application/json": {
+                                    schema: {
+                                        type: "object",
+                                        properties: {
+                                            status: { type: "string", example: "success" },
+                                            message: { type: "string", example: "berhasil membuat ringkasan bab" },
+                                            data: {
+                                                type: "object",
+                                                properties: {
+                                                    userMessage: { $ref: "#/components/schemas/Message" },
+                                                    assistantMessage: { $ref: "#/components/schemas/Message" },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                        400: { description: "Validasi gagal (field kurang / pageEnd < pageStart)", content: { "application/json": { schema: { $ref: "#/components/schemas/ValidationErrorResponse" } } } },
+                        401: { description: "Tidak terautentikasi", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        404: { description: "Notebook tidak ditemukan / dokumen tidak ditemukan atau belum selesai diproses", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        422: { description: "Tidak ada konten pada rentang halaman yang diminta", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        500: { description: "Gagal membuat ringkasan, silakan coba lagi.", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
                     },
                 },
             },

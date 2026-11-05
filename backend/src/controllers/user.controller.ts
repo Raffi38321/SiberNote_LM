@@ -34,7 +34,7 @@ export const registerUser = async (req: Request, res: Response) => {
         const existingUser = await User.findOne({ $or: [{ email }, { username }] })
         if (existingUser) {
             const field = existingUser.email === email.toLowerCase() ? "email" : "username"
-            return response.userError(res, `${field} sudah terdaftar`)
+            return response.userError(res, `${field} sudah terdaftar`,409)
         }
 
         const hashedPassword = await hashPassword(password)
