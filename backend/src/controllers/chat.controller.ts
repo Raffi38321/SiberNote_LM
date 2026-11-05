@@ -308,7 +308,7 @@ export const createChapterSummary = async (req: Request, res: Response) => {
         }
         finalContent = finalContent.replace(/\[__(\d+)__\]/g, "[$1]")
 
-        const citations = rawCitations.map((r) => r.citation)const citations = rawCitations.map((r) => r.citation)
+        const citations = rawCitations.map((r) => r.citation)
 
         const assistantMessage = await Message.create({
             notebookId,
