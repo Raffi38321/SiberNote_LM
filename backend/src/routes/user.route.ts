@@ -1,7 +1,7 @@
 import { Router } from "express"
-import { registerUser, loginUser, refreshAccessToken, logoutUser, getUser, updateUsernameOravatarUser } from "../controllers/user.controller.js"
+import { registerUser, loginUser, refreshAccessToken, logoutUser, getUser, updateUsernameOravatarUser, updateUserPassword } from "../controllers/user.controller.js"
 import { authenticate } from "../middlewares/auth.middleware.js"
-import { registerSchema, loginSchema, updateUserProfilSchema } from "../schemas/user.schema.js"
+import { registerSchema, loginSchema, updateUserProfilSchema, updatePasswordUserSchema } from "../schemas/user.schema.js"
 import { validateRequest } from "../middlewares/validateSchema.middelare.js"
 import { handleAvatarUpload } from "../middlewares/handleDocument.middleware.js"
 
@@ -13,5 +13,5 @@ userRouter.post("/refresh", refreshAccessToken)
 userRouter.post("/logout", logoutUser)
 userRouter.get("/me", authenticate, getUser)
 userRouter.put("/", [authenticate, handleAvatarUpload,validateRequest(updateUserProfilSchema)], updateUsernameOravatarUser)
-
+userRouter.put("/password",[authenticate,validateRequest(updatePasswordUserSchema)],updateUserPassword)
 export default userRouter

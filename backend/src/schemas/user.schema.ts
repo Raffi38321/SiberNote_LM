@@ -43,3 +43,17 @@ export const updateUserProfilSchema = {
             .optional()
     })
 }
+
+export const updatePasswordUserSchema = {
+    body: z.object({
+        newPassword: z.string()
+            .min(1, "kolom password baru tidak boleh kosong")
+            .min(8, "password minimal 8 karakter")
+            .max(16, "password maksimal 16 karakter"),
+
+        oldPassword: z.string()
+            .min(1, "kolom password lama tidak boleh kosong")
+            .min(8, "password minimal 8 karakter")
+            .max(16, "password maksimal 16 karakter")
+    })
+};
