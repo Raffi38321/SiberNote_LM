@@ -22,6 +22,8 @@ import {
   getChatHistory,
   sendChatMessage,
   fetchDocumentContent,
+  getChapters,
+  getChapterSummary,
 } from "./api";
 import { NotesPanel, useNotes } from "./NotesPanel";
 import ReactMarkdown from "react-markdown";
@@ -2176,7 +2178,7 @@ function TagRujukan({ nomor, documentTitle, pageStart, isActive, onClick }) {
   );
 }
 
-function ChatMessage({ message, activePreview, onTagClick, onSelectChapter }) {
+function ChatMessage({ message, activePreview, onTagClick, onSelectChapter, babTerpilih }) {
   const isUser = message.role === "user" || message.role === "human";
 
   if (isUser) {
@@ -2202,7 +2204,7 @@ function ChatMessage({ message, activePreview, onTagClick, onSelectChapter }) {
     }
   }
 
-  const displayCitations = uniqueCitations.slice(0, 3);
+  const displayCitations = uniqueCitations.slice();
 
   return (
     <div className="msg msg-ai">
@@ -2213,24 +2215,29 @@ function ChatMessage({ message, activePreview, onTagClick, onSelectChapter }) {
       {message.isChapterList && message.chapters && (
         <div className="chapter-list-container">
           {message.chapters.map((chap, index) => {
-             // Jika dokumen > 1, munculkan nama dokumennya. Hilangkan underscore jika ada.
-             const docLabel = message.hasMultipleDocs && chap.documentTitle 
-                                ? `${chap.documentTitle.replace(/_/g, " ")}, ` 
-                                : '';
-             
-             // Format teks: Bab 1 Pendahuluan (JavaScript Developer, hlm. 4–4)
-             const label = `Bab ${chap.chapterNumber} ${chap.title} (${docLabel}hlm. ${chap.pageStart}–${chap.pageEnd})`;
-             
-             return (
-               <button
-                 key={`${chap.documentId}-bab-${chap.chapterNumber}-${index}`}
-                 type="button"
-                 className="chapter-btn"
-                 onClick={() => onSelectChapter(chap)}
-               >
-                 {label}
-               </button>
-             );
+            // Cek jika multi dokumen, tambahkan judul dokumen
+            const docLabel = message.hasMultipleDocs && chap.documentTitle 
+                               ? `${chap.documentTitle.replace(/_/g, " ")}, ` 
+                               : '';
+            
+            // Format string teks sesuai Acceptance Criteria (Bab X Judul (hlm. Y-Z))
+            const label = `Bab ${chap.chapterNumber} ${chap.title} (${docLabel}hlm. ${chap.pageStart}–${chap.pageEnd})`;
+            
+            // CEK APAKAH TOMBOL INI ADALAH BAB YANG TERPILIH
+            const isSelected = babTerpilih && 
+                               babTerpilih.chapterNumber === chap.chapterNumber && 
+                               babTerpilih.documentId === chap.documentId;
+
+            return (
+              <button
+                key={`chap-${chap.chapterNumber}-${index}`}
+                type="button"
+                className={`chapter-btn${isSelected ? " is-selected" : ""}`}
+                onClick={() => onSelectChapter(chap)}
+              >
+                {label}
+              </button>
+            );
           })}
         </div>
       )}
@@ -2316,9 +2323,9 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
   const [activePreview, setActivePreview] = useState(null); // { documentId, documentTitle, fileType, pageStart }
 
   // State untuk fitur Pelajari per Bab
-  const [chatMenuOpen, setChatMenuOpen] = useState(false);
   const [fetchingChapters, setFetchingChapters] = useState(false);
   const [babTerpilih, setBabTerpilih] = useState(null);
+  const [fetchingSummary, setFetchingSummary] = useState(false);
 
   // Handler saat tag [1] diklik di Chat Message
   function handleTagClick(citation, messageId) {
@@ -2355,6 +2362,7 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
   // 1. Load riwayat chat dari backend saat workspace dibuka
   useEffect(() => {
     let cancelled = false;
+    setMessages([]);
     setLoadingChat(true);
     setChatError("");
 
@@ -2367,6 +2375,7 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
       .catch((err) => {
         if (!cancelled) {
           setChatError(err.message);
+          notify("Gagal memuat riwayat obrolan, silakan muat ulang halaman.", "error");
         }
       })
       .finally(() => {
@@ -2429,43 +2438,68 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
   }
 
   const isExpanded = draft.includes('\n') || draft.length > 45;
-  async function handlePelajariPerBab() {
-    setChatMenuOpen(false); // Tutup menu dropup
-    
-    // AC Skenario 5: Cegah eksekusi jika tidak ada dokumen
-    if (!hasDocuments || fetchingChapters) return;
 
-    setFetchingChapters(true); // AC Skenario 2: Tampilkan loading
+  async function handlePelajariPerBab() {
+    // Skenario 5: Cegah klik jika tidak ada dokumen
+    if (!hasDocuments || fetchingChapters) return;
+    console.log("Cek Token sebelum hit API:", accessToken);
+
+    // Skenario 3: Cegah pemanggilan ulang jika pesan daftar bab sudah tampil
+    if (messages.some((m) => m._id === "temp-chapters")) return;
+
+    setFetchingChapters(true); // Skenario 2: Munculkan loading skeleton
     try {
+      // Panggil endpoint BE
       const res = await getChapters(notebook._id, accessToken);
       const chaptersList = res?.data?.toc?.chapters || [];
 
-      // AC Skenario 3: Bersihkan daftar bab lama agar tidak ganda
-      setMessages((prev) => prev.filter((m) => m._id !== "temp-chapters"));
-
-      // AC Skenario 1: Buat pesan AI khusus berisi daftar bab
+      // Task Teknis: Buat pesan AI khusus (hilang jika dimuat ulang)
       const tempMsg = {
         _id: "temp-chapters",
         role: "ai",
         content: "Bab apa yang ingin dipelajari lebih dulu?",
         isChapterList: true,
-        hasMultipleDocs: documents.length > 1, // AC Skenario 4: Flag penanda multi dokumen
+        hasMultipleDocs: documents.length > 1, // Skenario 4 penanda multi dokumen
         chapters: chaptersList,
       };
 
       setMessages((prev) => [...prev, tempMsg]);
     } catch (err) {
-      // AC Skenario 6: Munculkan notifikasi gagal
-      notify(err.message || "Gagal menyusun daftar bab, silakan coba lagi.", "error");
+      // Skenario 6: Munculkan notifikasi gagal, tombol tetap bisa ditekan (karena state kembali false)
+      console.error("Error Pelajari per Bab:", err);
+      notify("Gagal menyusun daftar bab, silakan coba lagi.", "error");
     } finally {
       setFetchingChapters(false);
+      setTimeout(() => {
+        chatInputRef.current?.focus();
+      }, 0);
     }
   }
 
-  function handleSelectChapter(chapter) {
+  // Handler menyimpan bab (Task Teknis card 41b)
+  async function handleSelectChapter(chapter) {
+    if (fetchingSummary || (babTerpilih && babTerpilih.chapterNumber === chapter.chapterNumber)) return;
     setBabTerpilih(chapter);
-    console.log("Bab terpilih:", chapter); // Bab tersimpan di state untuk Card 41-42 nanti
+    console.log("Bab disimpan di state:", chapter);
+    setFetchingSummary(true); // Munculkan loading skeleton
+    try {
+      // Panggil mock API ringkasan
+      const res = await getChapterSummary(notebook._id, chapter);
+      
+      // Ambil objek pesan dari respons
+      const summaryMsg = res.data.summary;
+      
+      // Masukkan pesan ringkasan ke dalam daftar chat (Skenario 1)
+      setMessages((prev) => [...prev, summaryMsg]);
+    } catch (err) {
+      // Skenario 5: Munculkan notifikasi error melayang merah, babTerpilih dikosongkan agar bisa diklik ulang
+      notify("Gagal membuat ringkasan, silakan coba lagi.", "error");
+      setBabTerpilih(null); 
+    } finally {
+      setFetchingSummary(false); // Matikan loading
+    }
   }
+  
 
   return (
     <div className="workspace-page">
@@ -2507,6 +2541,16 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
         {/* Panel Tengah: Chat AI */}
         <section className="panel panel-chat">
           <h2 className="panel-title">Chat AI</h2>
+          {chatError && <div className="source-error" role="alert">{chatError}</div>} {/* Pesan error saat mengirim chat */}
+
+          <button
+            type="button"
+            className={`btn-pelajari-bab ${!hasDocuments ? "is-disabled" : ""}`}
+            disabled={!hasDocuments || fetchingChapters}
+            onClick={handlePelajariPerBab}
+          >
+            Pelajari per bab
+          </button>
 
           {loadingChat ? (
             <>
@@ -2527,10 +2571,11 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
                       activePreview={activePreview}
                       onTagClick={handleTagClick}
                       onSelectChapter={handleSelectChapter}
+                      babTerpilih={babTerpilih}
                     />
                   ))}
                 {/* Item sementara saat AI sedang memproses jawaban */}
-                {(sendingChat || fetchingChapters) && (
+                {(sendingChat || fetchingChapters || fetchingSummary) && (
                   <div className="chat-sending-wrapper">
                     <p className="chat-loading-text">Loading...</p>
                     <div className="chat-skeleton" role="status" aria-live="polite" aria-busy="true">
@@ -2540,7 +2585,6 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
                     </div>
                   </div>
                 )}
-                {chatError && <div className="source-error" role="alert">{chatError}</div>} {/* Pesan error saat mengirim chat */}
                 <div ref={endRef} />
               </div>
               
@@ -2549,36 +2593,12 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
                 onSubmit={handleSend}
               >
               
-              <div className="chat-menu-wrap"></div>
                 <button
                   type="button"
                   className="chat-menu-btn"
                   aria-label="Opsi obrolan"
                   title="Opsi obrolan"
-                  onClick={() => setChatMenuOpen(!chatMenuOpen)}
                 ><MenuIcon/></button>
-
-                {chatMenuOpen && (
-                  <>
-                    <div className="menu-backdrop" onClick={() => setChatMenuOpen(false)} />
-                    <div className="dropdown-menu dropdown-menu--dropup" role="menu">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        /* AC Skenario 5: Disabled & kursor silang jika tidak ada dokumen */
-                        disabled={!hasDocuments} 
-                        className={!hasDocuments ? "is-disabled" : ""}
-                        onClick={handlePelajariPerBab}
-                        style={{
-                          cursor: !hasDocuments ? "not-allowed" : "pointer",
-                          color: !hasDocuments ? "#777" : "inherit"
-                        }}
-                      >
-                        Pelajari per bab
-                      </button>
-                    </div>
-                  </>
-                )}
 
                 <textarea
                   ref={chatInputRef}
@@ -2586,7 +2606,7 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  disabled={sendingChat}
+                  disabled={!hasDocuments || sendingChat || fetchingChapters || fetchingSummary}
                   placeholder={
                     !hasDocuments
                       ? " "
@@ -2597,7 +2617,7 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
                   type="submit"
                   className="send-btn"
                   aria-label="Kirim pesan"
-                  disabled={!hasDocuments || !draft.trim() || sendingChat}
+                  disabled={!hasDocuments || !draft.trim() || sendingChat || fetchingChapters || fetchingSummary}
                 >
                   <ArrowRightIcon />
                 </button>

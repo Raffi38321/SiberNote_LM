@@ -326,25 +326,66 @@ export async function fetchDocumentContent(messageId, citationIndex, token) {
   return res.json();
 }
 
-export function getChapters(notebookId, accessToken) {
+// Tambahkan di api.js
+// export async function getChapters(notebookId, token) {
+//   // Ganti URL dengan path yang disepakati dengan BE
+//   return request(`/notebooks/${notebookId}/chapters`, {
+//     method: "GET",
+//     headers: { Authorization: `Bearer ${token}` }
+//   });
+// }
+
+export function getChapters(notebookId, token) {
   return new Promise((resolve) => {
+    // Simulasi loading/jeda jaringan selama 1.5 detik (Sesuai AC Skenario 2)
     setTimeout(() => {
-      // Simulasi response persis seperti dari Backend
       resolve({
         status: "success",
         message: "berhasil mendapatkan daftar bab",
         data: {
           toc: {
-            _id: "mock_id",
+            _id: "6aeae14ff5c425c36834f5cc",
             notebookId: notebookId,
+            __v: 0,
             chapters: [
-              { chapterNumber: 1, title: "Pendahuluan", pageStart: 4, pageEnd: 4, documentId: "doc_1", documentTitle: "JavaScript_Developer" },
-              { chapterNumber: 2, title: "Penulisan Kode JavaScript", pageStart: 5, pageEnd: 7, documentId: "doc_1", documentTitle: "JavaScript_Developer" }
+              { chapterNumber: 1, title: "Pendahuluan", pageStart: 4, pageEnd: 4, documentId: "doc1", documentTitle: "JavaScript_Developer" },
+              { chapterNumber: 2, title: "Penulisan Kode JavaScript", pageStart: 5, pageEnd: 7, documentId: "doc1", documentTitle: "JavaScript_Developer" },
+              { chapterNumber: 3, title: "Komentar Pada JavaScript", pageStart: 7, pageEnd: 8, documentId: "doc1", documentTitle: "JavaScript_Developer" },
+              { chapterNumber: 4, title: "Tipe Data", pageStart: 8, pageEnd: 10, documentId: "doc1", documentTitle: "JavaScript_Developer" }
             ]
           }
         }
       });
-    }, 1500); // Simulasi loading 1.5 detik
+    }, 1500); 
+  });
+}
+
+// Di file api.js
+export function getChapterSummary(notebookId, chapter) {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      // Simulasi error (Skenario 5): uncomment baris di bawah untuk mengetes toast error
+      // reject(new Error("Gagal membuat ringkasan"));
+
+      resolve({
+        status: "success",
+        message: "Berhasil membuat ringkasan bab",
+        data: {
+          summary: {
+            _id: `summary-${Date.now()}`,
+            role: "ai",
+            // Format judul sesuai Task Teknis: "Ringkasan Bab N: <judul>"
+            content: `**Ringkasan Bab ${chapter.chapterNumber}: ${chapter.title}**\n\n- Ini adalah poin pertama ringkasan yang menjelaskan konsep dasar dari bab ini.\n- Ini adalah poin kedua yang membahas implementasi dan metodenya.\n- Dan ini adalah kesimpulan dari materi yang dibaca.`,
+            // Skenario 3: Rujukan berada di rentang halaman bab (misal bab di hlm 4-10, rujukan di hlm 5 dan 7)
+            citations: [
+              { documentId: chapter.documentId, documentTitle: chapter.documentTitle, pageStart: chapter.pageStart },
+              { documentId: chapter.documentId, documentTitle: chapter.documentTitle, pageStart: chapter.pageEnd || chapter.pageStart + 1 }
+            ],
+            createdAt: new Date().toISOString(),
+          }
+        }
+      });
+    }, 2000); // Simulasi proses 2 detik (Skenario 2)
   });
 }
 

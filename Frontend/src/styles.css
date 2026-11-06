@@ -695,6 +695,74 @@ input[type="password"]::-ms-clear {
   font-weight: 400;
 }
 
+/* Tombol Pelajari per bab di bawah judul Chat AI */
+.btn-pelajari-bab {
+  background-color: #3b3b3b;
+  color: #ffffff;
+  border: 1px solid #555;
+  border-radius: 100px;
+  padding: 6px 16px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  margin-bottom: 16px;
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.btn-pelajari-bab:hover:not(:disabled) {
+  background-color: #555555;
+}
+
+/* AC Skenario 5: Tampilan tombol saat tidak ada dokumen */
+.btn-pelajari-bab:disabled,
+.btn-pelajari-bab.is-disabled {
+  background-color: #2a2a2a;
+  color: #777777;
+  border-color: #333;
+  cursor: not-allowed;
+}
+
+/* Container untuk daftar bab di dalam bubble AI */
+.chapter-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  width: 100%;
+}
+
+.chapter-btn {
+  background-color: #2b2b2b;
+  border: 1px solid #444;
+  color: #cecece;
+  padding: 10px 14px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  word-wrap: break-word;
+}
+
+.chapter-btn:hover {
+  background-color: #3b3b3b;
+  color: #fff;
+}
+
+.chapter-btn.is-active {
+  background-color: #4a80f6; /* Warna biru aktif, sesuaikan dengan tema UI-mu */
+  color: #ffffff;
+  border-color: #4a80f6;
+  font-weight: 600;
+  cursor: default;
+}
+
+.chapter-btn.is-active:hover {
+  background-color: #4a80f6;
+}
+
 /* ----- Chat AI ----- */
 /* Container Pesan AI: Tanpa background & padding bubble */
 .msg-ai {
@@ -1176,47 +1244,6 @@ input[type="password"]::-ms-clear {
   background: var(--btn-bg);
   color: var(--btn-text);
   border-radius: 50%;
-}
-
-/* Posisi relatif untuk membungkus tombol menu agar dropdown/dropup mengikuti */
-.chat-menu-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-/* Menu Dropup yang muncul ke atas */
-.dropdown-menu--dropup {
-  bottom: 100%;
-  left: 0;
-  top: auto;
-  margin-bottom: 8px;
-  min-width: 160px;
-}
-
-/* Tombol bab di dalam bubble chat AI */
-.chapter-list-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.chapter-btn {
-  background-color: #2b2b2b;
-  border: 1px solid #444;
-  color: #cecece;
-  padding: 10px 14px;
-  border-radius: 8px;
-  text-align: left;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.chapter-btn:hover {
-  background-color: #3b3b3b;
-  color: #fff;
 }
 
 /* ----- Popup (dialog) ----- */
