@@ -181,3 +181,30 @@ export const updateUsernameOravatarUser = async(req: Request, res: Response)=>{
         return response.serverError(res, "gagal update data user")       
     }
 }
+
+export const updateUserPassword = async(req: Request, res: Response)=>{
+    try {
+        
+        const {newPassword,oldPassword} = req.body
+        const userId = req.userId
+
+        if (!userId) {
+            return response.userError(res, "tidak terautentikasi")
+        
+         } 
+        const user =await User.findById(userId)
+        if(!user){
+            return response.notFoundError(res,"user tidak ditemukan")
+        }
+        const isOldPasswordMatch =await verifyPassword(oldPassword,user.password)
+        if(!isOldPasswordMatch){
+            return response.userError(res,"Password lama salah",400)
+        }
+        const hashedNewPassword = await hashPassword(newPassword)
+        const updatedUser = await User.findByIdAndUpdate(userId,{password:hashedNewPassword})
+        return response.requestSuccess(res,"Password berhasil diperbarui")
+    }
+    catch (error) {
+        return response.serverError(res, "gagal update password user")              
+    }
+}

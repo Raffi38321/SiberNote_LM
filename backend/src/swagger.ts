@@ -392,6 +392,48 @@ const options: swaggerJSDoc.Options = {
                     },
                 },
             },
+            "/user/password": {
+                put: {
+                    tags: ["User"],
+                    summary: "Update password",
+                    security: [{ bearerAuth: [] }],
+                    requestBody: {
+                        required: true,
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    required: ["passwordLama", "passwordBaru"],
+                                    properties: {
+                                        passwordLama: { type: "string", example: "Lama12345" },
+                                        passwordBaru: { type: "string", minLength: 8, example: "Baru12345" },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    responses: {
+                        200: {
+                            description: "Password berhasil diperbarui",
+                            content: {
+                                "application/json": {
+                                    schema: {
+                                        type: "object",
+                                        properties: {
+                                            status: { type: "string", example: "success" },
+                                            message: { type: "string", example: "Password berhasil diperbarui" },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                        400: { description: "Kolom kosong / password baru < 8 karakter / password lama salah", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        401: { description: "Tidak terautentikasi", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        404: { description: "User tidak ditemukan", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        500: { description: "Kesalahan server", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                    },
+                },
+            },
             // ═══════════════════════════════════════════════════════════════
             // NOTEBOOKS
             // ═══════════════════════════════════════════════════════════════

@@ -322,6 +322,55 @@ PUT /user
 
 ---
 
+### Update Password
+
+Memperbarui password user yang sedang login.
+
+```
+PUT /user/password
+```
+
+**Headers**
+
+| Key             | Value                  | Required |
+|-----------------|------------------------|----------|
+| `Authorization` | `Bearer <accessToken>` | ✅        |
+
+**Request Body**
+
+```json
+{
+  "passwordLama": "Lama12345",
+  "passwordBaru": "Baru12345"
+}
+```
+
+| Field          | Aturan                                    |
+|----------------|-------------------------------------------|
+| `passwordLama` | Wajib, tidak boleh kosong                 |
+| `passwordBaru` | Wajib, tidak boleh kosong, minimal 8 karakter |
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "Password berhasil diperbarui"
+}
+```
+
+**Error Responses**
+
+| Status | Pesan | Kondisi |
+|--------|-------|---------|
+| `400`  | `"Kolom password tidak boleh kosong"` | Salah satu field kosong |
+| `400`  | `"Password minimal 8 karakter"` | `passwordBaru` kurang dari 8 karakter |
+| `400`  | `"Password lama salah"` | `passwordLama` tidak cocok |
+| `401`  | `"token tidak valid atau sudah expired"` | Token tidak valid |
+| `404`  | `"user tidak ketemu"` | User tidak ditemukan |
+| `500`  | `"gagal update password"` | Kesalahan server |
+
+---
+
 ## Notebooks
 
 Semua endpoint notebook membutuhkan `accessToken` yang valid di header:
@@ -1355,6 +1404,183 @@ Kedua pesan (user dan assistant) disimpan ke database. Response mengembalikan ke
 | `404`  | Notebook tidak ditemukan atau bukan milik user                                       |
 | `422`  | Tidak ada dokumen di notebook yang `parseStatus: "done"` — chat belum bisa berjalan |
 | `500`  | Gagal mendapatkan jawaban, silakan coba lagi.                                        |
+
+---
+
+## Table of Contents (Daftar Bab)
+
+Semua endpoint ToC membutuhkan `accessToken` yang valid di header:
+
+```
+Authorization: Bearer <accessToken>
+```
+
+---
+
+### Get / Generate Daftar Bab
+
+Mengambil daftar bab dari semua dokumen di notebook. Jika belum ada, generate via Gemini lalu simpan. Jika sudah ada, langsung return dari DB.
+
+```
+GET /notebooks/:notebookId/toc
+```
+
+**URL Params**
+
+| Param        | Keterangan          |
+|--------------|---------------------|
+| `notebookId` | ID notebook MongoDB |
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "berhasil mendapatkan daftar bab",
+  "data": {
+    "toc": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c40",
+      "notebookId": "665f1a2b3c4d5e6f7a8b9c0e",
+      "generatedAt": "2026-10-08T10:00:00.000Z",
+      "chapters": [
+        {
+          "chapterNumber": 1,
+          "title": "Pendahuluan",
+          "pageStart": 1,
+          "pageEnd": 10,
+          "documentId": "665f1a2b3c4d5e6f7a8b9c0f",
+          "documentTitle": "Basis Data.pdf"
+        },
+        {
+          "chapterNumber": 2,
+          "title": "Normalisasi",
+          "pageStart": 11,
+          "pageEnd": 30,
+          "documentId": "665f1a2b3c4d5e6f7a8b9c0f",
+          "documentTitle": "Basis Data.pdf"
+        }
+      ]
+    }
+  }
+}
+```
+
+**Error Responses**
+
+| Status | Pesan | Kondisi |
+|--------|-------|---------|
+| `401`  | `"tidak terautentikasi"` | Token tidak valid |
+| `404`  | `"notebook tidak ditemukan atau bukan milik user"` | Notebook tidak ada |
+| `422`  | `"belum ada dokumen yang selesai diproses di notebook ini"` | Tidak ada dokumen `parseStatus: "done"` |
+| `500`  | `"Gagal menyusun daftar bab, silakan coba lagi."` | Gemini gagal |
+
+---
+
+### Force Regenerate Daftar Bab
+
+Hapus daftar bab lama dan generate ulang. Gunakan setelah dokumen baru selesai diproses.
+
+```
+POST /notebooks/:notebookId/toc
+```
+
+**URL Params**
+
+| Param        | Keterangan          |
+|--------------|---------------------|
+| `notebookId` | ID notebook MongoDB |
+
+**Request Body** — tidak ada
+
+**Response `201 Created`** — sama dengan GET di atas (message: `"berhasil membuat daftar bab"`).
+
+**Error Responses** — sama dengan GET di atas.
+
+---
+
+## Ringkasan Bab (Chapter Summary)
+
+Membuat ringkasan bab dari dokumen yang dipilih. Ringkasan disimpan ke riwayat chat dan muncul saat `GET /chats/:notebookId`.
+
+```
+POST /chats/:notebookId/summary
+```
+
+**URL Params**
+
+| Param        | Keterangan          |
+|--------------|---------------------|
+| `notebookId` | ID notebook MongoDB |
+
+**Request Body**
+
+```json
+{
+  "documentId": "665f1a2b3c4d5e6f7a8b9c0f",
+  "chapterTitle": "Normalisasi",
+  "pageStart": 11,
+  "pageEnd": 30
+}
+```
+
+| Field          | Aturan                              |
+|----------------|-------------------------------------|
+| `documentId`   | Wajib, ID dokumen MongoDB           |
+| `chapterTitle` | Wajib, tidak boleh kosong           |
+| `pageStart`    | Wajib, angka >= 1                   |
+| `pageEnd`      | Wajib, angka >= `pageStart`         |
+
+**Response `200 OK`**
+
+Dua pesan disimpan ke riwayat — pesan user dan jawaban AI.
+
+```json
+{
+  "status": "success",
+  "message": "berhasil membuat ringkasan bab",
+  "data": {
+    "userMessage": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c20",
+      "notebookId": "665f1a2b3c4d5e6f7a8b9c0e",
+      "role": "user",
+      "content": "Buatkan ringkasan Bab Normalisasi (hlm. 11–30) dari Basis Data.pdf",
+      "citations": [],
+      "sourceType": null,
+      "createdAt": "2026-10-08T10:01:00.000Z"
+    },
+    "assistantMessage": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c21",
+      "notebookId": "665f1a2b3c4d5e6f7a8b9c0e",
+      "role": "assistant",
+      "content": "Berikut ringkasan Bab 2 Normalisasi:\n\n1. Normalisasi adalah proses... [1]\n2. Bentuk Normal Pertama (1NF)... [2]",
+      "citations": [
+        {
+          "citationIndex": 1,
+          "documentId": "665f1a2b3c4d5e6f7a8b9c0f",
+          "documentTitle": "Basis Data.pdf",
+          "pageStart": 11,
+          "pageEnd": 13,
+          "chunkContent": "Normalisasi adalah proses pengelompokan atribut..."
+        }
+      ],
+      "sourceType": "document",
+      "createdAt": "2026-10-08T10:01:05.000Z"
+    }
+  }
+}
+```
+
+> Semua citation dijamin berada dalam rentang `pageStart`–`pageEnd` yang diminta.
+
+**Error Responses**
+
+| Status | Pesan | Kondisi |
+|--------|-------|---------|
+| `400`  | Pesan validasi | Field kurang / `pageEnd` < `pageStart` |
+| `401`  | `"tidak terautentikasi"` | Token tidak valid |
+| `404`  | `"notebook tidak ditemukan atau bukan milik user"` | Notebook tidak ada |
+| `404`  | `"dokumen tidak ditemukan atau belum selesai diproses"` | Dokumen tidak ada / bukan milik notebook |
+| `422`  | `"Tidak ada konten pada rentang halaman ini"` | Tidak ada chunk di rentang halaman |
+| `500`  | `"Gagal membuat ringkasan, silakan coba lagi."` | Gemini gagal |
 
 ---
 
