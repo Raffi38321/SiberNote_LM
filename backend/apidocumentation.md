@@ -1584,6 +1584,79 @@ Dua pesan disimpan ke riwayat — pesan user dan jawaban AI.
 
 ---
 
+## Flashcard
+
+Membuat set flashcard dari dokumen yang dipilih. Cache dikembalikan jika `documentIds` dan `count` sama. Set baru di-generate jika berbeda.
+
+```
+POST /notebooks/:notebookId/flashcards
+```
+
+**URL Params**
+
+| Param        | Keterangan          |
+|--------------|---------------------|
+| `notebookId` | ID notebook MongoDB |
+
+**Request Body**
+
+```json
+{
+  "documentIds": ["665f1a2b3c4d5e6f7a8b9c0f"],
+  "count": 10
+}
+```
+
+| Field         | Aturan                                         |
+|---------------|------------------------------------------------|
+| `documentIds` | Wajib, array minimal 1 ID dokumen (harus `parseStatus: "done"`) |
+| `count`       | Wajib, salah satu dari: `3`, `5`, `7`, `10`   |
+
+**Response `200 OK`**
+```json
+{
+  "status": "success",
+  "message": "berhasil mendapatkan flashcard",
+  "data": {
+    "flashcardSet": {
+      "_id": "665f1a2b3c4d5e6f7a8b9c50",
+      "notebookId": "665f1a2b3c4d5e6f7a8b9c0e",
+      "documentIds": ["665f1a2b3c4d5e6f7a8b9c0f"],
+      "generatedAt": "2026-10-08T10:00:00.000Z",
+      "cards": [
+        {
+          "front": "Apa itu normalisasi?",
+          "back": "Normalisasi adalah proses pengelompokan atribut-atribut dari suatu relasi sehingga tidak terjadi anomali data.",
+          "documentId": "665f1a2b3c4d5e6f7a8b9c0f",
+          "documentTitle": "Basis Data.pdf",
+          "pageStart": 12,
+          "pageEnd": 12
+        }
+      ]
+    }
+  }
+}
+```
+
+> Set selalu berisi tepat sejumlah `count` yang diminta.
+>
+> Jika multi-dokumen, setiap dokumen yang dipilih dijamin minimal 1 kartu.
+>
+> Cache dikembalikan jika `documentIds` dan `count` sama dengan generate sebelumnya.
+
+**Error Responses**
+
+| Status | Pesan | Kondisi |
+|--------|-------|---------|
+| `400`  | `"count harus salah satu dari: 3, 5, 7, 10"` | `count` tidak valid |
+| `400`  | `"documentIds harus array berisi minimal 1 ID"` | `documentIds` kosong |
+| `401`  | `"tidak terautentikasi"` | Token tidak valid |
+| `404`  | `"notebook tidak ditemukan atau bukan milik user"` | Notebook tidak ada |
+| `422`  | `"belum ada dokumen yang selesai diproses di notebook ini"` | Semua dokumen yang dipilih belum done |
+| `500`  | `"Gagal membuat flashcard, silakan coba lagi."` | Gemini gagal |
+
+---
+
 ## Citations
 
 Semua endpoint citation membutuhkan `accessToken` yang valid di header:

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { createNotebook, deleteNotebook, getAllNotebookUser, getNotebookById, pinNotebook, updateNotebook } from "../controllers/notebook.controller.js";
 import { getToc, regenerateToc } from "../controllers/toc.controller.js";
+import { getFlashcards } from "../controllers/flashcard.controller.js";
 import { authenticate } from "../middlewares/auth.middleware.js";
 import { validateRequest } from "../middlewares/validateSchema.middelare.js";
 import { getAllNotebookSchema, notebookSchema, pinNotebookSchema, updateNotebookSchema } from "../schemas/notebook.schema.js";
@@ -16,6 +17,7 @@ notebookRouter.get("/"
 notebookRouter.delete("/:notebookId", isUserAuthorize, deleteNotebook)
 notebookRouter.get("/:notebookId/toc", isUserAuthorize, getToc)
 notebookRouter.post("/:notebookId/toc", isUserAuthorize, regenerateToc)
+notebookRouter.post("/:notebookId/flashcards", isUserAuthorize, getFlashcards)
 notebookRouter.get("/:notebookId", isUserAuthorize, getNotebookById)
 notebookRouter.put("/:notebookId", [validateRequest(updateNotebookSchema), isUserAuthorize], updateNotebook)
 notebookRouter.patch("/:notebookId/pin", [validateRequest(pinNotebookSchema), isUserAuthorize], pinNotebook)

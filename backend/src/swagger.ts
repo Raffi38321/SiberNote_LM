@@ -957,6 +957,89 @@ const options: swaggerJSDoc.Options = {
                     },
                 },
             },
+            "/notebooks/{notebookId}/flashcards": {
+                post: {
+                    tags: ["Notebooks"],
+                    summary: "Get / generate set flashcard",
+                    description: "Membuat atau mengambil set flashcard dari dokumen yang dipilih. Cache dikembalikan jika documentIds dan count sama. Set baru di-generate jika berbeda.",
+                    security: [{ bearerAuth: [] }],
+                    parameters: [{ in: "path", name: "notebookId", required: true, schema: { type: "string" } }],
+                    requestBody: {
+                        required: true,
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    required: ["documentIds", "count"],
+                                    properties: {
+                                        documentIds: {
+                                            type: "array",
+                                            items: { type: "string" },
+                                            description: "Array ID dokumen yang dipilih (harus parseStatus: done)",
+                                            example: ["665f1a2b3c4d5e6f7a8b9c0f"],
+                                        },
+                                        count: {
+                                            type: "integer",
+                                            enum: [3, 5, 7, 10],
+                                            description: "Jumlah kartu yang diinginkan",
+                                            example: 10,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    responses: {
+                        200: {
+                            description: "Set flashcard berhasil didapat / dibuat",
+                            content: {
+                                "application/json": {
+                                    schema: {
+                                        type: "object",
+                                        properties: {
+                                            status: { type: "string", example: "success" },
+                                            message: { type: "string", example: "berhasil mendapatkan flashcard" },
+                                            data: {
+                                                type: "object",
+                                                properties: {
+                                                    flashcardSet: {
+                                                        type: "object",
+                                                        properties: {
+                                                            _id: { type: "string" },
+                                                            notebookId: { type: "string" },
+                                                            documentIds: { type: "array", items: { type: "string" } },
+                                                            generatedAt: { type: "string", format: "date-time" },
+                                                            cards: {
+                                                                type: "array",
+                                                                items: {
+                                                                    type: "object",
+                                                                    properties: {
+                                                                        front: { type: "string", example: "Apa itu normalisasi?" },
+                                                                        back: { type: "string", example: "Normalisasi adalah proses pengelompokan atribut..." },
+                                                                        documentId: { type: "string" },
+                                                                        documentTitle: { type: "string", example: "Basis Data.pdf" },
+                                                                        pageStart: { type: "number", example: 12 },
+                                                                        pageEnd: { type: "number", example: 12 },
+                                                                    },
+                                                                },
+                                                            },
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                        400: { description: "count tidak valid / documentIds kosong", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        401: { description: "Tidak terautentikasi", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        404: { description: "Notebook tidak ditemukan atau bukan milik user", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        422: { description: "Tidak ada dokumen yang selesai diproses", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                        500: { description: "Gagal membuat flashcard, silakan coba lagi.", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
+                    },
+                },
+            },
             // ═══════════════════════════════════════════════════════════════
             // CHAT AI
             // ═══════════════════════════════════════════════════════════════
