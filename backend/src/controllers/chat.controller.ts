@@ -115,9 +115,11 @@ export const sendMessage = async (req: Request, res: Response) => {
             .map((m) => ({ role: m.role, content: m.content }))
 
         const queryVector = await generateQueryEmbedding(message)
+        console.log(`[chat] selesai embedding chat`);
 
         const chunks = await vectorSearch(queryVector, documentIds)
-        // console.log(chunks);
+        console.log(`[chat] selesai vector search`);
+        console.log(`[chat] mulai request ke llm`);
         const llmResult = await askLLM(message, chunks, history)
 
         const assistantMessage = await Message.create({
@@ -127,7 +129,7 @@ export const sendMessage = async (req: Request, res: Response) => {
             citations: llmResult.citations,
             sourceType: llmResult.sourceType,
         })
-
+        console.log(`[chat] selesai`);
         return response.requestSuccessWithData(
             res,
             "berhasil kirim pesan",

@@ -24,8 +24,8 @@ export const getFlashcards = async (req: Request, res: Response) => {
             documentIds: string[]
             count: number
         }
+        console.log(`[flashcard]`,documentIds);
 
-        // validasi count
         if (!ALLOWED_COUNTS.includes(count)) {
             return response.userError(
                 res,
@@ -33,12 +33,10 @@ export const getFlashcards = async (req: Request, res: Response) => {
             )
         }
 
-        // validasi documentIds
         if (!Array.isArray(documentIds) || documentIds.length === 0) {
             return response.userError(res, "documentIds harus array berisi minimal 1 ID")
         }
 
-        // verify dokumen milik notebook ini dan sudah done
         const docs = await Document.find({
             _id: { $in: documentIds.map((id) => new mongoose.Types.ObjectId(id)) },
             notebookId,
@@ -53,8 +51,6 @@ export const getFlashcards = async (req: Request, res: Response) => {
             )
         }
 
-        // Skenario 12: kalau jumlah dokumen > count, kita tidak bisa
-        // pastikan minimal 1 kartu per dokumen — batasi ke count dokumen pertama
         const selectedDocs = docs.slice(0, count)
 
         const flashcardDocs: FlashcardDocument[] = selectedDocs.map((d) => ({
@@ -66,14 +62,12 @@ export const getFlashcards = async (req: Request, res: Response) => {
         const selectedDocIds = selectedDocs.map((d) => (d._id as mongoose.Types.ObjectId).toString()).sort()
         const notebookObjectId = new mongoose.Types.ObjectId(notebookId)
 
-        // cek set yang sudah ada
         const existing = await FlashcardSet.findOne({ notebookId: notebookObjectId }).lean()
 
         if (existing) {
             const savedDocIds = existing.documentIds.map((id) => id.toString()).sort()
             const savedCount = existing.cards.length
 
-            // return cache kalau dokumen sama dan count sama
             if (
                 JSON.stringify(savedDocIds) === JSON.stringify(selectedDocIds) &&
                 savedCount === count
@@ -85,12 +79,10 @@ export const getFlashcards = async (req: Request, res: Response) => {
                     200,
                 )
             }
-
-            // dokumen atau count berubah → hapus lama
             await FlashcardSet.deleteOne({ notebookId: notebookObjectId })
         }
 
-        // generate baru
+        console.log(`[flashcard] mulai generate`);
         const cards = await generateFlashcards(flashcardDocs, count)
 
         const flashcardSet = await FlashcardSet.create({
@@ -99,7 +91,7 @@ export const getFlashcards = async (req: Request, res: Response) => {
             cards,
             generatedAt: new Date(),
         })
-
+        console.log(`[flashcard] selesai generate`);
         return response.requestSuccessWithData(
             res,
             "berhasil mendapatkan flashcard",

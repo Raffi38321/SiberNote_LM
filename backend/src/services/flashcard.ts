@@ -3,8 +3,6 @@ import type { Types } from "mongoose"
 import envVariable from "../utils/ENV.js"
 import Chunk from "../models/chunk.model.js"
 
-// ─── types ────────────────────────────────────────────────────────────────────
-
 export interface FlashcardDocument {
     documentId: Types.ObjectId
     documentTitle: string
@@ -20,20 +18,12 @@ export interface ParsedCard {
     pageEnd: number
 }
 
-// ─── setup ────────────────────────────────────────────────────────────────────
 
 const genAI = new GoogleGenerativeAI(envVariable.GEMINI_MODEL)
 const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" })
 
-/** Total slot chunk maksimal yang dikirim ke Gemini */
 const MAX_TOTAL_CHUNKS = 80
 
-// ─── sampling chunk merata ────────────────────────────────────────────────────
-
-/**
- * Ambil chunk tersebar merata dari tiap dokumen.
- * Skenario 12: tiap dokumen dijamin minimal 1 slot meskipun count > perDocSlots.
- */
 const fetchChunksSampled = async (
     docs: FlashcardDocument[],
 ): Promise<Map<string, { chunkIndex: number; pageStart: number; pageEnd: number; content: string }[]>> => {
@@ -85,8 +75,6 @@ const buildFlashcardPrompt = (
 ): string => {
     const isMultiDoc = docs.length > 1
 
-    // pastikan distribusi kartu per dokumen untuk Skenario 12
-    // tiap dokumen minimal 1 kartu, sisa dibagi merata
     const cardsPerDoc = distributeCards(count, docs.length)
 
     const docBlocks = docs.map((doc, i) => {
@@ -133,17 +121,11 @@ const buildFlashcardPrompt = (
         .join("\n")
 }
 
-/**
- * Distribusi kartu merata ke tiap dokumen — tiap dokumen minimal 1 kartu.
- * Sisa kartu diberikan ke dokumen pertama berturut-turut.
- */
 const distributeCards = (total: number, numDocs: number): number[] => {
     const base = Math.floor(total / numDocs)
     const remainder = total % numDocs
     return Array.from({ length: numDocs }, (_, i) => base + (i < remainder ? 1 : 0))
 }
-
-// ─── parse + validasi ─────────────────────────────────────────────────────────
 
 const parseAndValidate = (
     raw: string,
@@ -199,8 +181,6 @@ const parseAndValidate = (
         }
     })
 }
-
-// ─── retry helper ─────────────────────────────────────────────────────────────
 
 const is503 = (err: unknown): boolean => {
     if (typeof err !== "object" || err === null) return false
