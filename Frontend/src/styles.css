@@ -479,7 +479,7 @@ input[type="password"]::-ms-clear {
 
 /* ----- Dropdown (profil, urutan, aksi baris) ----- */
 .menu-wrap {
-  position: relative;
+  position: relative !important;
   display: inline-block;
 }
 
@@ -505,12 +505,20 @@ input[type="password"]::-ms-clear {
 }
 
 .dropdown-menu--right {
-  right: auto;
+  right: 0;
+  position: absolute;
+  left: auto;
 }
 
 .dropdown-menu--center {
   justify-content: center;
   align-items: center;
+}
+
+.dropdown-menu--top {
+  top: auto !important;          /* Matikan posisi atas */
+  bottom: calc(100% + 8px) !important; /* Dorong menu agar terbuka ke arah atas tombol */
+  margin-top: 0 !important;;
 }
 
 .dropdown-menu button {
@@ -693,6 +701,45 @@ input[type="password"]::-ms-clear {
   margin: 0 0 14px;
   font-size: 0.8125rem;
   font-weight: 400;
+}
+
+.chat-header-wrap {
+  display: flex;
+  align-items: center;
+  position: relative; /* Wajib ada agar kotak error bisa dipusatkan dengan absolute */
+  margin-bottom: 16px;
+  min-height: 32px; /* Menjaga tinggi agar konsisten */
+  width: 100%;
+}
+
+/* Pastikan margin judul tidak merusak layout flex */
+.chat-header-wrap .panel-title {
+  margin: 0;
+}
+
+/* Kotak Error yang diposisikan di tengah (Center) */
+.source-error-centered {
+  margin: 9px 0 8px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  
+  /* Desain pill error (sesuaikan warnanya dengan desainmu) */
+  background-color: #cf7474; 
+  color: #3b1010;
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap; /* Mencegah teks terpotong ke bawah */
+  z-index: 10;
+}
+
+.error-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 2px; /* Memberi sedikit jarak ekstra dari teks jika diperlukan */
 }
 
 /* Tombol Pelajari per bab di bawah judul Chat AI */
@@ -890,6 +937,145 @@ input[type="password"]::-ms-clear {
   height: 30px;                       /* Sesuaikan dengan tinggi SVG (30px) */
   border-radius: 50%;                 /* Area interaktif berbentuk lingkaran */
   overflow: hidden;                   /* Mencegah overflow visual */
+  transition: all 0.2s ease;            /* Transisi halus untuk efek hover */
+}
+
+chat-menu-btn:hover {
+  opacity: 0.7;                       /* Efek hover: sedikit transparan */
+  transform: scale(1.05);              /* Efek hover: sedikit membesar */
+}
+
+.feature-dropup-menu {
+  position: absolute;
+  bottom: calc(100% + 12px); /* Mendorong kotak ke atas tombol */
+  left: 0;
+  background-color: #2b2b2b; /* Warna gelap sesuai desain */
+  border-radius: 10px;
+  padding: 6px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 2px -2px 0px 0px #1a1c1d; /* Memberikan efek bayangan */
+}
+
+.dropup-item {
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  background-color: transparent;
+  color: var(--text);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: background-color 0.2s;
+  white-space: nowrap; 
+}
+
+.dropup-item:hover:not(:disabled) {
+  background-color: #1a1c1d80; 
+  
+}
+
+.dropup-item:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.chapter-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  width: 100%;
+}
+
+.chapter-btn {
+  width: 100%;
+  text-align: left;
+  background-color: #cecece; /* Warna abu-abu terang */
+  color: #1a1c1d;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chapter-btn:hover {
+  background-color: #cccccc80;
+  transform: translateY(-2px); /* Efek tombol terangkat sedikit saat disorot */
+}
+
+/* State aktif jika bab sedang dipilih/dibaca */
+.chapter-btn.is-active {
+  background-color: #4a80f6; /* Sesuaikan dengan warna primer UI-mu */
+  color: #ffffff;
+  pointer-events: none; /* Cegah klik ganda */
+}
+
+.chat-loading-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0;
+  width: 100%;
+  max-width: 100%; /* Agar kerangka tidak selebar layar penuh */
+}
+
+.loading-header {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: #a0a0a0;
+  font-size: 0.9rem;
+}
+
+/* Animasi putar untuk ikon Spinner putus-putus */
+.anti-mainstream-spinner {
+  animation: spinDash 2s linear infinite;
+}
+
+@keyframes spinDash {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.skeleton-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Dasar baris kerangka loading */
+.skeleton-bar {
+  height: 38px !important;
+  width: 100%;
+  border-radius: 4px;
+  background-color: #cecece40;
+  background-image: linear-gradient(
+    90deg, 
+    rgba(206, 206, 206, 0) 0%, 
+    rgba(206, 206, 206, 0.1) 50%, 
+    rgba(206, 206, 206, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerWave 1.8s infinite linear;
+}
+
+/* 
+  Staggered Delay: 
+  Membuat cahaya mengalir bergantian (estafet) dari baris 1 ke baris 3 
+*/
+.wave-1 { animation-delay: 0s; }
+.wave-2 { animation-delay: 0.2s; }
+.wave-3 { animation-delay: 0.4s; }
+
+@keyframes shimmerWave {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .msg-user {
@@ -925,6 +1111,22 @@ input[type="password"]::-ms-clear {
   font-size: 0.6875rem;
   color: var(--text-muted);
   vertical-align: middle;
+}
+
+.chat-input-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative; /* Penting agar drop-up bisa diposisikan ke atas area ini */
+  width: 100%;
+}
+
+.feature-menu-container {
+  position: relative; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0; /* Mencegah tombol menu mengecil */
 }
 
 .chat-input {

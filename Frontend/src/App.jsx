@@ -578,6 +578,31 @@ function MenuIcon() {
   );
 }
 
+function SpinnerIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="anti-mainstream-spinner" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 5C9.10457 5 10 4.10457 10 3C10 1.89543 9.10457 1 8 1C6.89543 1 6 1.89543 6 3C6 4.10457 6.89543 5 8 5Z" fill="#CECECE"/>
+      <path d="M3 9.5C3.82843 9.5 4.5 8.82843 4.5 8C4.5 7.17157 3.82843 6.5 3 6.5C2.17157 6.5 1.5 7.17157 1.5 8C1.5 8.82843 2.17157 9.5 3 9.5Z" fill="#CECECE"/>
+      <path d="M11.5 4.75C11.6381 4.75 11.75 4.63807 11.75 4.5C11.75 4.36193 11.6381 4.25 11.5 4.25C11.3619 4.25 11.25 4.36193 11.25 4.5C11.25 4.63807 11.3619 4.75 11.5 4.75Z" fill="#CECECE"/>
+      <path d="M5.62822 3.36172C5.00635 2.73359 3.99697 2.73359 3.3751 3.36172C2.75322 3.98984 2.75322 5.00859 3.3751 5.63672C3.99697 6.26484 5.00635 6.26484 5.62822 5.63672C6.2501 5.00859 6.2501 3.98984 5.62822 3.36172Z" fill="#CECECE"/>
+      <path d="M13 8.5C13.2761 8.5 13.5 8.27614 13.5 8C13.5 7.72386 13.2761 7.5 13 7.5C12.7239 7.5 12.5 7.72386 12.5 8C12.5 8.27614 12.7239 8.5 13 8.5Z" fill="#CECECE"/>
+      <path d="M11.5312 12.2812C11.9455 12.2812 12.2812 11.9455 12.2812 11.5312C12.2812 11.117 11.9455 10.7812 11.5312 10.7812C11.117 10.7812 10.7812 11.117 10.7812 11.5312C10.7812 11.9455 11.117 12.2812 11.5312 12.2812Z" fill="#CECECE"/>
+      <path d="M8 14C8.55228 14 9 13.5523 9 13C9 12.4477 8.55228 12 8 12C7.44772 12 7 12.4477 7 13C7 13.5523 7.44772 14 8 14Z" fill="#CECECE"/>
+      <path d="M4.5 12.75C5.19036 12.75 5.75 12.1904 5.75 11.5C5.75 10.8096 5.19036 10.25 4.5 10.25C3.80964 10.25 3.25 10.8096 3.25 11.5C3.25 12.1904 3.80964 12.75 4.5 12.75Z" fill="#CECECE"/>
+    </svg>
+  );
+}
+
+function SkeletonWave() {
+  return (
+    <div className="skeleton-container">
+      <div className="skeleton-bar wave-1"></div>
+      <div className="skeleton-bar wave-2"></div>
+      <div className="skeleton-bar wave-3"></div>
+    </div>
+  );
+}
+
 function formatDate(value) {
   return new Date(value).toLocaleDateString("id-ID", {
     day: "numeric",
@@ -895,6 +920,8 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [renameTarget, setRenameTarget] = useState(null);
   const [pinningId, setPinningId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [menuDirection, setMenuDirection] = useState("bottom");
   // Jumlah sumber per notebook: undefined = masih dimuat, null = gagal dimuat, angka = jumlah dokumen.
   const [sourceCounts, setSourceCounts] = useState({});
   const [page, setPage] = useState(1);
@@ -1047,6 +1074,10 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
     });
 
   const sortLabel = SORT_OPTIONS.find((o) => o.value === sortBy).label;
+  const filteredNotebooks = notebooks.filter((nb) => {
+    const title = nb.title || "Catatan Tanpa Judul";
+    return title.toLowerCase().includes(search.toLowerCase());
+  });
 
     return (
     <>
@@ -1120,7 +1151,7 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
 
           {loadingList ? (
             <p className="empty-state">Memuat catatan...</p>
-          ) : notebooks.length === 0 ? (
+          ) : filteredNotebooks.length === 0 ? (
             !listError && (
               <p className="empty-state">
                 {/* PERBAIKAN 1: Memisahkan pesan Empty State Pencarian vs Default */}
@@ -1142,7 +1173,7 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
                 </thead>
                 <tbody>
                   {/* PERBAIKAN 2: Menggunakan data 'notebooks' hasil pagination backend */}
-                  {notebooks.map((nb) => (
+                  {filteredNotebooks.map((nb) => (
                     <tr
                       key={nb._id}
                       className="row-clickable"
@@ -1178,13 +1209,21 @@ function NotebooksPage({ accessToken, profile, onLogout, onEditProfile, onOpenNo
                               aria-haspopup="menu"
                               aria-expanded={openMenuId === nb._id}
                               disabled={deletingId === nb._id || pinningId === nb._id}
-                              onClick={() => setOpenMenuId((id) => (id === nb._id ? null : nb._id))}>
+                              onClick={(e) => {
+                                const spaceBelow = window.innerHeight - e.clientY;
+                                if (spaceBelow < 160) {
+                                  setMenuDirection("top");
+                                }else {
+                                  setMenuDirection("bottom");
+                                }
+                                setOpenMenuId((id) => (id === nb._id ? null : nb._id));
+                                }}>
                               <Titik3Icon />
                             </button>
                             {openMenuId === nb._id && (
                               <>
                                 <div className="menu-backdrop" onClick={() => setOpenMenuId(null)} />
-                                <div className="dropdown-menu dropdown-menu--right" role="menu">
+                                <div className={`dropdown-menu dropdown-menu--right ${menuDirection === "top" ? "dropdown-menu--top" : ""}`} role="menu">
                                   <button
                                     type="button"
                                     role="menuitem"
@@ -1750,6 +1789,15 @@ function ClosePreviewIcon() {
   );
 }
 
+function X() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12.75 4.25L8.5 8.5M8.5 8.5L4.25 12.75M8.5 8.5L4.25 4.25M8.5 8.5L12.75 12.75" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" stroke="#B81B1B"/>
+    </svg>
+  );
+}
+
+
 function DocumentPreview({ previewData, onBack, accessToken }) {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
@@ -2133,22 +2181,7 @@ function RenameDocumentDialog({ doc, onClose, onRename }) {
   );
 }
 
-// ----- Chat AI -----
-// Chat dikerjakan di sprint 3 (endpoint backend belum ada), jadi riwayat dan loading
-// di bawah ini masih data contoh.
 
-const SAMPLE_MESSAGES = [
-  { id: 1, role: "user", text: "Lorem ipsum" },
-  {
-    id: 2,
-    role: "ai",
-    text:
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec varius non risus id consequat. " +
-      "Mauris congue magna a semper sagittis. Maecenas malesuada elit ac diam sollicitudin eleifend. " +
-      "Fusce varius a tellus luctus commodo. In pulvinar sagittis feugiat.",
-    sources: ["PDF"],
-  },
-];
 
 // Lebar tiap baris skeleton, diukur dari gambar desain.
 const SKELETON_LINE_WIDTHS = ["100%", "75%", "86%", "80%", "94%", "100%"];
@@ -2178,7 +2211,7 @@ function TagRujukan({ nomor, documentTitle, pageStart, isActive, onClick }) {
   );
 }
 
-function ChatMessage({ message, activePreview, onTagClick, onSelectChapter, babTerpilih }) {
+function ChatMessage({ message, activePreview, onTagClick, onSelectChapter, babTerpilih, documents }) {
   const isUser = message.role === "user" || message.role === "human";
 
   if (isUser) {
@@ -2207,17 +2240,22 @@ function ChatMessage({ message, activePreview, onTagClick, onSelectChapter, babT
   const displayCitations = uniqueCitations.slice();
 
   return (
-    <div className="msg msg-ai">
-      <div className="ai-text">
-        <ReactMarkdown>{message.content || message.text}</ReactMarkdown>
-      </div>
+      <div className="msg msg-ai">
+        <div className="ai-text">
+          <ReactMarkdown>{message.content || message.text}</ReactMarkdown>
+        </div>
 
-      {message.isChapterList && message.chapters && (
+        {message.isChapterList && message.chapters && (
         <div className="chapter-list-container">
           {message.chapters.map((chap, index) => {
             // Cek jika multi dokumen, tambahkan judul dokumen
-            const docLabel = message.hasMultipleDocs && chap.documentTitle 
-                               ? `${chap.documentTitle.replace(/_/g, " ")}, ` 
+            const parentDoc = documents?.find((doc) => doc._id === chap.documentId || doc.id === chap.documentId);
+            if (!parentDoc) { 
+              return null;
+            }
+            const liveTitle = parentDoc ? (parentDoc.title || parentDoc.name) : chap.documentTitle;
+            const docLabel = message.hasMultipleDocs && liveTitle 
+                               ? `${liveTitle.replace(/_/g, " ")}, ` 
                                : '';
             
             // Format string teks sesuai Acceptance Criteria (Bab X Judul (hlm. Y-Z))
@@ -2314,6 +2352,8 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
   const endRef = useRef(null);
   const chatInputRef = useRef(null);
   const chatExpanded = useAutoGrowTextarea(chatInputRef, draft);
+  const featureMenuRef = useRef(null);
+  const [isFeatureMenuOpen, setIsFeatureMenuOpen] = useState(false);
 
   // Input chat hanya aktif kalau ada minimal 1 dokumen yang 'done'
   const hasDocuments = documents.some((d) => d.parseStatus === "done");
@@ -2390,7 +2430,7 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
   // Scroll otomatis ke bawah saat ada pesan baru
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, loadingChat, sendingChat]);
+  }, [messages, loadingChat, sendingChat, fetchingChapters, fetchingSummary]);
 
   // 2. Handler Kirim Pesan Chat AI
   async function handleSend(e) {
@@ -2440,20 +2480,17 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
   const isExpanded = draft.includes('\n') || draft.length > 45;
 
   async function handlePelajariPerBab() {
-    // Skenario 5: Cegah klik jika tidak ada dokumen
-    if (!hasDocuments || fetchingChapters) return;
-    console.log("Cek Token sebelum hit API:", accessToken);
-
-    // Skenario 3: Cegah pemanggilan ulang jika pesan daftar bab sudah tampil
+    setIsFeatureMenuOpen(false); 
+    if (!hasDocuments || fetchingChapters) return;;
     if (messages.some((m) => m._id === "temp-chapters")) return;
 
     setFetchingChapters(true); // Skenario 2: Munculkan loading skeleton
+    setTimeout(() => {
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
     try {
-      // Panggil endpoint BE
       const res = await getChapters(notebook._id, accessToken);
       const chaptersList = res?.data?.toc?.chapters || [];
-
-      // Task Teknis: Buat pesan AI khusus (hilang jika dimuat ulang)
       const tempMsg = {
         _id: "temp-chapters",
         role: "ai",
@@ -2483,14 +2520,11 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
     console.log("Bab disimpan di state:", chapter);
     setFetchingSummary(true); // Munculkan loading skeleton
     try {
-      // Panggil mock API ringkasan
-      const res = await getChapterSummary(notebook._id, chapter);
-      
+      const res = await getChapterSummary(notebook._id, chapter, accessToken);      
       // Ambil objek pesan dari respons
-      const summaryMsg = res.data.summary;
-      
+      const { userMessage, assistantMessage } = res.data;
       // Masukkan pesan ringkasan ke dalam daftar chat (Skenario 1)
-      setMessages((prev) => [...prev, summaryMsg]);
+      setMessages((prev) => [...prev, userMessage, assistantMessage]);
     } catch (err) {
       // Skenario 5: Munculkan notifikasi error melayang merah, babTerpilih dikosongkan agar bisa diklik ulang
       notify("Gagal membuat ringkasan, silakan coba lagi.", "error");
@@ -2540,17 +2574,18 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
 
         {/* Panel Tengah: Chat AI */}
         <section className="panel panel-chat">
-          <h2 className="panel-title">Chat AI</h2>
-          {chatError && <div className="source-error" role="alert">{chatError}</div>} {/* Pesan error saat mengirim chat */}
-
-          <button
-            type="button"
-            className={`btn-pelajari-bab ${!hasDocuments ? "is-disabled" : ""}`}
-            disabled={!hasDocuments || fetchingChapters}
-            onClick={handlePelajariPerBab}
-          >
-            Pelajari per bab
-          </button>
+          <div className="chat-header-wrap">
+            <h2 className="panel-title">Chat AI</h2>
+            
+            {chatError && (
+              <div className="source-error-centered" role="alert">
+                <span>{chatError}</span>
+                <span className="error-icon" aria-hidden="true">
+                  <X />
+                </span>
+              </div>
+            )}
+          </div>
 
           {loadingChat ? (
             <>
@@ -2572,12 +2607,15 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
                       onTagClick={handleTagClick}
                       onSelectChapter={handleSelectChapter}
                       babTerpilih={babTerpilih}
+                      documents={documents}
                     />
                   ))}
                 {/* Item sementara saat AI sedang memproses jawaban */}
-                {(sendingChat || fetchingChapters || fetchingSummary) && (
+                {(sendingChat || fetchingSummary && !fetchingChapters) && (
                   <div className="chat-sending-wrapper">
-                    <p className="chat-loading-text">Loading...</p>
+                    <div className="loading-header">
+                      <SpinnerIcon/><p className="chat-loading-text">Loading...</p>
+                    </div>
                     <div className="chat-skeleton" role="status" aria-live="polite" aria-busy="true">
                       {CHAT_SKELETON_WIDTHS.map((width, i) => (
                         <div key={i} className="skeleton-bar" style={{ width }} />
@@ -2585,43 +2623,69 @@ function WorkspacePage({ notebook, accessToken, profile, onBack, onLogout, onEdi
                     </div>
                   </div>
                 )}
+
+                {(fetchingChapters) && (
+                  <div className="chat-loading-wrapper">
+                    <div className= "loading-header">
+                      <SpinnerIcon/> <p className="chat-loading-text">Loading...</p>
+                    </div>
+                    <SkeletonWave/>
+                  </div>
+                )}
                 <div ref={endRef} />
               </div>
               
-              <form
-                className={`chat-input${hasDocuments ? "" : " is-disabled"}${chatExpanded ? " is-expanded" : ""}`}
-                onSubmit={handleSend}
-              >
-              
-                <button
-                  type="button"
-                  className="chat-menu-btn"
-                  aria-label="Opsi obrolan"
-                  title="Opsi obrolan"
-                ><MenuIcon/></button>
-
-                <textarea
-                  ref={chatInputRef}
-                  rows={1}
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  disabled={!hasDocuments || sendingChat || fetchingChapters || fetchingSummary}
-                  placeholder={
-                    !hasDocuments
-                      ? " "
-                      : " "
-                  }
-                />
-                <button
-                  type="submit"
-                  className="send-btn"
-                  aria-label="Kirim pesan"
-                  disabled={!hasDocuments || !draft.trim() || sendingChat || fetchingChapters || fetchingSummary}
+                <form
+                  className={`chat-input${hasDocuments ? "" : " is-disabled"}${chatExpanded ? " is-expanded" : ""}`}
+                  onSubmit={handleSend}
                 >
-                  <ArrowRightIcon />
-                </button>
-              </form>
+                  <div className="feature-menu-container" ref={featureMenuRef}>
+                    {isFeatureMenuOpen && (
+                      <>
+                      <div className="menu-backdrop" onClick={() => setIsFeatureMenuOpen(false)}/>
+                      <div className="feature-dropup-menu">
+                        <button
+                          type="button"
+                          className="dropup-item"
+                          disabled={!hasDocuments || fetchingChapters}
+                          onClick={handlePelajariPerBab}
+                        >
+                          Pelajari per bab
+                        </button>
+                      </div>
+                      </>
+                    )}
+                      <button
+                          type="button"
+                          className="chat-menu-btn"
+                          aria-label="Opsi obrolan"
+                          title="Opsi obrolan"
+                          onClick={(e) => setIsFeatureMenuOpen(!isFeatureMenuOpen)}
+                        ><MenuIcon/></button>
+                  </div>
+
+                  <textarea
+                    ref={chatInputRef}
+                    rows={1}
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={!hasDocuments || sendingChat || fetchingChapters || fetchingSummary}
+                    placeholder={
+                      !hasDocuments
+                        ? " "
+                        : " "
+                    }
+                  />
+                  <button
+                    type="submit"
+                    className="send-btn"
+                    aria-label="Kirim pesan"
+                    disabled={!hasDocuments || !draft.trim() || sendingChat || fetchingChapters || fetchingSummary}
+                  >
+                    <ArrowRightIcon />
+                  </button>
+                </form>
             </>
           )}
         </section>
@@ -3062,9 +3126,10 @@ export default function App() {
   }
 
   function handleLogout() {
-    // logout() mencabut refresh token di server (POST /user/logout) dan menghapusnya dari
-    // localStorage. Tidak di-await supaya user langsung keluar walau server lambat/offline.
-    logout(accessToken);
+    logout(accessToken).catch((err) => console.error("Gagal mencabut token di server:", err));
+    localStorage.removeItem("accessToken"); 
+    localStorage.removeItem("user");
+    localStorage.removeItem("role");
     clearLastView();
     setAccessToken(null);
     setActiveNotebook(null);
