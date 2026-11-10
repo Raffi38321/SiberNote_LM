@@ -166,7 +166,6 @@ export const getMessages = async (req: Request, res: Response) => {
     }
 }
 
-/** Maksimal chunk yang dikirim ke Gemini untuk ringkasan bab */
 const MAX_SUMMARY_CHUNKS = 20
 
 const buildSummarySourceBlock = (

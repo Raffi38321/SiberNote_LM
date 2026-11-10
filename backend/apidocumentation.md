@@ -1616,24 +1616,18 @@ POST /notebooks/:notebookId/flashcards
 ```json
 {
   "status": "success",
-  "message": "berhasil mendapatkan flashcard",
+  "message": "berhasil membuat flashcard",
   "data": {
-    "flashcardSet": {
-      "_id": "665f1a2b3c4d5e6f7a8b9c50",
-      "notebookId": "665f1a2b3c4d5e6f7a8b9c0e",
-      "documentIds": ["665f1a2b3c4d5e6f7a8b9c0f"],
-      "generatedAt": "2026-10-08T10:00:00.000Z",
-      "cards": [
-        {
-          "front": "Apa itu normalisasi?",
-          "back": "Normalisasi adalah proses pengelompokan atribut-atribut dari suatu relasi sehingga tidak terjadi anomali data.",
-          "documentId": "665f1a2b3c4d5e6f7a8b9c0f",
-          "documentTitle": "Basis Data.pdf",
-          "pageStart": 12,
-          "pageEnd": 12
-        }
-      ]
-    }
+    "cards": [
+      {
+        "front": "Apa itu normalisasi?",
+        "back": "Normalisasi adalah proses pengelompokan atribut-atribut dari suatu relasi sehingga tidak terjadi anomali data.",
+        "documentId": "665f1a2b3c4d5e6f7a8b9c0f",
+        "documentTitle": "Basis Data.pdf",
+        "pageStart": 12,
+        "pageEnd": 12
+      }
+    ]
   }
 }
 ```
@@ -1642,7 +1636,7 @@ POST /notebooks/:notebookId/flashcards
 >
 > Jika multi-dokumen, setiap dokumen yang dipilih dijamin minimal 1 kartu.
 >
-> Cache dikembalikan jika `documentIds` dan `count` sama dengan generate sebelumnya.
+> Set dibuat ulang setiap kali endpoint dipanggil — tidak ada caching.
 
 **Error Responses**
 

@@ -16,6 +16,7 @@ const envVariable: {
     CLOUDINARY_API_KEY: string
     CLOUDINARY_CLOUD_NAME: string
     GEMINI_MODEL:string
+    GEMINI_MODEL_Flashcard: string
 } = {
     PORT: Number(process.env.PORT) || 8080,
     MONGO_URL: process.env.MONGO_URL || "",
@@ -27,7 +28,8 @@ const envVariable: {
     CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME||"",
     CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY||"",
     CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET||"",
-    GEMINI_MODEL: process.env.GEMINI_MODEL||""
+    GEMINI_MODEL: process.env.GEMINI_MODEL||"",
+    GEMINI_MODEL_Flashcard: process.env.GEMINI_MODEL_Flashcard||""
 }
 
 export default envVariable

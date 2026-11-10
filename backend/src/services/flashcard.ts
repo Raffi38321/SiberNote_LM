@@ -19,7 +19,7 @@ export interface ParsedCard {
 }
 
 
-const genAI = new GoogleGenerativeAI(envVariable.GEMINI_MODEL)
+const genAI = new GoogleGenerativeAI(envVariable.GEMINI_MODEL_Flashcard)
 const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" })
 
 const MAX_TOTAL_CHUNKS = 80
@@ -29,7 +29,6 @@ const fetchChunksSampled = async (
 ): Promise<Map<string, { chunkIndex: number; pageStart: number; pageEnd: number; content: string }[]>> => {
     const map = new Map<string, { chunkIndex: number; pageStart: number; pageEnd: number; content: string }[]>()
 
-    // pastikan tiap dokumen dapat minimal 1 slot
     const perDocSlots = Math.max(1, Math.floor(MAX_TOTAL_CHUNKS / docs.length))
 
     for (const doc of docs) {
@@ -38,18 +37,14 @@ const fetchChunksSampled = async (
         let chunks: { chunkIndex: number; pageStart: number; pageEnd: number; content: string }[]
 
         if (total <= perDocSlots) {
-            // ambil semua
             chunks = await Chunk.find({ documentId: doc.documentId })
                 .select("chunkIndex pageStart pageEnd content")
                 .sort({ chunkIndex: 1 })
                 .lean()
         } else {
-            // ambil dengan interval merata: step = floor(total / perDocSlots)
             const step = Math.floor(total / perDocSlots)
             const indices = Array.from({ length: perDocSlots }, (_, i) => i * step)
 
-            // MongoDB tidak support offset per-index secara native,
-            // ambil semua lalu filter by chunkIndex
             const allChunks = await Chunk.find({ documentId: doc.documentId })
                 .select("chunkIndex pageStart pageEnd content")
                 .sort({ chunkIndex: 1 })
@@ -66,7 +61,6 @@ const fetchChunksSampled = async (
     return map
 }
 
-// ─── build prompt ─────────────────────────────────────────────────────────────
 
 const buildFlashcardPrompt = (
     docs: FlashcardDocument[],

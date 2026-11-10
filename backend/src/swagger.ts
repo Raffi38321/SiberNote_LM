@@ -991,37 +991,28 @@ const options: swaggerJSDoc.Options = {
                     },
                     responses: {
                         200: {
-                            description: "Set flashcard berhasil didapat / dibuat",
+                            description: "Set flashcard berhasil dibuat",
                             content: {
                                 "application/json": {
                                     schema: {
                                         type: "object",
                                         properties: {
                                             status: { type: "string", example: "success" },
-                                            message: { type: "string", example: "berhasil mendapatkan flashcard" },
+                                            message: { type: "string", example: "berhasil membuat flashcard" },
                                             data: {
                                                 type: "object",
                                                 properties: {
-                                                    flashcardSet: {
-                                                        type: "object",
-                                                        properties: {
-                                                            _id: { type: "string" },
-                                                            notebookId: { type: "string" },
-                                                            documentIds: { type: "array", items: { type: "string" } },
-                                                            generatedAt: { type: "string", format: "date-time" },
-                                                            cards: {
-                                                                type: "array",
-                                                                items: {
-                                                                    type: "object",
-                                                                    properties: {
-                                                                        front: { type: "string", example: "Apa itu normalisasi?" },
-                                                                        back: { type: "string", example: "Normalisasi adalah proses pengelompokan atribut..." },
-                                                                        documentId: { type: "string" },
-                                                                        documentTitle: { type: "string", example: "Basis Data.pdf" },
-                                                                        pageStart: { type: "number", example: 12 },
-                                                                        pageEnd: { type: "number", example: 12 },
-                                                                    },
-                                                                },
+                                                    cards: {
+                                                        type: "array",
+                                                        items: {
+                                                            type: "object",
+                                                            properties: {
+                                                                front: { type: "string", example: "Apa itu normalisasi?" },
+                                                                back: { type: "string", example: "Normalisasi adalah proses pengelompokan atribut..." },
+                                                                documentId: { type: "string" },
+                                                                documentTitle: { type: "string", example: "Basis Data.pdf" },
+                                                                pageStart: { type: "number", example: 12 },
+                                                                pageEnd: { type: "number", example: 12 },
                                                             },
                                                         },
                                                     },

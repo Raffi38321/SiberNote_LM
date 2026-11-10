@@ -6,12 +6,10 @@ import { generateEmbeddings } from "./embedding.js"
 import { processPageTexts } from "./ocr.js"
 
 const MAX_CHARS_PER_CHUNK = 3000
-/** Minimal karakter OCR agar dianggap teks valid (bukan noise dari logo/ikon). */
 const MIN_OCR_CHARS = 30
 
 // ─── custom errors ────────────────────────────────────────────────────────────
 
-/** Dilempar ketika dokumen berhasil diparsing tapi tidak mengandung teks sama sekali. */
 export class NoTextError extends Error {
     constructor() {
         super("Tidak ada konten yang dapat diekstrak dari dokumen ini.")
