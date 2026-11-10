@@ -369,6 +369,29 @@ export async function getChapterSummary(notebookId, chapter, token) {
   return data;
 }
 
+export async function generateFlashcards(notebookId, documentIds, count, token) {
+  const response = await fetch(`http://localhost:5000/api/notebooks/${notebookId}/flashcards`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    // Menyesuaikan format Request Body dari spesifikasi API
+    body: JSON.stringify({
+      documentIds: documentIds,
+      count: count
+    }),
+  });
+
+  const result = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(result.message || "Gagal membuat flashcard");
+  }
+  
+  return result;
+}
+
 /**
  * GET /documents/:documentId/content?page=:page
  * Mengambil isi teks dokumen hasil OCR/ekstraksi berdasarkan ID dan Halaman.

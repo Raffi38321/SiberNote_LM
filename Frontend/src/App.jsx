@@ -682,12 +682,12 @@ function AppHeader({ onLogout, onBrandClick, onEditProfile, profile, actions }) 
             <>
               <div className="menu-backdrop" onClick={() => setMenuOpen(false)} />
               <div className="dropdown-menu dropdown-menu--right" role="menu">
-                {profile && (
+                {/* {profile && (
                   <div className="dropdown-account">
                     <span className="dropdown-account-name">{profile.username}</span>
                     <span className="dropdown-account-email">{profile.email}</span>
                   </div>
-                )}
+                )} */}
                 <button
                   type="button"
                   role="menuitem"
@@ -2878,7 +2878,7 @@ function ProfilePage({
             <>
               <div className="profile-avatar">
                 <div className="profile-avatar-img">
-                  <Avatar src={avatarPreview || profile.avatarUrl} size={120} />
+                  <Avatar src={avatarPreview || profile.avatarUrl} size={80} />
                 </div>
                 <button
                   type="button"

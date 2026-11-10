@@ -9,8 +9,8 @@
   --btn-bg: #d6d6d6;
   --btn-text: #1c1c1c;
   --link: #459DAA;
-  --error: #550000;
-  --success: #5fd1a0;
+  --error: #b81b1b;
+  --success: #1BB81B;
   --font: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
@@ -194,10 +194,11 @@ input[type="password"]::-ms-clear {
 .msg-success {
   margin: 0 0 12px;
   padding: 8px 10px;
-  border: 1px solid var(--success);
+  border: 1px solid #1BB81B;
   border-radius: 8px;
   color: var(--success);
   font-size: 0.75rem;
+  background: #cfffcf; /* Latar belakang hijau transparan */
 }
 
 .error-summary {
@@ -206,14 +207,14 @@ input[type="password"]::-ms-clear {
   margin: 8px auto 12px;
   padding: 4px 16px;  /* Ketebalan box (atas-bawah & kiri-kanan) */
   border-radius: 10px;
-  background: #D57F7F;
-  border: 2px solid #550000;
+  background: #FFCFCF;
+  border: 2px solid #b81b1b;
   border-radius: 10px;
 }
 
 .error-summary p {
   margin: 0;
-  color: #550000;
+  color: #b81b1b;
   font-weight: 500;
   font-size: 0.7rem;
   line-height: 1.6;
@@ -1874,8 +1875,8 @@ chat-menu-btn:hover {
 }
 
 .profile-avatar-img {
-  width: 120px;
-  height: 120px;
+  width: 80px;
+  height: 80px;
   display: grid;
   place-items: center;
   overflow: hidden;
