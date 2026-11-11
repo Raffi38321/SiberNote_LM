@@ -48,9 +48,15 @@ jobs:
         working-directory: ./backend
         run: npm ci
 
+      - name: Setup CI environment
+        working-directory: ./backend
+        run: cp .env.ci .env
+
       - name: Build backend
         working-directory: ./backend
         run: npm run build
+        env:
+          NODE_ENV: production
 
       # Note: Backend test script is a stub. No automated tests yet.
       # When tests are available, uncomment:
