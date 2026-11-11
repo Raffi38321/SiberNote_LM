@@ -41,4 +41,11 @@ VOLUME ["/app/uploads"]
 USER node
 
 EXPOSE 8080
+
+# Metadata untuk image
+LABEL org.opencontainers.image.title="SiberNote LM Backend"
+LABEL org.opencontainers.image.description="Node.js + Express backend for SiberNote LM application"
+LABEL org.opencontainers.image.version="1.0.0"
+LABEL org.opencontainers.image.vendor="SiberNote LM Team"
+
 CMD ["npm", "run", "start"]

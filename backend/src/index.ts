@@ -33,6 +33,16 @@ app.get("/", (_req: Request, res: Response) => {
     })
 })
 
+// ── Health Check Endpoint untuk Docker/K8s ────────────────────────────────────
+app.get("/health", (_req: Request, res: Response) => {
+    res.status(200).json({
+        status: "healthy",
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV || "development"
+    })
+})
+
 app.use("/user", userRouter)
 app.use("/notebooks",notebookRouter)
 app.use("/documents", documentRouter)

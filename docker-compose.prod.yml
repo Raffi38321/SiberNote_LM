@@ -1,0 +1,82 @@
+# ── Production Docker Compose ──────────────────────────────────────────────
+# Gunakan file ini untuk deployment di VPS dengan image dari GitHub Container Registry.
+#
+# Cara pakai:
+#   docker-compose -f docker-compose.prod.yml up -d
+#
+# Image di-tag dengan COMMIT_SHA untuk reproducible deployments.
+# Ubah GHCR_REGISTRY dan IMAGE_TAG sesuai kebutuhan sebelum deployment.
+
+services:
+
+  # ── Backend ────────────────────────────────────────────────────────────────
+  backend:
+    image: ${GHCR_REGISTRY:-ghcr.io/yourorg}/sibernote-backend:${IMAGE_TAG:-latest}
+    container_name: sibernote-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8080:8080"
+    networks:
+      - sibernote-net
+    volumes:
+      # Persistent storage untuk file uploads
+      # Bind ke path absolut di VPS (contoh: /var/www/sibernote/uploads)
+      - sibernote_uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    # Batasi resource untuk stability
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+  # ── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    image: ${GHCR_REGISTRY:-ghcr.io/yourorg}/sibernote-frontend:${IMAGE_TAG:-latest}
+    container_name: sibernote-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - sibernote-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+
+networks:
+  sibernote-net:
+    driver: bridge
+
+volumes:
+  sibernote_uploads:
+    driver: local
+    driver_opts:
+      # Bind volume ke path absolut di VPS
+      # Contoh: /var/www/sibernote/uploads
+      type: none
+      o: bind
+      device: ${UPLOADS_DIR:-/var/www/sibernote/uploads}

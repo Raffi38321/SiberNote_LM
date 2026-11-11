@@ -24,4 +24,11 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80
+
+# Metadata untuk image
+LABEL org.opencontainers.image.title="SiberNote LM Frontend"
+LABEL org.opencontainers.image.description="React + Vite + Nginx frontend for SiberNote LM application"
+LABEL org.opencontainers.image.version="1.0.0"
+LABEL org.opencontainers.image.vendor="SiberNote LM Team"
+
 CMD ["nginx", "-g", "daemon off;"]
