@@ -76,11 +76,10 @@ jobs:
 
       # ── Docker Compose Validation ───────────────────────────────────────────
       - name: Validate docker-compose.yml
-        run: docker-compose config > /dev/null
+        run: docker compose -f docker-compose.yml config --quiet
 
       - name: Validate docker-compose.prod.yml
-        run: docker-compose -f docker-compose.prod.yml config > /dev/null
-
+        run: docker compose -f docker-compose.prod.yml config --quiet
       # ── Docker BuildKit Setup ───────────────────────────────────────────────
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -223,11 +222,11 @@ jobs:
             
             # Backup current deployment (jika ada)
             if [ -f docker-compose.prod.yml ]; then
-              docker-compose -f docker-compose.prod.yml ps > /tmp/deployment_before.log || true
+              docker compose -f docker-compose.prod.yml ps > /tmp/deployment_before.log || true
             fi
             
             # Deploy dengan docker-compose.prod.yml
-            docker-compose -f docker-compose.prod.yml up -d --no-build
+            docker compose -f docker-compose.prod.yml up -d --no-build
             
             # Wait for services to be healthy
             echo "Waiting for services to stabilize..."
@@ -236,7 +235,7 @@ jobs:
             # Health check
             echo "Running health checks..."
             
-            BACKEND_HEALTH=$(docker-compose -f docker-compose.prod.yml exec -T backend wget -qO- http://localhost:8080/health || echo "fail")
+            BACKEND_HEALTH=$(docker compose -f docker-compose.prod.yml exec -T backend wget -qO- http://localhost:8080/health || echo "fail")
             if echo "$BACKEND_HEALTH" | grep -q "healthy"; then
               echo "✓ Backend health check passed"
             else
@@ -245,7 +244,7 @@ jobs:
               exit 1
             fi
             
-            FRONTEND_HEALTH=$(docker-compose -f docker-compose.prod.yml exec -T frontend wget -qO- http://localhost:80/ || echo "fail")
+            FRONTEND_HEALTH=$(docker compose -f docker-compose.prod.yml exec -T frontend wget -qO- http://localhost:80/ || echo "fail")
             if [ ! -z "$FRONTEND_HEALTH" ]; then
               echo "✓ Frontend health check passed"
             else
@@ -254,7 +253,7 @@ jobs:
             fi
             
             echo "Deployment successful!"
-            docker-compose -f docker-compose.prod.yml ps
+            docker compose -f docker-compose.prod.yml ps
 
       - name: Verify deployment
         run: |

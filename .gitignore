@@ -27,3 +27,8 @@ yarn-error.log*
 .idea/
 
 docks/
+GITHUB-PAT-SETUP.md
+openssh.md
+SSH-KEY-SETUP.md
+ACTIVATION-GUIDE.md
+cd.md
